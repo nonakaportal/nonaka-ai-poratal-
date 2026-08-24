@@ -262,6 +262,32 @@ router.get('/status', requireOrgAccess, async (req, res) => {
             });
         }
 
+        // Best-effort — the topbar company name shouldn't block
+        // status entirely if this one extra call fails.
+        let companyName = null;
+
+        try {
+            const accessToken =
+                await quickbooksService.getValidAccessToken(
+                    connection
+                );
+
+            const companyInfo =
+                await quickbooksService.getCompanyInfo(
+                    accessToken,
+                    connection.realmId
+                );
+
+            companyName =
+                companyInfo?.CompanyInfo?.CompanyName || null;
+        } catch (companyError) {
+            console.error(
+                '❌ Failed to fetch company name for status:',
+                companyError.response?.data ||
+                companyError.message
+            );
+        }
+
         return res.json({
             connected: true,
 
@@ -269,7 +295,9 @@ router.get('/status', requireOrgAccess, async (req, res) => {
                 connection.realmId,
 
             connectedAt:
-                connection.connectedAt
+                connection.connectedAt,
+
+            companyName
         });
     } catch (error) {
         console.error(

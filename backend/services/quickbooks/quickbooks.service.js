@@ -930,13 +930,17 @@ class QuickBooksService {
     async getAccountsReceivable(
         accessToken,
         realmId,
-        startDate
+        asOfDate
     ) {
         try {
+            // AgedReceivables is a snapshot report — QuickBooks reads its
+            // as-of date from `report_date`, not `start_date`. Passing
+            // start_date silently gets ignored and the report defaults
+            // to today regardless of the date requested.
             const endpoint =
                 `reports/AgedReceivables` +
-                `?start_date=${encodeURIComponent(startDate)}`;
-    
+                `?report_date=${encodeURIComponent(asOfDate)}`;
+
             return await this.makeApiRequest(
                 accessToken,
                 realmId,
@@ -947,20 +951,20 @@ class QuickBooksService {
                 '❌ Failed to fetch Accounts Receivable:',
                 error.response?.data || error.message
             );
-    
+
             throw error;
         }
     }
     async getAccountsPayable(
         accessToken,
         realmId,
-        startDate
+        asOfDate
     ) {
         try {
             const endpoint =
                 `reports/AgedPayables` +
-                `?start_date=${encodeURIComponent(startDate)}`;
-    
+                `?report_date=${encodeURIComponent(asOfDate)}`;
+
             return await this.makeApiRequest(
                 accessToken,
                 realmId,
@@ -971,7 +975,7 @@ class QuickBooksService {
                 '❌ Failed to fetch Accounts Payable:',
                 error.response?.data || error.message
             );
-    
+
             throw error;
         }
     }
@@ -1200,12 +1204,19 @@ class QuickBooksService {
     async getBalanceSheet(
         accessToken,
         realmId,
-        startDate
+        asOfDate
     ) {
         try {
+            // BalanceSheet only honors end_date when start_date is also
+            // present — end_date alone is silently ignored and the
+            // report falls back to its "this calendar year-to-date"
+            // default, always showing today regardless of the date
+            // requested. Balance Sheet is a snapshot, so both are set
+            // to the same as-of date.
             const endpoint =
                 `reports/BalanceSheet` +
-                `?start_date=${encodeURIComponent(startDate)}`;
+                `?start_date=${encodeURIComponent(asOfDate)}` +
+                `&end_date=${encodeURIComponent(asOfDate)}`;
 
             return await this.makeApiRequest(
                 accessToken,
@@ -1709,6 +1720,16 @@ class QuickBooksService {
     // ==========================================================
 
  parseBalanceSheet(report) {
+    // QuickBooks flags an as-of date with no recorded activity via
+    // Header.Option NoReportData — e.g. a date before the company's
+    // books started. Surfacing this lets the UI explain a genuine
+    // "no data yet" period instead of showing a confusing all-zero
+    // statement that looks broken.
+    const noReportDataOption =
+        (report?.Header?.Option || []).find(
+            option => option.Name === 'NoReportData'
+        );
+
     const result = {
         period: {
             startDate:
@@ -1723,6 +1744,9 @@ class QuickBooksService {
 
         reportBasis:
             report?.Header?.ReportBasis || null,
+
+        hasData:
+            !(noReportDataOption?.Value === 'true'),
 
         totalAssets: 0,
 

@@ -748,22 +748,7 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
 .pl-header-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-}
-
-.pl-period-btn {
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
-
-.pl-period-btn.active {
-    background: var(--bg-subtle);
-    color: var(--text-primary);
+    gap: 10px;
 }
 
 
@@ -922,19 +907,23 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
 }
 
 .pl-section-row.income-section td {
-    border-left: 4px solid #20a8df;
+    border-left: 4px solid #38BDF8;
+    background: rgba(56, 189, 248, 0.07);
 }
 
 .pl-section-row.cogs-section td {
-    border-left: 4px solid #ef5350;
+    border-left: 4px solid #F59E0B;
+    background: rgba(245, 158, 11, 0.07);
 }
 
 .pl-section-row.expense-section td {
-    border-left: 4px solid #ef5350;
+    border-left: 4px solid #EF4444;
+    background: rgba(239, 68, 68, 0.07);
 }
 
 .pl-section-row.other-section td {
-    border-left: 4px solid #8a5cf6;
+    border-left: 4px solid #A855F7;
+    background: rgba(168, 85, 247, 0.07);
 }
 
 .pl-section-icon {
@@ -959,12 +948,19 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
 }
 
 
-/* GROSS PROFIT / OPERATING INCOME — important subtotals, highlighted */
+/* GROSS PROFIT / OPERATING INCOME — important subtotals, highlighted.
+   Each gets its own accent so the two subtotals stay visually distinct
+   from each other and from the Revenue/COGS/Expense rows above. */
 
-.gross-profit-row td,
+.gross-profit-row td {
+    background: rgba(16, 185, 129, 0.1);
+    border-left: 4px solid #10B981;
+    font-weight: 800;
+}
+
 .operating-income-row td {
-    background: var(--accent-subtle);
-    border-left: 4px solid var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+    border-left: 4px solid #6366F1;
     font-weight: 800;
 }
 
@@ -1064,38 +1060,18 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
     letter-spacing: -0.4px;
 }
 
+.cf-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .cf-header p {
     margin: 6px 0 0;
     color: var(--text-muted);
     font-size: 13px;
 }
-
-.cf-period-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-}
-
-.cf-period-tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    padding: 7px 14px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.cf-period-tabs button.active {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    box-shadow: 0 1px 4px rgba(0,0,0,.12);
-}
-
 
 /* WATERFALL */
 
@@ -1391,6 +1367,13 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
     margin-bottom: 22px;
 }
 
+.bs-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .bs-title {
     font-size: 25px;
     font-weight: 800;
@@ -1415,6 +1398,25 @@ td.num, th.num { padding-left: 20px; padding-right: 20px; }
     color: var(--positive);
     background: rgba(34, 197, 94, .10);
     border: 1px solid rgba(34, 197, 94, .25);
+}
+
+.bs-no-data-banner {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+}
+
+.bs-no-data-banner strong {
+    color: var(--text-primary);
+    font-size: 13.5px;
+}
+
+.bs-no-data-banner p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 12.5px;
 }
 
 .bs-status.unbalanced {

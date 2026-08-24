@@ -7,7 +7,11 @@
     currentPage: "overview",
     theme: localStorage.getItem("nfk-theme") || "light",
     clientId: 1,
-    qbConnected: false
+    qbConnected: false,
+    plPeriod: "month",
+    cfPeriod: "month",
+    bsPeriod: "month",
+    overviewPeriod: "month"
   };
 
   // Conversation history sent to /ai/ask on every turn so Nonaka AI
@@ -180,6 +184,94 @@
       `;
     }
 
+    // --------------------------------------------------------
+    // PERIOD DATE MATH — shared by every "Month / Quarter / Year"
+    // toggle across the statements/operations pages.
+    //
+    // Range reports (P&L, Cash Flow) use getPeriodRange(): the
+    // selected period is still in progress, so "Month" means this
+    // month to date, "Quarter" means this quarter to date, "Year"
+    // means year to date.
+    //
+    // Snapshot reports (Balance Sheet, AR aging, AP aging) use
+    // getPeriodAsOfDate(): a snapshot "as of this month" doesn't
+    // really exist yet since the month isn't over, so these report
+    // as of the end of the last COMPLETED month/quarter/year instead
+    // — that always resolves to a real, already-closed date.
+    // --------------------------------------------------------
+
+    function toISODate(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    function getPeriodRange(period) {
+      const now = new Date();
+      const endDate = toISODate(now);
+
+      if (period === "current") {
+        // Year-to-date — used by pages that don't offer a period
+        // toggle (KPIs) so they keep showing the same "current state"
+        // view regardless of what's selected elsewhere.
+        return { startDate: `${now.getFullYear()}-01-01`, endDate };
+      }
+
+      if (period === "quarter") {
+        const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        const start = new Date(now.getFullYear(), qStartMonth, 1);
+        return { startDate: toISODate(start), endDate };
+      }
+
+      if (period === "year") {
+        return { startDate: `${now.getFullYear()}-01-01`, endDate };
+      }
+
+      // "month" (default): current month to date
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { startDate: toISODate(start), endDate };
+    }
+
+    function getPeriodAsOfDate(period) {
+      const now = new Date();
+
+      if (period === "current") {
+        return toISODate(now);
+      }
+
+      if (period === "quarter") {
+        // Last day of the previous completed quarter.
+        const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        return toISODate(new Date(now.getFullYear(), qStartMonth, 0));
+      }
+
+      if (period === "year") {
+        return `${now.getFullYear() - 1}-12-31`;
+      }
+
+      // "month" (default): last day of the previous completed month
+      return toISODate(new Date(now.getFullYear(), now.getMonth(), 0));
+    }
+
+    function renderPeriodSelector(activePeriod, onSelectFnName) {
+      const periods = [
+        { id: "month", label: "Month" },
+        { id: "quarter", label: "Quarter" },
+        { id: "year", label: "Year" }
+      ];
+
+      return `
+        <div class="period-selector">
+          ${periods.map(p => `
+            <button
+              class="period-btn ${p.id === activePeriod ? "active" : ""}"
+              onclick="NFK_App.${onSelectFnName}('${p.id}')"
+            >
+              ${p.label}
+            </button>
+          `).join("")}
+        </div>
+      `;
+    }
+
     // Minimal markdown renderer for AI-generated text (chat answers,
     // insight narratives). Claude's free-text output routinely includes
     // **bold**, lists, and small pipe tables — dumping that raw through
@@ -270,40 +362,33 @@
     }
 
 
-    async function loadBalanceSheet() {
+    async function loadBalanceSheet(period = "month") {
       const organizationId = getOrganizationId();
-  
+
       if (!organizationId) {
         throw new Error(
           "Organization ID is missing. Please log in first."
         );
       }
-  
-      console.log(
-        " Loading Balance Sheet for:",
-        organizationId
-      );
-  
-    const today = new Date();
 
-    const startDate =
-      `${today.getFullYear()}-01-01`;
-    
-    const endDate =
-      today.toISOString().split("T")[0];
-    
-    const data = await apiGet(
-      `/quickbooks/reports/balance-sheet?organizationId=${encodeURIComponent(
-        organizationId
-      )}&startDate=${encodeURIComponent(
-        startDate
-      )}&endDate=${encodeURIComponent(
-        endDate
-      )}`
-    );
-  
+      console.log(
+        "⚖️ Loading Balance Sheet for:",
+        organizationId,
+        period
+      );
+
+      const asOfDate = getPeriodAsOfDate(period);
+
+      const data = await apiGet(
+        `/quickbooks/reports/balance-sheet?organizationId=${encodeURIComponent(
+          organizationId
+        )}&startDate=${encodeURIComponent(
+          asOfDate
+        )}`
+      );
+
       console.log("✅ Balance Sheet received:", data);
-  
+
       return data;
     }
   
@@ -732,6 +817,8 @@
 
                 <div class="bs-header-right">
 
+                    ${renderPeriodSelector(state.bsPeriod, "setBSPeriod")}
+
                     <div class="
                         bs-status
                         ${
@@ -757,6 +844,16 @@
 
             </div>
 
+            ${
+                data?.hasData === false
+                    ? `
+                        <div class="bs-no-data-banner">
+                            <strong>No QuickBooks data as of ${escapeHtml(data?.period?.endDate || "this date")}.</strong>
+                            <p>This company's books don't go back that far yet — try a more recent period.</p>
+                        </div>
+                    `
+                    : ""
+            }
 
             <!-- THREE COLUMNS -->
 
@@ -1053,32 +1150,45 @@
 
     `;
 }
+
+    async function setBSPeriod(period) {
+      state.bsPeriod = period;
+
+      const page = document.getElementById("page-balance-sheet");
+
+      if (page) {
+        page.innerHTML = renderSkeletonCard(10);
+      }
+
+      try {
+        const data = await loadBalanceSheet(period);
+        renderBalanceSheet(data);
+      } catch (error) {
+        console.error("❌ Failed to load Balance Sheet for period:", period, error);
+      }
+    }
+
 // ============================================================
 // PROFIT & LOSS
 // ============================================================
 
-    async function loadProfitAndLoss() {
+    async function loadProfitAndLoss(period = "month") {
       const organizationId = getOrganizationId();
-    
+
       if (!organizationId) {
         throw new Error(
           "Organization ID is missing. Please log in first."
         );
       }
-    
+
       console.log(
         "📊 Loading Profit & Loss for:",
-        organizationId
+        organizationId,
+        period
       );
-    
-      const today = new Date();
-    
-      const startDate =
-        `${today.getFullYear()}-01-01`;
-    
-      const endDate =
-        today.toISOString().split("T")[0];
-    
+
+      const { startDate, endDate } = getPeriodRange(period);
+
       const data = await apiGet(
         `/quickbooks/reports/profit-and-loss?organizationId=${encodeURIComponent(
           organizationId
@@ -1088,52 +1198,13 @@
           endDate
         )}`
       );
-    
+
       console.log(
         "✅ Profit & Loss received:",
         data
       );
-    
+
       return data;
-    }
-    async function loadAccountsPayable() {
-    
-        const organizationId =
-            getOrganizationId();
-    
-        if (!organizationId) {
-            throw new Error(
-                "Organization ID is missing. Please log in first."
-            );
-        }
-    
-        console.log(
-            "📊 Loading Accounts Payable for:",
-            organizationId
-        );
-    
-        const today =
-            new Date()
-                .toISOString()
-                .split("T")[0];
-    
-        const data =
-            await apiGet(
-                `/quickbooks/reports/accounts-payable` +
-                `?organizationId=${encodeURIComponent(
-                    organizationId
-                )}` +
-                `&startDate=${encodeURIComponent(
-                    today
-                )}`
-            );
-    
-        console.log(
-            "✅ Accounts Payable received:",
-            data
-        );
-    
-        return data;
     }
     async function loadInvoices() {
     
@@ -1527,38 +1598,15 @@
     
     
                     <div class="pl-header-actions">
-    
-                        <div class="pl-period-group">
-    
-                            <button
-                                class="pl-period-btn active"
-                            >
-                                Month
-                            </button>
-    
-                            <button
-                                class="pl-period-btn"
-                                disabled
-                            >
-                                Quarter
-                            </button>
-    
-                            <button
-                                class="pl-period-btn"
-                                disabled
-                            >
-                                Year
-                            </button>
-    
-                        </div>
-    
-    
+
+                        ${renderPeriodSelector(state.plPeriod, "setPLPeriod")}
+
                         <div class="statement-badge">
                             ${escapeHtml(currency)}
                         </div>
-    
+
                     </div>
-    
+
                 </div>
     
     
@@ -1773,10 +1821,27 @@
                 </div>
     
             </div>
-    
+
         `;
     }
-    
+
+    async function setPLPeriod(period) {
+      state.plPeriod = period;
+
+      const page = document.getElementById("page-pl");
+
+      if (page) {
+        page.innerHTML = renderSkeletonCard(10);
+      }
+
+      try {
+        const data = await loadProfitAndLoss(period);
+        renderProfitAndLoss(data);
+      } catch (error) {
+        console.error("❌ Failed to load Profit & Loss for period:", period, error);
+      }
+    }
+
     /* ============================================================
        ACCOUNTS PAYABLE
        ============================================================ */
@@ -1939,28 +2004,23 @@
 // CASH FLOW
 // ============================================================
 
-    async function loadCashFlow() {
-    
+    async function loadCashFlow(period = "month") {
+
       const organizationId =
         getOrganizationId();
-    
+
       if (!organizationId) {
         throw new Error(
           "Organization ID is missing. Please log in first."
         );
       }
-    
-      const today = new Date();
-    
-      const startDate =
-        `${today.getFullYear()}-01-01`;
-    
-      const endDate =
-        today.toISOString().split("T")[0];
-    
+
+      const { startDate, endDate } = getPeriodRange(period);
+
       console.log(
         "💵 Loading Cash Flow for:",
-        organizationId
+        organizationId,
+        period
       );
     
       const data = await apiGet(
@@ -2241,28 +2301,7 @@ function renderCashFlow(data) {
 
                 <div class="cf-header-right">
 
-                    <div class="cf-period-tabs">
-
-                        <button
-                            class="active"
-                            type="button"
-                        >
-                            YTD
-                        </button>
-
-                        <button
-                            type="button"
-                        >
-                            Q3
-                        </button>
-
-                        <button
-                            type="button"
-                        >
-                            Q2
-                        </button>
-
-                    </div>
+                    ${renderPeriodSelector(state.cfPeriod, "setCFPeriod")}
 
                 </div>
 
@@ -2516,10 +2555,27 @@ function renderCashFlow(data) {
 
 }
 
+    async function setCFPeriod(period) {
+      state.cfPeriod = period;
+
+      const page = document.getElementById("page-cash-flow");
+
+      if (page) {
+        page.innerHTML = renderSkeletonCard(9);
+      }
+
+      try {
+        const data = await loadCashFlow(period);
+        renderCashFlow(data);
+      } catch (error) {
+        console.error("❌ Failed to load Cash Flow for period:", period, error);
+      }
+    }
+
     // ============================================================
     // ACCOUNTS RECEIVABLE / PAYABLE
     // ============================================================
-    
+
     async function loadAccountsReceivable() {
     
       const organizationId =
@@ -2535,12 +2591,9 @@ function renderCashFlow(data) {
         "💰 Loading Accounts Receivable for:",
         organizationId
       );
-    
-      const today = new Date();
-    
-      const startDate =
-        `${today.getFullYear()}-01-01`;
-    
+
+      const startDate = toISODate(new Date());
+
       const data = await apiGet(
         `/quickbooks/reports/accounts-receivable?organizationId=${encodeURIComponent(
           organizationId
@@ -4550,12 +4603,20 @@ function renderCashFlow(data) {
         ? totalAssets / totalLiabilities
         : null;
 
+    const periodLabel =
+      state.overviewPeriod === "quarter"
+        ? "This Quarter"
+        : state.overviewPeriod === "year"
+        ? "Year to Date"
+        : "This Month";
+
     page.innerHTML = `
       <div class="page-header">
         <div>
           <h1 class="page-title">Overview</h1>
           <p class="page-subtitle">Live QuickBooks data</p>
         </div>
+        ${renderPeriodSelector(state.overviewPeriod, "setOverviewPeriod")}
       </div>
 
       <div id="overview-health-score" class="section-gap">
@@ -4565,17 +4626,17 @@ function renderCashFlow(data) {
       </div>
 
       <div class="stat-grid section-gap">
-        ${statCard("Revenue (YTD)", income, !!pl?.error)}
-        ${statCard("Net Income (YTD)", netIncome, !!pl?.error)}
-        ${statCard("Cash on Hand", cf?.error ? 0 : cf?.closingCash, !!cf?.error)}
-        ${statCard("Total Debt", debt?.error ? 0 : debt?.totalDebt, !!debt?.error)}
+        ${statCard(`Revenue (${periodLabel})`, income, !!pl?.error)}
+        ${statCard(`Net Income (${periodLabel})`, netIncome, !!pl?.error)}
+        ${statCard(`Cash on Hand (${periodLabel})`, cf?.error ? 0 : cf?.closingCash, !!cf?.error)}
+        ${statCard("Total Debt (Current)", debt?.error ? 0 : debt?.totalDebt, !!debt?.error)}
       </div>
 
       <div class="stat-grid section-gap">
-        ${statCard("Accounts Receivable", ar?.error ? 0 : ar?.total, !!ar?.error)}
-        ${statCard("Accounts Payable", ap?.error ? 0 : ap?.total, !!ap?.error)}
-        ${ratioCard("Gross Margin", grossMargin, !!pl?.error)}
-        ${ratioCard("Net Margin", netMargin, !!pl?.error)}
+        ${statCard("Accounts Receivable (Current)", ar?.error ? 0 : ar?.total, !!ar?.error)}
+        ${statCard("Accounts Payable (Current)", ap?.error ? 0 : ap?.total, !!ap?.error)}
+        ${ratioCard(`Gross Margin (${periodLabel})`, grossMargin, !!pl?.error)}
+        ${ratioCard(`Net Margin (${periodLabel})`, netMargin, !!pl?.error)}
       </div>
 
       <div class="grid-2">
@@ -4622,6 +4683,37 @@ function renderCashFlow(data) {
     `;
 
     loadOverviewHealthScore();
+  }
+
+  async function setOverviewPeriod(period) {
+    state.overviewPeriod = period;
+
+    const page = document.getElementById("page-overview");
+
+    if (page) {
+      page.innerHTML = `
+        ${renderSkeletonCard(2)}
+        ${renderSkeletonStatGrid(4)}
+        ${renderSkeletonCard(4)}
+      `;
+    }
+
+    const results = await Promise.allSettled([
+      loadProfitAndLoss(period),
+      loadBalanceSheet(period),
+      loadCashFlow(period),
+      loadAccountsReceivable(),
+      loadAccountsPayable(),
+      loadDebt()
+    ]);
+
+    const [pl, bs, cf, ar, ap, debt] = results.map(r =>
+      r.status === "fulfilled"
+        ? r.value
+        : { error: r.reason?.message || "Failed to load" }
+    );
+
+    renderOverview({ pl, bs, cf, ar, ap, debt });
   }
 
   function navigate(pageId) {
@@ -4678,9 +4770,9 @@ function renderCashFlow(data) {
       }
 
       Promise.allSettled([
-        loadProfitAndLoss(),
-        loadBalanceSheet(),
-        loadCashFlow(),
+        loadProfitAndLoss(state.overviewPeriod),
+        loadBalanceSheet(state.overviewPeriod),
+        loadCashFlow(state.overviewPeriod),
         loadAccountsReceivable(),
         loadAccountsPayable(),
         loadDebt()
@@ -4708,8 +4800,8 @@ function renderCashFlow(data) {
       }
 
       Promise.allSettled([
-        loadProfitAndLoss(),
-        loadBalanceSheet(),
+        loadProfitAndLoss("current"),
+        loadBalanceSheet("current"),
         loadAccountsReceivable(),
         loadAccountsPayable()
       ]).then(results => {
@@ -4738,7 +4830,7 @@ function renderCashFlow(data) {
         `;
       }
 
-      loadBalanceSheet()
+      loadBalanceSheet(state.bsPeriod)
         .then(data => {
           renderBalanceSheet(data);
         })
@@ -4797,12 +4889,12 @@ function renderCashFlow(data) {
         `;
       }
 
-      loadProfitAndLoss()
+      loadProfitAndLoss(state.plPeriod)
         .then(data => {
           renderProfitAndLoss(data);
         })
         .catch(error => {
-    
+
           console.error(
             "❌ Profit & Loss failed:",
             error
@@ -4849,29 +4941,18 @@ function renderCashFlow(data) {
         if (page) {
       
           page.innerHTML = `
-            <div class="card card-pad">
-      
-              <div style="
-                font-size:18px;
-                font-weight:600;
-              ">
-                💵 Loading Cash Flow...
-              </div>
-      
-              <p style="margin-top:8px;">
-                Fetching the latest data from QuickBooks.
-              </p>
-      
-            </div>
+            ${renderSkeletonCard(2)}
+            <div class="section-gap"></div>
+            ${renderSkeletonCard(7)}
           `;
-      
+
         }
-      
-        loadCashFlow()
+
+        loadCashFlow(state.cfPeriod)
           .then(data => {
-      
+
             renderCashFlow(data);
-      
+
           })
           .catch(error => {
       
@@ -6398,6 +6479,18 @@ function renderCashFlow(data) {
     const status =
       await checkQBConnection();
 
+    // The badge next to the sidebar shows which company's data is
+    // currently loaded — that's the connected QuickBooks company,
+    // not this app's own organization name (which never changes
+    // when you reconnect to a different QuickBooks company).
+    if (status?.connected === true && status?.companyName) {
+      const nameEl = document.getElementById("client-name");
+
+      if (nameEl) {
+        nameEl.textContent = status.companyName;
+      }
+    }
+
     const badge =
       document.getElementById(
         "qb-status-badge"
@@ -6677,13 +6770,21 @@ function renderCashFlow(data) {
 
     renderBalanceSheet,
 
+    setBSPeriod,
+
     loadProfitAndLoss,
 
     renderProfitAndLoss,
 
+    setPLPeriod,
+
     loadCashFlow,
 
     renderCashFlow,
+
+    setCFPeriod,
+
+    setOverviewPeriod,
 
     sendPageChat,
 
