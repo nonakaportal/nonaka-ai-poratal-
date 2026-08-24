@@ -425,7 +425,9 @@ function logout() {
 
     console.log("Logged out");
 
-    window.location.href = "index.html";
+    // replace() (not href =) drops the dashboard from browser history,
+    // so the back button can't return to a stale authenticated page.
+    window.location.replace("index.html");
 }
 
 

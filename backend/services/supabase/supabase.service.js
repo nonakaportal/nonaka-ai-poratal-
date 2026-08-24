@@ -98,7 +98,7 @@ class SupabaseService {
     // ==========================================================
     
     async signUpUser(email, password) {
-        const { data, error } = await this.client.auth.admin.createUser({
+        const { data, error } = await this._buildClient().auth.admin.createUser({
             email,
             password,
             email_confirm: true
@@ -114,7 +114,7 @@ class SupabaseService {
     
     async signInUser(email, password) {
         const { data, error } =
-            await this.client.auth.signInWithPassword({
+            await this._buildClient().auth.signInWithPassword({
                 email,
                 password
             });
@@ -131,7 +131,7 @@ class SupabaseService {
         const {
             data,
             error
-        } = await this.client.auth.admin.getUserById(userId);
+        } = await this._buildClient().auth.admin.getUserById(userId);
     
         if (error) {
             throw error;
@@ -142,7 +142,7 @@ class SupabaseService {
     
     
     async getProfile(userId) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("profiles")
             .select("*")
             .eq("id", userId)
@@ -160,7 +160,7 @@ class SupabaseService {
     // ==========================================================
 
     async createOrganization(name) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("organizations")
             .insert({
                 name
@@ -176,7 +176,7 @@ class SupabaseService {
     }
 
     async createUserOrganization(userId, organizationId) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("user_organization")
             .insert({
                 user_id: userId,
@@ -193,7 +193,7 @@ class SupabaseService {
     }
 
     async getUserOrganization(userId) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("user_organization")
             .select(`
                 id,
@@ -218,7 +218,7 @@ class SupabaseService {
     // user actually belongs to the organizationId it's asking about,
     // before any QuickBooks or AI data for that org is touched.
     async isUserInOrganization(userId, organizationId) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("user_organization")
             .select("id")
             .eq("user_id", userId)
@@ -340,7 +340,7 @@ class SupabaseService {
         );
     }
     async createProfile(userId, fullName) {
-        const { data, error } = await this.client
+        const { data, error } = await this._buildClient()
             .from("profiles")
             .insert({
                 id: userId,

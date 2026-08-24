@@ -1,110 +1,145 @@
-/* frontend/css/glassmorphism.css */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
+/* ============================================================
+   NONAKA FINANCIAL PARTNERS — TOKENS
+   Nocturne design system, mapped onto the portal's variable
+   names so no application JS has to change.
+   Dark is the default; [data-theme="light"] overrides.
+============================================================ */
+
+:root {
+  /* --- Nocturne source tokens ------------------------------ */
+  --n-bg:            #161826;
+  --n-surface:       #232532;
+  --n-text:          #e9e9ed;
+  --n-accent:        #9184d9;
+  --n-section:       #262a60;
+  --n-section-glow:  #353b80;
+  --n-section-ghost: #4c5397;
+
+  --n-neutral-100: #f3f5fe;
+  --n-neutral-200: #e4e7f5;
+  --n-neutral-300: #cfd3e5;
+  --n-neutral-400: #b2b6ca;
+  --n-neutral-500: #9397ab;
+  --n-neutral-600: #75798c;
+  --n-neutral-700: #595d6c;
+  --n-neutral-800: #3f424d;
+  --n-neutral-900: #292b31;
+
+  --n-accent-100: #f5f4ff;
+  --n-accent-200: #e7e5fe;
+  --n-accent-300: #d2cefd;
+  --n-accent-400: #b5abfc;
+  --n-accent-500: #968ae0;
+  --n-accent-600: #796cbf;
+  --n-accent-700: #5d5294;
+  --n-accent-800: #423a6a;
+  --n-accent-900: #2b2741;
+
+  /* Semantic finance colours — kept low-chroma so the accent
+     stays the only saturated voice in the interface. */
+  --n-positive: #79c2a4;
+  --n-negative: #e08a8f;
+  --n-warning:  #d4a86a;
+  --n-info:     #8fa8d9;
+
+  /* --- Portal roles (dark, default) ------------------------ */
+  --bg-page:     #12141f;
+  --bg-card:     #1b1e2c;
+  --bg-elevated: #21243396;
+  --bg-sidebar:  #101220;
+  --bg-topbar:   rgba(18,20,31,0.82);
+  --bg-input:    #16192699;
+  --bg-subtle:   #1f2231;
+  --bg-hover:    #262a3b;
+
+  --accent:         var(--n-accent);
+  --accent-hover:   var(--n-accent-400);
+  --accent-quiet:   var(--n-accent-700);
+  --accent-subtle:  color-mix(in srgb, var(--n-accent) 14%, transparent);
+  --accent-line:    color-mix(in srgb, var(--n-accent) 45%, transparent);
+  --accent-glow:    color-mix(in srgb, var(--n-accent) 22%, transparent);
+
+  --positive:    var(--n-positive);
+  --positive-bg: color-mix(in srgb, var(--n-positive) 14%, transparent);
+  --negative:    var(--n-negative);
+  --negative-bg: color-mix(in srgb, var(--n-negative) 14%, transparent);
+  --warning:     var(--n-warning);
+  --warning-bg:  color-mix(in srgb, var(--n-warning) 14%, transparent);
+  --info:        var(--n-info);
+
+  --text-primary:   var(--n-text);
+  --text-secondary: var(--n-neutral-400);
+  --text-muted:     var(--n-neutral-500);
+  --text-faint:     var(--n-neutral-600);
+  --text-on-dark:   var(--n-neutral-100);
+
+  --border:       #2c2f3f;
+  --border-light: #23263300;
+  --border-hair:  color-mix(in srgb, var(--n-text) 10%, transparent);
+  --rule:         color-mix(in srgb, var(--n-text) 14%, transparent);
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Inter", system-ui, sans-serif; /* figures use tabular-nums, not a second face */
+
+  --shadow-card:  0 0 0 1px var(--border);
+  --shadow-hover: 0 0 0 1px #3a3e52, 0 8px 24px rgba(0,0,0,0.45);
+  --shadow-modal: 0 0 0 1px #4a4e63, 0 24px 60px rgba(0,0,0,0.65);
+
+  --radius-card: 14px;
+  --radius-btn: 8px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  --sidebar-width: 244px;
+  --topbar-height: 62px;
+  --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* legacy names still referenced by glassmorphism.css */
+  --glass-bg: rgba(35,37,50,0.55);
+  --glass-blur: blur(14px);
+  --glass-border: var(--border-hair);
+  --glass-shadow: var(--shadow-card);
+  --spacing-xs: 6px;
+  --spacing-sm: 10px;
+  --spacing-md: 16px;
+  --accent-primary: var(--accent);
 }
 
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  padding: var(--spacing-md);
-}
+[data-theme="light"] {
+  --bg-page:     #eef0f9;
+  --bg-card:     #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-sidebar:  #1a1c2b;
+  --bg-topbar:   rgba(255,255,255,0.86);
+  --bg-input:    #f6f7fc;
+  --bg-subtle:   #f2f3fa;
+  --bg-hover:    #e8eaf5;
 
-.glass-button {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
+  --accent-hover:  var(--n-accent-600);
+  --accent-quiet:  var(--n-accent-300);
+  --accent-subtle: color-mix(in srgb, var(--n-accent) 12%, transparent);
+  --accent-line:   color-mix(in srgb, var(--n-accent) 55%, transparent);
+  --accent-glow:   color-mix(in srgb, var(--n-accent) 16%, transparent);
 
-.glass-button:hover {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
-}
+  --positive: #2f8f6c;
+  --negative: #c05055;
+  --warning:  #a67535;
+  --info:     #5a76b8;
 
-.glass-button.primary {
-  background: var(--accent-primary);
-  color: white;
-  border: none;
-}
+  --text-primary:   var(--n-neutral-900);
+  --text-secondary: var(--n-neutral-700);
+  --text-muted:     var(--n-neutral-600);
+  --text-faint:     var(--n-neutral-500);
 
-.glass-button.primary:hover {
-  opacity: 0.9;
-}
+  --border:       #d8dbeb;
+  --border-light:  #e7e9f4;
+  --border-hair:  color-mix(in srgb, var(--n-neutral-900) 12%, transparent);
+  --rule:         color-mix(in srgb, var(--n-neutral-900) 14%, transparent);
 
-/* --- Accordion Sidebar Styles --- */
-.accordion-group {
-  margin-bottom: 0.5rem;
-}
+  --shadow-card:  0 0 0 1px var(--border);
+  --shadow-hover: 0 0 0 1px #c6cadf, 0 8px 24px rgba(41,43,49,0.10);
+  --shadow-modal: 0 0 0 1px #c6cadf, 0 24px 60px rgba(41,43,49,0.18);
 
-.accordion-header {
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  padding: 0.75rem 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border-radius: var(--radius-sm);
-  transition: background 0.2s ease;
-}
-
-.accordion-header:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.chevron {
-  font-size: 0.7rem;
-  transition: transform 0.3s ease;
-}
-
-/* Rotate chevron when open */
-.accordion-group.open .chevron {
-  transform: rotate(180deg);
-}
-
-.accordion-content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
-  padding-left: 0.5rem;
-}
-
-/* Expand content when open */
-.accordion-group.open .accordion-content {
-  max-height: 500px; /* Large enough to fit content */
-  transition: max-height 0.4s ease-in;
-}
-
-.nav-link {
-  display: block;
-  padding: 0.6rem 1rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.85rem;
-  border-radius: var(--radius-sm);
-  margin-bottom: 0.2rem;
-  transition: all 0.2s ease;
-}
-
-.nav-link:hover, .nav-link.active {
-  background: var(--accent-primary);
-  color: white;
+  --glass-bg: rgba(255,255,255,0.6);
 }

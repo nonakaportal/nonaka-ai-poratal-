@@ -1,110 +1,62 @@
-/* frontend/css/glassmorphism.css */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-}
+/* ============================================================
+   SURFACE + ACCORDION COMPATIBILITY LAYER
+   Kept so any markup still using these class names picks up
+   the Nocturne treatment: hairline edges, no heavy blur stacks.
+============================================================ */
 
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  padding: var(--spacing-md);
+.glass-panel, .glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
 }
+.glass-card { padding: var(--spacing-md); }
 
 .glass-button {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
   color: var(--text-primary);
   padding: var(--spacing-xs) var(--spacing-sm);
   cursor: pointer;
+  font-family: var(--font-sans);
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: var(--transition);
 }
+.glass-button:hover { border-color: var(--n-neutral-600); background: color-mix(in srgb, var(--n-text) 5%, transparent); }
+.glass-button.primary { color: var(--accent); border-color: var(--accent); background: transparent; }
+.glass-button.primary:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: 0 0 18px var(--accent-glow); }
 
-.glass-button:hover {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
-}
-
-.glass-button.primary {
-  background: var(--accent-primary);
-  color: white;
-  border: none;
-}
-
-.glass-button.primary:hover {
-  opacity: 0.9;
-}
-
-/* --- Accordion Sidebar Styles --- */
-.accordion-group {
-  margin-bottom: 0.5rem;
-}
-
+/* --- Accordion sidebar --- */
+.accordion-group { margin-bottom: 2px; }
 .accordion-header {
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  padding: 0.75rem 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  width: 100%; background: transparent; border: none;
+  color: var(--n-neutral-600);
+  padding: 9px 12px;
+  display: flex; justify-content: space-between; align-items: center;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border-radius: var(--radius-sm);
-  transition: background 0.2s ease;
+  font-family: var(--font-sans);
+  font-weight: 600; font-size: 10.5px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  border-radius: var(--radius-md);
+  transition: color var(--transition);
 }
-
-.accordion-header:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.chevron {
-  font-size: 0.7rem;
-  transition: transform 0.3s ease;
-}
-
-/* Rotate chevron when open */
-.accordion-group.open .chevron {
-  transform: rotate(180deg);
-}
-
-.accordion-content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
-  padding-left: 0.5rem;
-}
-
-/* Expand content when open */
-.accordion-group.open .accordion-content {
-  max-height: 500px; /* Large enough to fit content */
-  transition: max-height 0.4s ease-in;
-}
+.accordion-header:hover { color: var(--n-neutral-300); }
+.chevron { font-size: 0.7rem; transition: transform 0.3s ease; opacity: 0.5; }
+.accordion-group.open .chevron { transform: rotate(180deg); }
+.accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; padding-left: 6px; }
+.accordion-group.open .accordion-content { max-height: 500px; transition: max-height 0.4s ease-in; }
 
 .nav-link {
-  display: block;
-  padding: 0.6rem 1rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.85rem;
-  border-radius: var(--radius-sm);
-  margin-bottom: 0.2rem;
-  transition: all 0.2s ease;
+  display: block; padding: 8px 12px;
+  color: var(--n-neutral-400); text-decoration: none;
+  font-size: 13px; border-radius: var(--radius-md);
+  margin-bottom: 1px; transition: var(--transition);
+  border-left: 2px solid transparent;
 }
-
-.nav-link:hover, .nav-link.active {
-  background: var(--accent-primary);
-  color: white;
+.nav-link:hover { background: color-mix(in srgb, var(--n-text) 5%, transparent); color: var(--n-neutral-200); text-decoration: none; }
+.nav-link.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-left-color: var(--accent);
+  color: #fff; font-weight: 500; text-decoration: none;
 }

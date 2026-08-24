@@ -5,7 +5,7 @@
   
   const state = {
     currentPage: "overview",
-    theme: localStorage.getItem("nfk-theme") || "light",
+    theme: localStorage.getItem("nfk-theme") || "dark",
     clientId: 1,
     qbConnected: false,
     plPeriod: "month",
@@ -4523,6 +4523,270 @@ function renderCashFlow(data) {
     }
   }
 
+  // ============================================================
+  // OVERVIEW — headline metrics, 12-month trend, alerts
+  // ============================================================
+
+  // Comparable prior window for the delta under each headline figure:
+  // the equivalent completed period immediately before this one.
+  function getPriorPeriodRange(period) {
+    const now = new Date();
+
+    if (period === "quarter") {
+      const qStart = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), qStart - 3, 1);
+      const end = new Date(now.getFullYear(), qStart, 0);
+      return { startDate: toISODate(start), endDate: toISODate(end) };
+    }
+
+    if (period === "year" || period === "current") {
+      const y = now.getFullYear() - 1;
+      return { startDate: `${y}-01-01`, endDate: `${y}-12-31` };
+    }
+
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { startDate: toISODate(start), endDate: toISODate(end) };
+  }
+
+  let overviewState = {
+    chartType: "bar",
+    history: null,
+    prior: null,
+    dismissedAlerts: [],
+    alerts: null
+  };
+
+  async function loadOverviewComparison(period) {
+    const { startDate, endDate } = getPriorPeriodRange(period);
+
+    const [plR, cfR, bsR] = await Promise.allSettled([
+      fetchProfitAndLossRange(startDate, endDate),
+      fetchCashFlowRange(startDate, endDate),
+      fetchBalanceSheetAsOf(endDate)
+    ]);
+
+    const pick = r => (r.status === "fulfilled" ? r.value : null);
+    return { pl: pick(plR), cf: pick(cfR), bs: pick(bsR) };
+  }
+
+  async function loadOverviewHistory(months = 12) {
+    const periods = getMonthlyPeriods(months);
+
+    const results = await Promise.all(
+      periods.map(p =>
+        fetchProfitAndLossRange(p.startDate, p.endDate).catch(() => null)
+      )
+    );
+
+    return periods.map((p, i) => {
+      const pl = results[i];
+
+      const totalExpenses =
+        Number.isFinite(pl?.costOfGoodsSold) && Number.isFinite(pl?.expenses)
+          ? pl.costOfGoodsSold + pl.expenses
+          : null;
+
+      return {
+        label: p.label,
+        revenue: Number.isFinite(pl?.income) ? pl.income : null,
+        totalExpenses
+      };
+    });
+  }
+
+  const OVERVIEW_TREND_VIEW = {
+    title: "Revenue vs. Expenses",
+    metrics: [
+      { key: "revenue", label: "Revenue", color: "primary" },
+      { key: "totalExpenses", label: "Expenses", color: "danger" }
+    ]
+  };
+
+  function drawOverviewTrend() {
+    if (!overviewState.history) return;
+
+    if (window.NFK_Charts?.renderForecastTrend) {
+      window.NFK_Charts.renderForecastTrend(
+        "chart-overview-trend",
+        overviewState.history,
+        OVERVIEW_TREND_VIEW,
+        overviewState.chartType
+      );
+    }
+  }
+
+  function setOverviewChartType(type) {
+    overviewState.chartType = type;
+
+    ["bar", "line"].forEach(t => {
+      const btn = document.getElementById(`overview-chart-${t}`);
+      if (btn) btn.classList.toggle("active", t === type);
+    });
+
+    drawOverviewTrend();
+  }
+
+  async function loadOverviewTrendChart() {
+    const wrap = document.getElementById("overview-trend-body");
+    if (!wrap) return;
+
+    try {
+      overviewState.history = await loadOverviewHistory(12);
+
+      const usable = overviewState.history.filter(
+        h => Number.isFinite(h.revenue) || Number.isFinite(h.totalExpenses)
+      );
+
+      if (usable.length < 2) {
+        wrap.innerHTML = `
+          <div class="empty-state">
+            Not enough monthly history to chart yet.
+          </div>
+        `;
+        return;
+      }
+
+      wrap.innerHTML = `<canvas id="chart-overview-trend"></canvas>`;
+      drawOverviewTrend();
+    } catch (error) {
+      console.error("❌ Overview trend failed:", error);
+      wrap.innerHTML = `
+        <div class="empty-state">
+          Unable to load monthly history.
+        </div>
+      `;
+    }
+  }
+
+  // Anomalies and recommendations, folded into one ranked feed.
+  async function loadOverviewAlerts() {
+    const body = document.getElementById("overview-alerts-body");
+    if (!body) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    try {
+      const [anomR, recR] = await Promise.allSettled([
+        apiGet(`/ai/anomalies?organizationId=${encodeURIComponent(organizationId)}`),
+        apiGet(`/ai/recommendations?organizationId=${encodeURIComponent(organizationId)}`)
+      ]);
+
+      const anomalies =
+        anomR.status === "fulfilled" ? anomR.value?.anomalies || [] : [];
+
+      const recommendations =
+        recR.status === "fulfilled" ? recR.value?.recommendations || [] : [];
+
+      const rank = { high: 0, medium: 1, low: 2 };
+
+      // The feed carries only what warrants attention now: the two
+      // highest-risk anomalies and the single strongest recommendation.
+      const topAnomalies = [...anomalies]
+        .sort(
+          (x, y) =>
+            (rank[(x.severity || "").toLowerCase()] ?? 3) -
+            (rank[(y.severity || "").toLowerCase()] ?? 3)
+        )
+        .slice(0, 2);
+
+      const topRecommendation = [...recommendations]
+        .sort(
+          (x, y) =>
+            (rank[(x.priority || "").toLowerCase()] ?? 3) -
+            (rank[(y.priority || "").toLowerCase()] ?? 3)
+        )
+        .slice(0, 1);
+
+      const alerts = [
+        ...topAnomalies.map((item, i) => ({
+          id: `anomaly-${i}`,
+          kind: (item.severity || "").toLowerCase() === "high" ? "warning" : "info",
+          weight: rank[(item.severity || "").toLowerCase()] ?? 3,
+          title: item.title,
+          body: item.description,
+          meta: item.evidence,
+          tag: `${item.severity} severity · ${item.category}`
+        })),
+        ...topRecommendation.map((item, i) => ({
+          id: `rec-${i}`,
+          kind: "positive",
+          weight: (rank[(item.priority || "").toLowerCase()] ?? 3) + 0.5,
+          title: item.title,
+          body: item.description,
+          meta: item.expectedImpact,
+          tag: `${item.priority} priority · ${item.category}`
+        }))
+      ];
+
+      overviewState.alerts = alerts;
+      renderOverviewAlerts();
+    } catch (error) {
+      console.error("❌ Overview alerts failed:", error);
+      body.innerHTML = `
+        <div class="empty-state">
+          Unable to load AI alerts.
+        </div>
+      `;
+    }
+  }
+
+  function renderOverviewAlerts() {
+    const body = document.getElementById("overview-alerts-body");
+    if (!body || !overviewState.alerts) return;
+
+    const visible = overviewState.alerts.filter(
+      alert => !overviewState.dismissedAlerts.includes(alert.id)
+    );
+
+    if (!visible.length) {
+      body.innerHTML = `
+        <div class="empty-state">
+          Nothing flagged right now.
+        </div>
+      `;
+      return;
+    }
+
+    const glyph = {
+      warning: icon_alert_warning(),
+      info: icon_alert_info(),
+      positive: icon_alert_ok()
+    };
+
+    body.innerHTML = visible
+      .map(
+        alert => `
+        <div class="alert-row ${alert.kind}" onclick="NFK_App.nav('ai-insights')" style="cursor:pointer;">
+
+          <span class="alert-glyph">${glyph[alert.kind]}</span>
+
+          <div class="alert-content">
+            <div class="alert-title">${escapeHtml(alert.title)}</div>
+            <div class="alert-body ai-msg-markdown">${renderMarkdown(alert.body)}</div>
+            <div class="alert-meta">${escapeHtml(alert.meta || "")}</div>
+          </div>
+
+          <button
+            class="alert-dismiss"
+            title="Dismiss"
+            onclick="event.stopPropagation(); NFK_App.dismissOverviewAlert('${alert.id}')"
+          >&times;</button>
+
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  function dismissOverviewAlert(id) {
+    if (!overviewState.dismissedAlerts.includes(id)) {
+      overviewState.dismissedAlerts.push(id);
+    }
+    renderOverviewAlerts();
+  }
+
   function renderOverview({ pl, bs, cf, ar, ap, debt }) {
 
     const page =
@@ -4610,53 +4874,162 @@ function renderCashFlow(data) {
         ? "Year to Date"
         : "This Month";
 
+    const prior = overviewState.prior || {};
+
+    const cashBalance = cf?.error ? null : Number(cf?.closingCash || 0);
+
+    const kpi = computeKPIValues({ pl, bs, ar, ap });
+    const workingCapital = kpi?.workingCapital?.value ?? null;
+
+    const priorIncome = Number.isFinite(prior.pl?.income) ? prior.pl.income : null;
+    const priorNetIncome = Number.isFinite(prior.pl?.netIncome) ? prior.pl.netIncome : null;
+    const priorCash = Number.isFinite(prior.cf?.closingCash) ? prior.cf.closingCash : null;
+
+    const priorWorkingCapital = prior.bs
+      ? (computeKPIValues({
+          pl: prior.pl || { error: true },
+          bs: prior.bs,
+          ar: { error: true },
+          ap: { error: true }
+        })?.workingCapital?.value ?? null)
+      : null;
+
+    const organization = window.NFK_Auth?.getCurrentOrganization?.();
+
+    const overviewSubtitle = [
+      organization?.name || "QuickBooks",
+      `FY ${new Date().getFullYear()}`,
+      `Last synced ${fmtDate(new Date().toISOString())}`
+    ].join(" · ");
+
+    // Headline metric card: the figure, then its movement against
+    // the comparable prior window.
+    function metricCard(label, value, priorValue, isError, glyph) {
+      const hasDelta =
+        !isError &&
+        Number.isFinite(value) &&
+        Number.isFinite(priorValue) &&
+        priorValue !== 0;
+
+      const pct = hasDelta
+        ? ((value - priorValue) / Math.abs(priorValue)) * 100
+        : null;
+
+      const up = hasDelta && pct >= 0;
+
+      return `
+        <div class="stat-card metric-card">
+
+          <div class="metric-glyph">${glyph}</div>
+
+          <div class="stat-label">${escapeHtml(label)}</div>
+
+          <div class="stat-val">
+            ${
+              isError || !Number.isFinite(value)
+                ? "—"
+                : formatCurrency(Number(value), currency)
+            }
+          </div>
+
+          <div class="stat-sub">
+            ${
+              isError
+                ? `<span class="neg">Unable to load</span>`
+                : hasDelta
+                ? `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%</span><span class="stat-sub-quiet">vs ${fmtShort(priorValue)} prior period</span>`
+                : `<span class="stat-sub-quiet">No comparable prior period</span>`
+            }
+          </div>
+
+        </div>
+      `;
+    }
+
     page.innerHTML = `
       <div class="page-header">
         <div>
-          <h1 class="page-title">Overview</h1>
-          <p class="page-subtitle">Live QuickBooks data</p>
+          <h1 class="page-title">Financial Overview</h1>
+          <p class="page-subtitle">${escapeHtml(overviewSubtitle)}</p>
         </div>
-        ${renderPeriodSelector(state.overviewPeriod, "setOverviewPeriod")}
+
+        <div class="page-header-actions">
+          ${renderPeriodSelector(state.overviewPeriod, "setOverviewPeriod")}
+
+          <button class="btn btn-primary" onclick="NFK_App.nav('ai-insights')">
+            AI Insights
+          </button>
+        </div>
       </div>
 
-      <div id="overview-health-score" class="section-gap">
+      <div class="stat-grid section-gap">
+        ${metricCard(`Revenue (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl())}
+        ${metricCard("Net Income", netIncome, priorNetIncome, !!pl?.error, icon_forecast())}
+        ${metricCard("Cash Balance", cashBalance, priorCash, !!cf?.error, icon_flow())}
+        ${metricCard("Working Capital", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale())}
+      </div>
+
+      <div class="grid-2 section-gap">
+
         <div class="card card-pad">
-          <p style="color:var(--text-secondary);">Calculating financial health score...</p>
+          <div class="card-header">
+            <div class="card-title">Revenue vs. Expenses — 12 Months</div>
+
+            <div class="period-selector">
+              <button
+                class="period-btn ${overviewState.chartType === "bar" ? "active" : ""}"
+                id="overview-chart-bar"
+                onclick="NFK_App.setOverviewChartType('bar')"
+              >Bar</button>
+
+              <button
+                class="period-btn ${overviewState.chartType === "line" ? "active" : ""}"
+                id="overview-chart-line"
+                onclick="NFK_App.setOverviewChartType('line')"
+              >Line</button>
+            </div>
+          </div>
+
+          <div class="chart-frame" id="overview-trend-body">
+            <div class="skeleton-line skeleton-shimmer" style="height:100%;margin:0;"></div>
+          </div>
         </div>
+
+        <div id="overview-health-score">
+          <div class="card card-pad">
+            <p style="color:var(--text-secondary);">Calculating financial health score...</p>
+          </div>
+        </div>
+
       </div>
 
-      <div class="stat-grid section-gap">
-        ${statCard(`Revenue (${periodLabel})`, income, !!pl?.error)}
-        ${statCard(`Net Income (${periodLabel})`, netIncome, !!pl?.error)}
-        ${statCard(`Cash on Hand (${periodLabel})`, cf?.error ? 0 : cf?.closingCash, !!cf?.error)}
-        ${statCard("Total Debt (Current)", debt?.error ? 0 : debt?.totalDebt, !!debt?.error)}
-      </div>
+      <div class="section-heading">AI Alerts &amp; Insights</div>
 
-      <div class="stat-grid section-gap">
-        ${statCard("Accounts Receivable (Current)", ar?.error ? 0 : ar?.total, !!ar?.error)}
-        ${statCard("Accounts Payable (Current)", ap?.error ? 0 : ap?.total, !!ap?.error)}
-        ${ratioCard(`Gross Margin (${periodLabel})`, grossMargin, !!pl?.error)}
-        ${ratioCard(`Net Margin (${periodLabel})`, netMargin, !!pl?.error)}
+      <div id="overview-alerts-body" class="alert-list section-gap">
+        <div class="card card-pad">
+          <p style="color:var(--text-secondary);">Scanning your data...</p>
+        </div>
       </div>
 
       <div class="grid-2">
         <div class="card card-pad">
           <div class="card-header">
-            <div class="card-title">Current Ratio</div>
+            <div class="card-title">Receivables &amp; Payables</div>
           </div>
-          <div class="stat-val">
-            ${
-              currentRatio === null
-                ? "—"
-                : currentRatio.toFixed(2)
-            }
+
+          <div class="bs-account-row">
+            <span>Accounts Receivable</span>
+            <strong>${ar?.error ? "—" : formatCurrency(Number(ar?.total || 0), currency)}</strong>
           </div>
-          <div class="stat-sub">
-            ${
-              currentRatio === null
-                ? "Unable to calculate from Balance Sheet data"
-                : "Total Assets ÷ Total Liabilities"
-            }
+
+          <div class="bs-account-row">
+            <span>Accounts Payable</span>
+            <strong>${ap?.error ? "—" : formatCurrency(Number(ap?.total || 0), currency)}</strong>
+          </div>
+
+          <div class="bs-account-row">
+            <span>Current Ratio</span>
+            <strong>${currentRatio === null ? "—" : currentRatio.toFixed(2) + "x"}</strong>
           </div>
         </div>
 
@@ -4676,6 +5049,10 @@ function renderCashFlow(data) {
                   <span>Long-Term Debt</span>
                   <strong>${formatCurrency(Number(debt?.longTermDebt || 0), currency)}</strong>
                 </div>
+                <div class="bs-account-row">
+                  <span>Total Debt</span>
+                  <strong>${formatCurrency(Number(debt?.totalDebt || 0), currency)}</strong>
+                </div>
               `
           }
         </div>
@@ -4683,6 +5060,8 @@ function renderCashFlow(data) {
     `;
 
     loadOverviewHealthScore();
+    loadOverviewTrendChart();
+    loadOverviewAlerts();
   }
 
   async function setOverviewPeriod(period) {
@@ -4697,6 +5076,10 @@ function renderCashFlow(data) {
         ${renderSkeletonCard(4)}
       `;
     }
+
+    loadOverviewComparison(period)
+      .then(prior => { overviewState.prior = prior; })
+      .catch(() => { overviewState.prior = null; });
 
     const results = await Promise.allSettled([
       loadProfitAndLoss(period),
@@ -4768,6 +5151,10 @@ function renderCashFlow(data) {
           ${renderSkeletonCard(4)}
         `;
       }
+
+      loadOverviewComparison(state.overviewPeriod)
+        .then(prior => { overviewState.prior = prior; })
+        .catch(() => { overviewState.prior = null; });
 
       Promise.allSettled([
         loadProfitAndLoss(state.overviewPeriod),
@@ -6641,10 +7028,6 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      <div class="card card-pad">
-        <div class="card-title" style="margin-bottom:16px;">Account Actions</div>
-        <button class="btn btn-ghost" onclick="NFK_App.logout()">Log out</button>
-      </div>
     `;
 
     loadSettingsQBStatus();
@@ -6749,6 +7132,10 @@ function renderCashFlow(data) {
 
   window.NFK_App = {
     nav: navigate,
+
+    setOverviewChartType,
+
+    dismissOverviewAlert,
 
     _init: init,
 
@@ -6877,6 +7264,18 @@ function renderCashFlow(data) {
 
   function icon_home() {
     return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>`;
+  }
+
+  function icon_alert_warning() {
+    return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`;
+  }
+
+  function icon_alert_info() {
+    return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>`;
+  }
+
+  function icon_alert_ok() {
+    return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
   }
 
   function icon_pl() {

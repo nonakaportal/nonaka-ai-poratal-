@@ -8,7 +8,7 @@
 
 const CHART_REGISTRY = {};
 
-// ── THEME & COLOR HELPERS ─────────────────────────────────
+// ── THEME & COLOR HELPERS ──────────────────────────────────
 function getVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -16,22 +16,22 @@ function getVar(name) {
 function getColors() {
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   return {
-    primary:      "#0EA5E9",   // Sky blue
-    secondary:    "#0F1C3F",   // Navy
-    success:      "#10B981",   // Emerald
-    danger:       "#EF4444",   // Rose
-    warning:      "#F59E0B",   // Amber
-    purple:       "#8B5CF6",   // Violet
-    teal:         "#06B6D4",   // Cyan
-    grid:         isDark ? "rgba(255,255,255,0.06)" : "rgba(15,28,63,0.06)",
-    text:         isDark ? "#94A3B8" : "#64748B",
-    textPrimary:  isDark ? "#F8FAFC" : "#0F172A",
-    bg:           isDark ? "#1E293B" : "#FFFFFF",
-    border:       isDark ? "rgba(255,255,255,0.08)" : "rgba(15,28,63,0.12)",
+    primary:      "#9184d9",   // Nocturne accent (blurple)
+    secondary:    "#262a60",   // Section indigo
+    success:      isDark ? "#79c2a4" : "#2f8f6c",
+    danger:       isDark ? "#e08a8f" : "#c05055",
+    warning:      isDark ? "#d4a86a" : "#a67535",
+    purple:       "#b5abfc",   // Accent 400
+    teal:         "#8fa8d9",   // Info
+    grid:         isDark ? "rgba(233,233,237,0.07)" : "rgba(41,43,49,0.08)",
+    text:         isDark ? "#9397ab" : "#75798c",
+    textPrimary:  isDark ? "#e9e9ed" : "#292b31",
+    bg:           isDark ? "#1b1e2c" : "#ffffff",
+    border:       isDark ? "rgba(233,233,237,0.10)" : "rgba(41,43,49,0.12)",
   };
 }
 
-// ── CHART REGISTRY MANAGEMENT ─────────────────────────────
+// ── CHART REGISTRY MANAGEMENT ──────────────────────────────
 function destroyChart(id) {
   if (CHART_REGISTRY[id]) {
     try { CHART_REGISTRY[id].destroy(); } catch(e) {}
@@ -45,12 +45,12 @@ function registerChart(id, chart) {
   return chart;
 }
 
-// ─ GLOBAL CHART DEFAULTS ─────────────────────────────────
+// — GLOBAL CHART DEFAULTS ──────────────────────────────────
 function applyDefaults() {
   if (!window.Chart) return;
-  
+
   const colors = getColors();
-  
+
   Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = colors.text;
@@ -58,7 +58,7 @@ function applyDefaults() {
   Chart.defaults.animation.easing = "easeInOutQuart";
 }
 
-// ── CASH FLOW WATERFALL ───────────────────────────────────
+// ── CASH FLOW WATERFALL ─────────────────────────────────────
 function renderCashWaterfall(data = null) {
 
   const canvas =
@@ -175,7 +175,7 @@ const cashFlowLabelsPlugin = {
             ctx.font = "700 14px Inter, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = value < 0 ? "#ff4545" : "#ffffff";
+            ctx.fillStyle = value < 0 ? "#e08a8f" : "#e9e9ed";
 
             const y = value < 0
                 ? bar.y + 8
@@ -346,9 +346,9 @@ const cashFlowLabelsPlugin = {
             grid: {
               color: ctx =>
                   Number(ctx.tick.value) === 0
-                      ? "rgba(255,255,255,0.9)"
+                      ? "rgba(233,233,237,0.55)"
                       : colors.grid,
-          
+
               lineWidth: ctx =>
                   Number(ctx.tick.value) === 0
                       ? 2
@@ -380,26 +380,26 @@ const cashFlowLabelsPlugin = {
 
 }
 
-// ── KPI SPARKLINES ────────────────────────────────────────
+// ── KPI SPARKLINES ─────────────────────────────────────────
 function renderKPISparklines(kpis = []) {
   if (!kpis || kpis.length === 0) return;
-  
+
   const colors = getColors();
-  
+
   kpis.forEach(kpi => {
     const canvas = document.getElementById(`spark-${kpi.id}`);
     if (!canvas || !kpi.trend || kpi.trend.length === 0) return;
-    
+
     destroyChart(`spark-${kpi.id}`);
-    
+
     const last = kpi.trend[kpi.trend.length - 1];
     const first = kpi.trend[0];
     const color = last >= first ? colors.success : colors.danger;
-    
+
     const grad = canvas.getContext("2d").createLinearGradient(0, 0, 0, 36);
     grad.addColorStop(0, color + "40");
     grad.addColorStop(1, color + "00");
-    
+
     registerChart(`spark-${kpi.id}`, new Chart(canvas.getContext("2d"), {
       type: "line",
       data: {
@@ -417,9 +417,9 @@ function renderKPISparklines(kpis = []) {
       options: {
         responsive: false,
         animation: { duration: 400 },
-        plugins: { 
-          legend: { display: false }, 
-          tooltip: { enabled: false } 
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
         },
         scales: {
           x: { display: false },
@@ -430,7 +430,7 @@ function renderKPISparklines(kpis = []) {
   });
 }
 
-// ── KPI DETAIL TREND (modal) ──────────────────────────────
+// ── KPI DETAIL TREND (modal) ───────────────────────────────
 function renderKPIDetailChart(canvasId, labels = [], values = []) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -499,7 +499,7 @@ function renderKPIDetailChart(canvasId, labels = [], values = []) {
   }));
 }
 
-// ── AI FORECAST (AI Insights) ─────────────────────────────
+// ── AI FORECAST (AI Insights) ──────────────────────────────
 // trend: real monthly actuals from financial-context.service.js
 // [{label, revenue, netIncome, ...}]
 // projection: Claude's projection [{label, projectedRevenue, projectedNetIncome}]
@@ -623,7 +623,7 @@ function renderForecastChart(canvasId, trend = [], projection = []) {
   }));
 }
 
-// ── FORECAST PAGE — multi-metric trend, line or bar ──────
+// ── FORECAST PAGE — multi-metric trend, line or bar ────────
 // history: real per-month data [{label, revenue, totalExpenses, ...}]
 // view: { title, metrics: [{key, label, color}] } from FORECAST_VIEWS
 function renderForecastTrend(canvasId, history = [], view, chartType = "line") {
@@ -702,7 +702,7 @@ function renderForecastTrend(canvasId, history = [], view, chartType = "line") {
   }));
 }
 
-// ── P&L WITH PROJECTION SCENARIO ─────────────────────────
+// ── P&L WITH PROJECTION SCENARIO ──────────────────────────
 // Derives this company's real average COGS/Revenue and Opex/Revenue
 // ratios from its actual historical months, instead of assuming a
 // generic 40%/45% split that has nothing to do with the real business.
@@ -850,77 +850,77 @@ function renderPLWithProjection(scenario = null, actualData = null) {
   } = computeScenarioProjection(scenario, actualData);
 
   const gradProjNet = ctx.createLinearGradient(0, 0, 0, 200);
-  gradProjNet.addColorStop(0, "rgba(14,165,233,0.15)");
-  gradProjNet.addColorStop(1, "rgba(14,165,233,0.01)");
-  
+  gradProjNet.addColorStop(0, "rgba(145,132,217,0.22)");
+  gradProjNet.addColorStop(1, "rgba(145,132,217,0.01)");
+
   registerChart("chart-pl-trend", new Chart(ctx, {
     type: "line",
     data: {
       labels,
       datasets: [
         {
-          label: "Actual Revenue", 
+          label: "Actual Revenue",
           data: revenue,
-          borderColor: colors.primary, 
+          borderColor: colors.primary,
           backgroundColor: "transparent",
-          borderWidth: 2.5, 
-          tension: 0.4, 
-          pointRadius: 3, 
+          borderWidth: 2.5,
+          tension: 0.4,
+          pointRadius: 3,
           pointBackgroundColor: colors.primary
         },
         {
-          label: "Actual Gross Profit", 
+          label: "Actual Gross Profit",
           data: gross,
-          borderColor: colors.purple, 
+          borderColor: colors.purple,
           backgroundColor: "transparent",
-          borderWidth: 2, 
-          tension: 0.4, 
-          borderDash: [4, 3], 
-          pointRadius: 3, 
+          borderWidth: 2,
+          tension: 0.4,
+          borderDash: [4, 3],
+          pointRadius: 3,
           pointBackgroundColor: colors.purple
         },
         {
-          label: "Actual Net Income", 
+          label: "Actual Net Income",
           data: net,
-          borderColor: colors.success, 
+          borderColor: colors.success,
           backgroundColor: "transparent",
-          borderWidth: 2.5, 
-          tension: 0.4, 
-          pointRadius: 3, 
+          borderWidth: 2.5,
+          tension: 0.4,
+          pointRadius: 3,
           pointBackgroundColor: colors.success
         },
         {
-          label: "Projected Revenue", 
+          label: "Projected Revenue",
           data: projRev,
-          borderColor: colors.primary, 
+          borderColor: colors.primary,
           backgroundColor: "transparent",
-          borderWidth: 2, 
-          tension: 0.4, 
-          borderDash: [5, 5], 
-          pointRadius: 4, 
+          borderWidth: 2,
+          tension: 0.4,
+          borderDash: [5, 5],
+          pointRadius: 4,
           pointBackgroundColor: colors.primary
         },
         {
-          label: "Projected Gross", 
+          label: "Projected Gross",
           data: projGross,
-          borderColor: colors.purple, 
+          borderColor: colors.purple,
           backgroundColor: "transparent",
-          borderWidth: 2, 
-          tension: 0.4, 
-          borderDash: [5, 5], 
-          pointRadius: 4, 
+          borderWidth: 2,
+          tension: 0.4,
+          borderDash: [5, 5],
+          pointRadius: 4,
           pointBackgroundColor: colors.purple
         },
         {
-          label: "Projected Net", 
+          label: "Projected Net",
           data: projNet,
-          borderColor: colors.success, 
+          borderColor: colors.success,
           backgroundColor: gradProjNet,
-          borderWidth: 2.5, 
-          tension: 0.4, 
-          borderDash: [5, 5], 
-          fill: true, 
-          pointRadius: 4, 
+          borderWidth: 2.5,
+          tension: 0.4,
+          borderDash: [5, 5],
+          fill: true,
+          pointRadius: 4,
           pointBackgroundColor: colors.success
         }
       ]
@@ -930,16 +930,16 @@ function renderPLWithProjection(scenario = null, actualData = null) {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { 
-          position: "top", 
-          labels: { boxWidth: 10, boxHeight: 10, color: colors.text, padding: 12 } 
+        legend: {
+          position: "top",
+          labels: { boxWidth: 10, boxHeight: 10, color: colors.text, padding: 12 }
         },
         tooltip: {
-          backgroundColor: colors.bg, 
-          titleColor: colors.textPrimary, 
+          backgroundColor: colors.bg,
+          titleColor: colors.textPrimary,
           bodyColor: colors.textPrimary,
-          borderColor: colors.border, 
-          borderWidth: 1, 
+          borderColor: colors.border,
+          borderWidth: 1,
           padding: 12,
           callbacks: {
             label: ctx => ctx.raw !== null ? ` ${ctx.dataset.label}: ${fmtShort(ctx.raw)}` : null
@@ -947,23 +947,23 @@ function renderPLWithProjection(scenario = null, actualData = null) {
         }
       },
       scales: {
-        x: { 
-          grid: { color: colors.grid }, 
-          ticks: { color: colors.text } 
+        x: {
+          grid: { color: colors.grid },
+          ticks: { color: colors.text }
         },
-        y: { 
-          grid: { color: colors.grid }, 
-          ticks: { 
-            color: colors.text, 
-            callback: v => fmtShort(v) 
-          } 
+        y: {
+          grid: { color: colors.grid },
+          ticks: {
+            color: colors.text,
+            callback: v => fmtShort(v)
+          }
         }
       }
     }
   }));
 }
 
-// ── REDRAW ALL (theme change) ─────────────────────────────
+// ── REDRAW ALL (theme change) ──────────────────────────────
 // Every real chart on this page reads its colors fresh from getColors()
 // each time it's rendered, so the fix for "chart colors don't match the
 // new theme" is just re-rendering whatever chart(s) the active page
@@ -977,7 +977,7 @@ function redrawAll() {
   }
 }
 
-// ── PUBLIC API ────────────────────────────────────────────
+// ── PUBLIC API ──────────────────────────────────────────────
 window.NFK_Charts = {
   redrawAll,
   renderCashWaterfall,
@@ -989,7 +989,7 @@ window.NFK_Charts = {
   computeScenarioProjection,
 };
 
-// ── INITIALIZATION ────────────────────────────────────────
+// ── INITIALIZATION ──────────────────────────────────────────
 function waitForChart() {
   if (window.Chart) {
     applyDefaults();
