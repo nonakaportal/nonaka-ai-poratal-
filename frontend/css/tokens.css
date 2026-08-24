@@ -1,0 +1,110 @@
+/* frontend/css/glassmorphism.css */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  padding: var(--spacing-md);
+}
+
+.glass-button {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.glass-button:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.glass-button.primary {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+}
+
+.glass-button.primary:hover {
+  opacity: 0.9;
+}
+
+/* --- Accordion Sidebar Styles --- */
+.accordion-group {
+  margin-bottom: 0.5rem;
+}
+
+.accordion-header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease;
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chevron {
+  font-size: 0.7rem;
+  transition: transform 0.3s ease;
+}
+
+/* Rotate chevron when open */
+.accordion-group.open .chevron {
+  transform: rotate(180deg);
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  padding-left: 0.5rem;
+}
+
+/* Expand content when open */
+.accordion-group.open .accordion-content {
+  max-height: 500px; /* Large enough to fit content */
+  transition: max-height 0.4s ease-in;
+}
+
+.nav-link {
+  display: block;
+  padding: 0.6rem 1rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.2rem;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: var(--accent-primary);
+  color: white;
+}
