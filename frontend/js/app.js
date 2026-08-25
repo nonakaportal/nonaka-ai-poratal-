@@ -14,7 +14,7 @@
     overviewPeriod: "month"
   };
 
-  // Conversation history sent to /ai/ask on every turn so Nonaka AI
+  // Conversation history sent to /ai/ask on every turn so NFP AI
   // has multi-turn context. Reset whenever the chat page is opened
   // fresh (see renderNonakaAI).
   let nonakaChatHistory = [];
@@ -65,7 +65,29 @@
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  async function apiGet(endpoint) {
+  // A single expired/invalid session shows up as every in-flight API call
+  // failing at once (a full page load can easily fire 10-20 requests) —
+  // without this guard, each one would independently trigger its own
+  // logout+redirect. This fires the redirect exactly once and lets the
+  // rest of the failures pass through silently since the page is already
+  // navigating away.
+  let sessionExpiredHandled = false;
+
+  function handleSessionExpired() {
+    if (sessionExpiredHandled) return;
+    sessionExpiredHandled = true;
+
+    alert("Your session has expired. Please log in again.");
+    window.NFK_Auth?.logout?.();
+  }
+
+  const SESSION_ERROR_CODES = new Set(["AUTH_INVALID", "AUTH_REQUIRED"]);
+
+  // On an expired/invalid token, silently refresh and retry once before
+  // giving up — the user should never see a session error while the
+  // portal can still recover on its own. _isRetry guards against looping
+  // if the retried request somehow fails the same way again.
+  async function apiGet(endpoint, _isRetry = false) {
     const response = await fetch(
       `${API_BASE}${endpoint}`,
       { headers: authHeaders() }
@@ -76,6 +98,15 @@
       .catch(() => ({}));
 
     if (!response.ok) {
+      if (!_isRetry && SESSION_ERROR_CODES.has(data.code)) {
+        try {
+          await window.NFK_Auth.refreshSession();
+          return apiGet(endpoint, true);
+        } catch {
+          handleSessionExpired();
+        }
+      }
+
       const error = new Error(
         data.error || "API request failed"
       );
@@ -89,7 +120,7 @@
 
     return data;
   }
-  async function apiPost(endpoint, body) {
+  async function apiPost(endpoint, body, _isRetry = false) {
 
       const response = await fetch(
           `${API_BASE}${endpoint}`,
@@ -110,6 +141,15 @@
           .catch(() => ({}));
 
       if (!response.ok) {
+          if (!_isRetry && SESSION_ERROR_CODES.has(data.code)) {
+              try {
+                  await window.NFK_Auth.refreshSession();
+                  return apiPost(endpoint, body, true);
+              } catch {
+                  handleSessionExpired();
+              }
+          }
+
           const error = new Error(
               data.error || "API request failed"
           );
@@ -249,6 +289,26 @@
 
       // "month" (default): last day of the previous completed month
       return toISODate(new Date(now.getFullYear(), now.getMonth(), 0));
+    }
+
+    // The as-of date one full period further back than getPeriodAsOfDate()
+    // — e.g. for "quarter" that's the quarter before the last completed
+    // one. Used to fetch a comparison snapshot for the Balance Sheet's
+    // period-over-period deltas.
+    function getPriorPeriodAsOfDate(period) {
+      const now = new Date();
+
+      if (period === "quarter") {
+        const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        return toISODate(new Date(now.getFullYear(), qStartMonth - 3, 0));
+      }
+
+      if (period === "year") {
+        return `${now.getFullYear() - 2}-12-31`;
+      }
+
+      // "month" (default)
+      return toISODate(new Date(now.getFullYear(), now.getMonth() - 1, 0));
     }
 
     function renderPeriodSelector(activePeriod, onSelectFnName) {
@@ -391,8 +451,55 @@
 
       return data;
     }
-  
-  
+
+    // Fetches the current period's snapshot plus the equivalent snapshot
+    // one full period further back, so the page can show a $/% delta
+    // instead of just a static number. fetchBalanceSheetAsOf is defined
+    // further down in this file but hoisted, so it's callable here.
+    async function loadBalanceSheetComparison(period = "month") {
+      const currentDate = getPeriodAsOfDate(period);
+      const priorDate = getPriorPeriodAsOfDate(period);
+
+      const [current, prior] = await Promise.all([
+        fetchBalanceSheetAsOf(currentDate),
+        fetchBalanceSheetAsOf(priorDate).catch(() => null)
+      ]);
+
+      return { current, prior };
+    }
+
+    // Six monthly Balance Sheet snapshots (as of the end of each of the
+    // last 6 calendar months) for the Assets/Liabilities/Equity trend
+    // chart. Fetched in parallel — a single-report snapshot call per
+    // month, same load as the KPI/Scenarios trend fetches already do.
+    async function loadBalanceSheetHistory(months = 6) {
+      const periods = getMonthlyPeriods(months);
+
+      // Sequential, not Promise.all — this page can already have the
+      // comparison fetch (2 calls) in flight at the same time, and
+      // firing 6+ concurrent QuickBooks report calls is what tripped
+      // the sandbox's rate limit for the AI forecast trend earlier.
+      const results = [];
+
+      for (const p of periods) {
+        results.push(
+          await fetchBalanceSheetAsOf(p.endDate).catch(() => null)
+        );
+      }
+
+      return periods.map((p, i) => {
+        const bs = results[i];
+
+        return {
+          label: p.label,
+          totalAssets: Number.isFinite(bs?.totalAssets) ? bs.totalAssets : null,
+          totalLiabilities: Number.isFinite(bs?.totalLiabilities) ? bs.totalLiabilities : null,
+          totalEquity: Number.isFinite(bs?.totalEquity) ? bs.totalEquity : null
+        };
+      });
+    }
+
+
     function renderBalanceAccounts(
       accounts,
       currency
@@ -515,7 +622,7 @@
     }
   
   
-   function renderBalanceSheet(data) {
+   function renderBalanceSheet(data, priorData = null) {
 
     const page =
         document.getElementById("page-balance-sheet");
@@ -523,6 +630,27 @@
     if (!page) {
         console.error("❌ Balance Sheet page not found");
         return;
+    }
+
+    function priorTotal(field) {
+        const value = priorData?.[field];
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function deltaHtml(current, priorValue) {
+        if (priorValue === null || priorValue === 0) {
+            return `<div class="bs-delta stat-sub-quiet">No comparable prior period</div>`;
+        }
+
+        const pct = ((current - priorValue) / Math.abs(priorValue)) * 100;
+        const up = pct >= 0;
+
+        return `
+            <div class="bs-delta ${up ? "pos" : "neg"}">
+                ${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%
+                <span class="stat-sub-quiet">vs ${formatCurrency(priorValue, data?.currency || "USD")} prior period</span>
+            </div>
+        `;
     }
 
     const currency =
@@ -882,6 +1010,8 @@
                                 )}
                             </h2>
 
+                            ${deltaHtml(totalAssets, priorTotal("totalAssets"))}
+
                         </div>
 
                         <span class="bs-count">
@@ -940,6 +1070,8 @@
                                     currency
                                 )}
                             </h2>
+
+                            ${deltaHtml(totalLiabilities, priorTotal("totalLiabilities"))}
 
                         </div>
 
@@ -1005,6 +1137,8 @@
                                     currency
                                 )}
                             </h2>
+
+                            ${deltaHtml(totalEquity, priorTotal("totalEquity"))}
 
                         </div>
 
@@ -1146,9 +1280,41 @@
             </section>
 
 
+            <!-- TREND -->
+
+            <div class="card card-pad section-gap" style="margin-top:16px;">
+                <div class="card-title" style="margin-bottom:14px;">Assets, Liabilities &amp; Equity — 6 Months</div>
+                <div style="height:300px;">
+                    <canvas id="chart-bs-trend"></canvas>
+                </div>
+            </div>
+
+
         </div>
 
     `;
+
+    loadBalanceSheetHistory(6)
+        .then(history => {
+            if (window.NFK_Charts?.renderForecastTrend) {
+                window.NFK_Charts.renderForecastTrend(
+                    "chart-bs-trend",
+                    history,
+                    {
+                        title: "Assets, Liabilities & Equity",
+                        metrics: [
+                            { key: "totalAssets", label: "Assets", color: "primary" },
+                            { key: "totalLiabilities", label: "Liabilities", color: "danger" },
+                            { key: "totalEquity", label: "Equity", color: "success" }
+                        ]
+                    },
+                    "line"
+                );
+            }
+        })
+        .catch(error => {
+            console.error("❌ Balance Sheet trend failed:", error);
+        });
 }
 
     async function setBSPeriod(period) {
@@ -1161,8 +1327,8 @@
       }
 
       try {
-        const data = await loadBalanceSheet(period);
-        renderBalanceSheet(data);
+        const { current, prior } = await loadBalanceSheetComparison(period);
+        renderBalanceSheet(current, prior);
       } catch (error) {
         console.error("❌ Failed to load Balance Sheet for period:", period, error);
       }
@@ -2679,6 +2845,9 @@ function renderCashFlow(data) {
       state.qbConnected =
         status.connected === true;
 
+      state.qbCompanyName =
+        status.companyName || null;
+
       return status;
     } catch (error) {
       console.error(
@@ -2843,7 +3012,7 @@ function renderCashFlow(data) {
               🔗 QuickBooks not connected
             </div>
             <p style="color:var(--text-secondary);">
-              Connect QuickBooks first so Nonaka AI has real data to work with.
+              Connect QuickBooks first so NFP AI has real data to work with.
             </p>
           </div>
         `;
@@ -3115,7 +3284,7 @@ function renderCashFlow(data) {
             </div>
 
             <div class="page-subtitle">
-              Generated by Nonaka AI · Based on live financial data
+              Generated by NFP AI · Based on live financial data
             </div>
           </div>
 
@@ -3164,7 +3333,7 @@ function renderCashFlow(data) {
   
               <div>
                   <div class="page-title">
-                      Nonaka AI
+                      NFP AI
                   </div>
   
                   <div class="page-subtitle">
@@ -3196,7 +3365,7 @@ function renderCashFlow(data) {
                       <div>
   
                           <div class="ai-chat-title">
-                              Ask Nonaka AI
+                              Ask NFP AI
                           </div>
   
                           <div class="ai-chat-subtitle">
@@ -3223,7 +3392,7 @@ function renderCashFlow(data) {
   
                       <div class="ai-msg-bubble">
   
-                          Hi! I'm Nonaka AI, your financial analyst.
+                          Hi! I'm NFP AI, your financial analyst.
                           I have access to your financial data.
   
                           <br><br>
@@ -3632,7 +3801,7 @@ function renderCashFlow(data) {
         try {
 
             console.log(
-                "🤖 Sending question to Nonaka AI:",
+                "🤖 Sending question to NFP AI:",
                 question
             );
 
@@ -3647,7 +3816,7 @@ function renderCashFlow(data) {
                 );
 
             console.log(
-                "🤖 Nonaka AI response:",
+                "🤖 NFP AI response:",
                 response
             );
 
@@ -3680,13 +3849,13 @@ function renderCashFlow(data) {
         } catch (error) {
 
             console.error(
-                "❌ Nonaka AI request failed:",
+                "❌ NFP AI request failed:",
                 error
             );
 
             const errorText =
                 error?.code === "AI_KEY_NOT_CONFIGURED"
-                    ? "Nonaka AI needs a Claude API key configured in the backend's .env file before it can answer questions."
+                    ? "NFP AI needs a Claude API key configured in the backend's .env file before it can answer questions."
                     : error?.code === "QB_NOT_CONNECTED"
                     ? "Connect QuickBooks first so I have real data to answer from."
                     : "Sorry, I couldn't process that question right now.";
@@ -4894,10 +5063,8 @@ function renderCashFlow(data) {
         })?.workingCapital?.value ?? null)
       : null;
 
-    const organization = window.NFK_Auth?.getCurrentOrganization?.();
-
     const overviewSubtitle = [
-      organization?.name || "QuickBooks",
+      state.qbCompanyName || "QuickBooks",
       `FY ${new Date().getFullYear()}`,
       `Last synced ${fmtDate(new Date().toISOString())}`
     ].join(" · ");
@@ -5217,12 +5384,12 @@ function renderCashFlow(data) {
         `;
       }
 
-      loadBalanceSheet(state.bsPeriod)
-        .then(data => {
-          renderBalanceSheet(data);
+      loadBalanceSheetComparison(state.bsPeriod)
+        .then(({ current, prior }) => {
+          renderBalanceSheet(current, prior);
         })
         .catch(error => {
-    
+
           console.error(
             "❌ Balance Sheet failed:",
             error
@@ -6559,14 +6726,14 @@ function renderCashFlow(data) {
     },
     {
       id: "g-nonaka-ai",
-      label: "Nonaka AI",
+      label: "NFP AI",
       icon: icon_ai(),
       flat: true,
       open: true,
       items: [
         {
           id: "nonaka-ai",
-          label: "Nonaka AI",
+          label: "NFP AI",
           icon: icon_ai()
         }
       ]
@@ -6830,10 +6997,10 @@ function renderCashFlow(data) {
       <button
         class="topbar-ai-btn"
         onclick="NFK_App.nav('nonaka-ai')"
-        title="Open Nonaka AI"
+        title="Open NFP AI"
       >
         ${icon_ai()}
-        <span class="topbar-ai-btn-label">Nonaka AI</span>
+        <span class="topbar-ai-btn-label">NFP AI</span>
       </button>
 
       <div

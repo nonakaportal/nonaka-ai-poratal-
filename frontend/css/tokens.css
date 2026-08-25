@@ -70,7 +70,11 @@
   --text-primary:   var(--n-text);
   --text-secondary: var(--n-neutral-400);
   --text-muted:     var(--n-neutral-500);
-  --text-faint:     var(--n-neutral-600);
+  /* n-neutral-600 measures ~3.8:1 against --bg-card / --bg-page here —
+     under the 4.5:1 AA floor for the small (10-12px) label text this
+     token is used for. #868aa0 clears ~4.85:1 while staying visibly
+     dimmer than --text-muted. */
+  --text-faint:     #868aa0;
   --text-on-dark:   var(--n-neutral-100);
 
   --border:       #2c2f3f;
@@ -129,8 +133,11 @@
 
   --text-primary:   var(--n-neutral-900);
   --text-secondary: var(--n-neutral-700);
-  --text-muted:     var(--n-neutral-600);
-  --text-faint:     var(--n-neutral-500);
+  /* n-neutral-600/500 measured ~4.3:1 and ~2.6:1 against the light
+     backgrounds here — both under the 4.5:1 AA floor, --text-faint
+     badly so. Darkened to actually clear it. */
+  --text-muted:     #666a7c;
+  --text-faint:     #71758a;
 
   --border:       #d8dbeb;
   --border-light:  #e7e9f4;

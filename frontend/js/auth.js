@@ -390,6 +390,61 @@ function getAccessToken() {
 
 
 // ------------------------------------------------------------
+// REFRESH SESSION
+//
+// Called reactively — the first API call that comes back with an
+// expired/invalid token triggers this. Concurrent callers (a page
+// load easily fires a dozen requests at once) share the same
+// in-flight promise instead of each racing their own refresh call:
+// Supabase rotates the refresh token on every use, so two
+// simultaneous refresh attempts with the same stale token would
+// have only the first succeed and the second fail outright.
+// ------------------------------------------------------------
+
+let refreshSessionPromise = null;
+
+async function refreshSession() {
+    if (refreshSessionPromise) {
+        return refreshSessionPromise;
+    }
+
+    refreshSessionPromise = (async () => {
+        const session = JSON.parse(
+            localStorage.getItem("nfk_session") || "null"
+        );
+
+        const refreshToken = session?.refresh_token;
+
+        if (!refreshToken) {
+            throw new Error("No refresh token available");
+        }
+
+        const response = await fetch(`${QB_API}/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: refreshToken })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.session?.access_token) {
+            throw new Error(data.error || "Failed to refresh session");
+        }
+
+        localStorage.setItem("nfk_session", JSON.stringify(data.session));
+
+        return data.session;
+    })();
+
+    try {
+        return await refreshSessionPromise;
+    } finally {
+        refreshSessionPromise = null;
+    }
+}
+
+
+// ------------------------------------------------------------
 // GET USER ORGANIZATION
 // ------------------------------------------------------------
 
@@ -477,7 +532,9 @@ function showSignup() {
         loginSignup.style.display = "none";
     }
 
-    // Change heading
+    // Hide the login card's own title/subtitle — the signup form below
+    // already has its own "Create your account" heading, so leaving
+    // these visible (even retitled) duplicates it on screen.
     const title =
         document.querySelector(".auth-card > .auth-card-title");
 
@@ -485,12 +542,11 @@ function showSignup() {
         document.querySelector(".auth-card > .auth-card-sub");
 
     if (title) {
-        title.textContent = "Create your account";
+        title.style.display = "none";
     }
 
     if (subtitle) {
-        subtitle.textContent =
-            "Set up your Nonaka advisor account";
+        subtitle.style.display = "none";
     }
 
     // Show signup form
@@ -555,12 +611,11 @@ function showLogin() {
         document.querySelector(".auth-card > .auth-card-sub");
 
     if (title) {
-        title.textContent = "Welcome back";
+        title.style.display = "";
     }
 
     if (subtitle) {
-        subtitle.textContent =
-            "Sign in to your advisor portal";
+        subtitle.style.display = "";
     }
 }
 
@@ -673,7 +728,7 @@ async function routeAfterLogin() {
 // CONNECT TO QUICKBOOKS (real OAuth redirect)
 // ------------------------------------------------------------
 
-async function connectQB() {
+async function connectQB(_isRetry = false) {
     const organizationId = getOrganizationId();
     const token = getAccessToken();
 
@@ -691,6 +746,20 @@ async function connectQB() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok || !data.authUrl) {
+            if (
+                !_isRetry &&
+                (data.code === "AUTH_INVALID" || data.code === "AUTH_REQUIRED")
+            ) {
+                try {
+                    await refreshSession();
+                    return connectQB(true);
+                } catch {
+                    alert("Your session has expired. Please log in again.");
+                    logout();
+                    return;
+                }
+            }
+
             throw new Error(data.error || "Failed to start QuickBooks connection");
         }
 
@@ -770,6 +839,23 @@ function runQBConnectAnimation() {
             setTimeout(() => {
                 if (connectingEl) connectingEl.style.display = "none";
                 if (successEl) successEl.style.display = "block";
+
+                const step2 = document.getElementById("qb-onboard-step-2");
+                const line2 = document.getElementById("qb-onboard-line-2");
+                const step3 = document.getElementById("qb-onboard-step-3");
+
+                if (step2) {
+                    step2.classList.remove("active");
+                    step2.classList.add("done");
+                    step2.querySelector(".step-num").textContent = "✓";
+                }
+
+                if (line2) line2.classList.add("done");
+
+                if (step3) {
+                    step3.classList.add("done");
+                    step3.querySelector(".step-num").textContent = "✓";
+                }
             }, 500);
         }
     }, 650);
@@ -865,6 +951,7 @@ window.NFK_Auth = {
     getCurrentOrganization,
     getOrganizationId,
     getAccessToken,
+    refreshSession,
     getUserOrganization,
     logout,
     isLoggedIn,

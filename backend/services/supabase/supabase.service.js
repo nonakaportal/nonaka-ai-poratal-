@@ -118,11 +118,28 @@ class SupabaseService {
                 email,
                 password
             });
-    
+
         if (error) {
             throw error;
         }
-    
+
+        return data;
+    }
+
+
+    // Supabase rotates the refresh token on every use — the old one
+    // becomes invalid the moment this succeeds, so the caller must
+    // store the new refresh_token returned here, not reuse the old one.
+    async refreshSession(refreshToken) {
+        const { data, error } =
+            await this._buildClient().auth.refreshSession({
+                refresh_token: refreshToken
+            });
+
+        if (error) {
+            throw error;
+        }
+
         return data;
     }
     

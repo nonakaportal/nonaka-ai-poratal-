@@ -155,4 +155,49 @@ router.post("/login", async (req, res) => {
 });
 
 
+// ============================================================
+// REFRESH SESSION
+// ============================================================
+
+router.post("/refresh", async (req, res) => {
+    try {
+        const { refresh_token } = req.body;
+
+        if (!refresh_token) {
+            return res.status(400).json({
+                success: false,
+                error: "refresh_token is required"
+            });
+        }
+
+        const authData =
+            await supabaseService.refreshSession(refresh_token);
+
+        res.json({
+            success: true,
+
+            session: {
+                access_token:
+                    authData.session?.access_token || null,
+
+                refresh_token:
+                    authData.session?.refresh_token || null,
+
+                expires_at:
+                    authData.session?.expires_at || null
+            }
+        });
+
+    } catch (error) {
+        console.error("Session refresh failed:", error);
+
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: "AUTH_INVALID"
+        });
+    }
+});
+
+
 module.exports = router;

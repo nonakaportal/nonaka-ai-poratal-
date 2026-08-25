@@ -20,7 +20,7 @@ html, body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-weight: 500; line-height: 1.14; letter-spacing: -0.015em;
+  font-weight: 700; line-height: 1.14; letter-spacing: -0.015em;
 }
 a { color: var(--accent); text-decoration: none; text-underline-offset: 3px; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
@@ -70,6 +70,11 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .sidebar-logo::after {
   content: ""; position: absolute; bottom: 0; left: 20px; right: 20px; height: 1px;
   background: linear-gradient(to right, var(--border-hair), transparent);
+}
+/* Sidebar is dark navy in both themes, so this reads fine unconditionally. */
+.sidebar-brand-text {
+  font-size: 15px; font-weight: 700; color: #f4f5f9;
+  letter-spacing: -0.01em; white-space: nowrap;
 }
 
 .brand-logo img { display: none; width: auto; }
@@ -257,7 +262,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .page-header > div:first-child, .pl-page-header > div:first-child,
 .bs-header > div:first-child, .cf-header > div:first-child { flex: 1 1 auto; min-width: 0; }
 .page-title, .pl-page-title, .bs-title, .cf-header h1 {
-  font-size: 27px; font-weight: 500; color: var(--text-primary);
+  font-size: 27px; font-weight: 700; color: var(--text-primary);
   letter-spacing: -0.02em; line-height: 1.1;
 }
 .page-subtitle, .pl-page-subtitle, .bs-subtitle, .cf-header p {
@@ -282,7 +287,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .card-pad { padding: 20px 22px; }
 .card-pad-lg { padding: 26px 28px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.card-title { font-size: 13.5px; font-weight: 500; color: var(--text-primary); letter-spacing: -0.005em; }
+.card-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.005em; }
 
 /* Stat band — the overview's headline figures read as one band of
    values divided by hairlines, not four floating boxes. */
@@ -317,7 +322,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   text-transform: uppercase; letter-spacing: 0.12em;
 }
 .stat-val, .stat-value {
-  font-size: 28px; font-weight: 500; color: var(--text-primary);
+  font-size: 28px; font-weight: 700; color: var(--text-primary);
   margin: 10px 0 5px; letter-spacing: -0.03em; line-height: 1;
 }
 .stat-sub, .stat-meta { font-size: 11.5px; display: flex; align-items: center; gap: 5px; color: var(--text-muted); flex-wrap: wrap; }
@@ -332,7 +337,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .debt-summary-card { display: flex; flex-direction: column; gap: 8px; }
 .debt-summary-card span { font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; }
-.debt-summary-card strong { font-size: 25px; font-weight: 500; color: var(--text-primary); letter-spacing: -0.03em; }
+.debt-summary-card strong { font-size: 25px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; }
 
 .skeleton-line { height: 13px; background: var(--bg-subtle); border-radius: var(--radius-sm); margin: 8px 0; }
 .skeleton-shimmer { background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--bg-hover) 50%, var(--bg-subtle) 75%); background-size: 200% 100%; animation: skeletonShimmer 1.5s ease-in-out infinite; }
@@ -705,9 +710,12 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .bs-card { overflow: hidden; }
 .bs-card-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 19px 20px; border-bottom: 1px solid var(--border); }
 .bs-card-label { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; color: var(--text-faint); text-transform: uppercase; }
-.bs-card-top h2 { margin: 9px 0 0; color: var(--text-primary); font-size: 25px; font-weight: 500; letter-spacing: -0.03em; }
+.bs-card-top h2 { margin: 9px 0 0; color: var(--text-primary); font-size: 25px; font-weight: 700; letter-spacing: -0.03em; }
 .bs-card-top h2.negative { color: var(--negative); }
 .bs-count { color: var(--text-faint); font-size: 10px; padding-top: 3px; }
+.bs-delta { margin-top: 6px; font-size: 11.5px; font-weight: 500; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.bs-delta.pos { color: var(--positive); }
+.bs-delta.neg { color: var(--negative); }
 .bs-card-body { padding: 4px 20px 18px; }
 .bs-section { padding: 10px 0 4px; }
 .bs-section + .bs-section { border-top: 1px solid var(--border); }
@@ -826,7 +834,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 ------------------------------------------------------------ */
 .grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
 .kpi-card { padding: 18px 20px; cursor: default; }
-.kpi-value { font-size: 23px; font-weight: 500; color: var(--text-primary); margin: 10px 0 6px; letter-spacing: -0.03em; line-height: 1; }
+.kpi-value { font-size: 23px; font-weight: 700; color: var(--text-primary); margin: 10px 0 6px; letter-spacing: -0.03em; line-height: 1; }
 .kpi-interp { font-size: 11.5px; color: var(--text-muted); line-height: 1.6; margin-bottom: 10px; }
 .kpi-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .sparkline-wrap { width: 100px; height: 34px; }
@@ -838,7 +846,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .health-ring-hole { position: absolute; inset: 8px; border-radius: 50%; background: var(--bg-card); }
 .health-ring-inner, .health-score-num { position: relative; z-index: 1; text-align: center; }
 .health-score-num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.health-ring-score, .health-score-num > span:first-child { font-size: 26px; font-weight: 500; color: var(--text-primary); line-height: 1; letter-spacing: -0.03em; }
+.health-ring-score, .health-score-num > span:first-child { font-size: 26px; font-weight: 700; color: var(--text-primary); line-height: 1; letter-spacing: -0.03em; }
 .health-ring-rating, .health-grade { font-size: 10.5px; font-weight: 500; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--positive); }
 .health-score-body { flex: 1 1 260px; min-width: 0; }
 .health-score-summary, .health-summary { font-size: 13px; color: var(--text-secondary); margin: 8px 0 14px; line-height: 1.65; text-wrap: pretty; }
@@ -855,7 +863,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .insight-type-badge.anomaly { background: var(--negative-bg); color: var(--negative); border-color: color-mix(in srgb, var(--negative) 25%, transparent); }
 .insight-type-badge.recommendation { background: var(--positive-bg); color: var(--positive); border-color: color-mix(in srgb, var(--positive) 25%, transparent); }
 .insight-type-badge.scenario { background: color-mix(in srgb, var(--info) 13%, transparent); color: var(--info); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
-.insight-title { font-size: 15px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; letter-spacing: -0.01em; }
+.insight-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; letter-spacing: -0.01em; }
 .insight-body { font-size: 13px; color: var(--text-secondary); line-height: 1.72; margin-bottom: 12px; text-wrap: pretty; }
 .insight-basis { font-size: 11px; color: var(--text-faint); margin-bottom: 10px; display: flex; gap: 6px; }
 .insight-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }

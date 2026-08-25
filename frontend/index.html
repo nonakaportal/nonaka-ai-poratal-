@@ -6,9 +6,9 @@
  <title>Nonaka Financial Partners · AI Portal</title>
 
  <!-- CSS Imports -->
- <link rel="stylesheet" href="css/tokens.css?v=31">
+ <link rel="stylesheet" href="css/tokens.css?v=32">
  <link rel="stylesheet" href="css/glassmorphism.css?v=31">
- <link rel="stylesheet" href="css/style.css?v=34">
+ <link rel="stylesheet" href="css/style.css?v=36">
 
  <!-- Google Fonts -->
  <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -200,9 +200,9 @@
  <div class="onboard-steps">
  <div class="onboard-step done"><div class="step-num">✓</div><div class="step-label">Sign In</div></div>
  <div class="onboard-step-line done"></div>
- <div class="onboard-step active"><div class="step-num">2</div><div class="step-label">Connect Data</div></div>
- <div class="onboard-step-line"></div>
- <div class="onboard-step"><div class="step-num">3</div><div class="step-label">Select Company</div></div>
+ <div class="onboard-step active" id="qb-onboard-step-2"><div class="step-num">2</div><div class="step-label">Connect Data</div></div>
+ <div class="onboard-step-line" id="qb-onboard-line-2"></div>
+ <div class="onboard-step" id="qb-onboard-step-3"><div class="step-num">3</div><div class="step-label">Connected</div></div>
  </div>
 
  <!-- State: Idle -->
@@ -211,7 +211,7 @@
  <img class="qb-connect-mark" src="assest/images.png" alt="QuickBooks">
  </div>
  <h2 class="onboard-h2">Connect to QuickBooks Online</h2>
- <p class="onboard-p">Securely link your QuickBooks Online account so Nonaka AI can pull your financial data — automatically, every 24 hours.</p>
+ <p class="onboard-p">Securely link your QuickBooks Online account so NFP AI can pull your financial data — automatically, every 24 hours.</p>
  <div class="auth-error" id="qb-connect-error" style="display:none;">
  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.169 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg><span id="qb-connect-error-msg">We couldn't complete the QuickBooks connection. Please try again.</span>
  </div>
@@ -292,6 +292,7 @@
  <div class="sidebar-logo-img">
  <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
  </div>
+ <span class="sidebar-brand-text">NFP Portal</span>
  </div>
  <nav class="sidebar-nav" id="sidebar-nav">
  <!-- Populated by app.js -->
@@ -363,7 +364,7 @@
  <div style="display:flex;align-items:center;gap:12px;">
  <div class="ai-fp-avatar">✦</div>
  <div>
- <div class="ai-chat-title">Ask Nonaka AI</div>
+ <div class="ai-chat-title">Ask NFP AI</div>
  <div class="ai-chat-subtitle">Powered by live financial data</div>
  </div>
  </div>
@@ -376,7 +377,7 @@
  <div class="ai-msg">
  <div class="ai-msg-avatar">✦</div>
  <div class="ai-msg-bubble">
- <p>Hi! I'm Nonaka AI, your financial analyst. I have full access to P&L, Balance Sheet, Cash Flow, KPIs, and more.</p>
+ <p>Hi! I'm NFP AI, your financial analyst. I have full access to P&L, Balance Sheet, Cash Flow, KPIs, and more.</p>
  <p style="margin-top:6px;">What would you like to explore?</p>
  </div>
  </div>
@@ -404,8 +405,8 @@
  <script src="js/data.js?v=30"></script>
  <script src="js/api.js?v=30"></script>
  <script src="js/charts.js?v=30"></script>
- <script src="js/auth.js?v=30"></script>
- <script src="js/app.js?v=37"></script>
+ <script src="js/auth.js?v=34"></script>
+ <script src="js/app.js?v=41"></script>
 
 </body>
 </html>
