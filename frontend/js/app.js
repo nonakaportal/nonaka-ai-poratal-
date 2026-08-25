@@ -234,14 +234,17 @@
     // means year to date.
     //
     // Snapshot reports (Balance Sheet, AR aging, AP aging) use
-    // getPeriodAsOfDate(): a snapshot "as of this month" doesn't
-    // really exist yet since the month isn't over, so these report
-    // as of the end of the last COMPLETED month/quarter/year instead
-    // — that always resolves to a real, already-closed date.
+    // getPeriodAsOfDate(): a Balance Sheet is cumulative, not bounded
+    // to a period, so QuickBooks' own "This Month/Quarter/Year" toggle
+    // always shows a live snapshot as of today regardless of which
+    // one is selected — this matches that behavior exactly.
     // --------------------------------------------------------
 
     function toISODate(d) {
-      return d.toISOString().slice(0, 10);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     }
 
     function getPeriodRange(period) {
@@ -271,44 +274,28 @@
     }
 
     function getPeriodAsOfDate(period) {
-      const now = new Date();
-
-      if (period === "current") {
-        return toISODate(now);
-      }
-
-      if (period === "quarter") {
-        // Last day of the previous completed quarter.
-        const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
-        return toISODate(new Date(now.getFullYear(), qStartMonth, 0));
-      }
-
-      if (period === "year") {
-        return `${now.getFullYear() - 1}-12-31`;
-      }
-
-      // "month" (default): last day of the previous completed month
-      return toISODate(new Date(now.getFullYear(), now.getMonth(), 0));
+      // Balance Sheet is always a live snapshot as of today, no matter
+      // which period toggle is selected — same as QuickBooks' own report.
+      return toISODate(new Date());
     }
 
-    // The as-of date one full period further back than getPeriodAsOfDate()
-    // — e.g. for "quarter" that's the quarter before the last completed
-    // one. Used to fetch a comparison snapshot for the Balance Sheet's
-    // period-over-period deltas.
+    // The comparison snapshot for the Balance Sheet's period-over-period
+    // deltas: the end of the last fully completed month/quarter/year
+    // relative to today (getPeriodAsOfDate() itself is always "today").
     function getPriorPeriodAsOfDate(period) {
       const now = new Date();
 
       if (period === "quarter") {
         const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
-        return toISODate(new Date(now.getFullYear(), qStartMonth - 3, 0));
+        return toISODate(new Date(now.getFullYear(), qStartMonth, 0));
       }
 
-      if (period === "year") {
-        return `${now.getFullYear() - 2}-12-31`;
+      if (period === "year" || period === "current") {
+        return `${now.getFullYear() - 1}-12-31`;
       }
 
-      // "month" (default)
-      return toISODate(new Date(now.getFullYear(), now.getMonth() - 1, 0));
+      // "month" (default): last day of the previous completed month
+      return toISODate(new Date(now.getFullYear(), now.getMonth(), 0));
     }
 
     function renderPeriodSelector(activePeriod, onSelectFnName) {
@@ -2791,10 +2778,7 @@ function renderCashFlow(data) {
         organizationId
     );
 
-    const today =
-        new Date()
-            .toISOString()
-            .split("T")[0];
+    const today = toISODate(new Date());
 
     const data =
         await apiGet(
@@ -4105,7 +4089,7 @@ function renderCashFlow(data) {
           ? now
           : new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
 
-      const toISO = d => d.toISOString().split("T")[0];
+      const toISO = d => toISODate(d);
 
       periods.push({
         startDate: toISO(periodStart),
