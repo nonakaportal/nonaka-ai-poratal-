@@ -29,7 +29,7 @@ class QuickBooksService {
         // racing to redeem the same refresh token.
         this._refreshPromises = new Map();
 
-        console.log('🔧 QuickBooks service initialized');
+        console.log('QuickBooks service initialized');
     }
 
     // ==========================================================
@@ -158,7 +158,7 @@ class QuickBooksService {
             return response.data;
         } catch (error) {
             console.error(
-                '❌ Error exchanging code for tokens:',
+                'Error exchanging code for tokens:',
                 error.response?.data || error.message
             );
 
@@ -201,7 +201,7 @@ class QuickBooksService {
             return response.data;
         } catch (error) {
             console.error(
-                '❌ Error refreshing access token:',
+                'Error refreshing access token:',
                 error.response?.data || error.message
             );
 
@@ -252,7 +252,7 @@ class QuickBooksService {
 
     async _refreshAndPersist(connection) {
         console.log(
-            '🔄 QuickBooks access token expired. Refreshing...'
+            'QuickBooks access token expired. Refreshing...'
         );
 
         if (!connection.refreshToken) {
@@ -298,7 +298,7 @@ class QuickBooksService {
         connection.expiresAt = Date.now() + expiresIn * 1000;
 
         console.log(
-            '✅ QuickBooks access token refreshed and saved'
+            'QuickBooks access token refreshed and saved'
         );
 
         return accessToken;
@@ -345,7 +345,7 @@ class QuickBooksService {
             return response.data;
         } catch (error) {
             console.error(
-                '❌ QuickBooks API request failed:',
+                'QuickBooks API request failed:',
                 error.response?.data || error.message
             );
 
@@ -379,7 +379,7 @@ class QuickBooksService {
             return response.data;
         } catch (error) {
             console.error(
-                '❌ Failed to fetch CompanyInfo:',
+                'Failed to fetch CompanyInfo:',
                 error.response?.data || error.message
             );
 
@@ -410,7 +410,7 @@ class QuickBooksService {
             );
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Profit & Loss:',
+                'Failed to fetch Profit & Loss:',
                 error.response?.data || error.message
             );
 
@@ -882,7 +882,7 @@ class QuickBooksService {
         // ======================================================
 
         console.log(
-            "📊 P&L ACCOUNT COUNTS:",
+            "P&L ACCOUNT COUNTS:",
             {
 
                 income:
@@ -906,7 +906,7 @@ class QuickBooksService {
 
 
         console.log(
-            "📊 P&L ACCOUNT DETAILS:",
+            "P&L ACCOUNT DETAILS:",
             result.accounts
         );
 
@@ -917,7 +917,7 @@ class QuickBooksService {
     } catch (error) {
 
         console.error(
-            "❌ Failed to parse Profit & Loss:",
+            "Failed to parse Profit & Loss:",
             error.message
         );
 
@@ -948,7 +948,7 @@ class QuickBooksService {
             );
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Accounts Receivable:',
+                'Failed to fetch Accounts Receivable:',
                 error.response?.data || error.message
             );
 
@@ -972,7 +972,7 @@ class QuickBooksService {
             );
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Accounts Payable:',
+                'Failed to fetch Accounts Payable:',
                 error.response?.data || error.message
             );
 
@@ -1005,7 +1005,7 @@ class QuickBooksService {
         } catch (error) {
     
             console.error(
-                '❌ Failed to fetch invoices:',
+                'Failed to fetch invoices:',
                 error.response?.data ||
                 error.message
             );
@@ -1039,7 +1039,7 @@ class QuickBooksService {
         } catch (error) {
     
             console.error(
-                "❌ Failed to fetch QuickBooks accounts:",
+                "Failed to fetch QuickBooks accounts:",
                 error.response?.data ||
                 error.message
             );
@@ -1188,7 +1188,7 @@ class QuickBooksService {
         } catch (error) {
     
             console.error(
-                '❌ Failed to fetch expense transactions:',
+                'Failed to fetch expense transactions:',
                 error.response?.data ||
                 error.message
             );
@@ -1225,7 +1225,7 @@ class QuickBooksService {
             );
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Balance Sheet:',
+                'Failed to fetch Balance Sheet:',
                 error.response?.data || error.message
             );
 
@@ -1257,7 +1257,7 @@ class QuickBooksService {
                 date.toISOString().slice(0, 10);
     
             console.log(
-                "💰 Fetching opening cash as of:",
+                "Fetching opening cash as of:",
                 previousDate
             );
     
@@ -1364,7 +1364,7 @@ class QuickBooksService {
     
     
             console.log(
-                "💰 Opening Cash:",
+                "Opening Cash:",
                 openingCash
             );
     
@@ -1377,7 +1377,7 @@ class QuickBooksService {
         } catch (error) {
     
             console.error(
-                "❌ Failed to fetch opening cash:",
+                "Failed to fetch opening cash:",
                 error.response?.data ||
                 error.message
             );
@@ -1409,7 +1409,7 @@ class QuickBooksService {
             );
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Cash Flow:',
+                'Failed to fetch Cash Flow:',
                 error.response?.data || error.message
             );
 
@@ -1676,7 +1676,7 @@ class QuickBooksService {
     // ==========================================================
 
     console.log(
-        "💵 Cash Flow parsed:",
+        "Cash Flow parsed:",
         {
             operating:
                 result.operatingActivities,
@@ -2219,7 +2219,7 @@ class QuickBooksService {
     if (!result.isBalanced) {
 
         console.error(
-            '⚠️ Balance Sheet does not balance:',
+            'Balance Sheet does not balance:',
             {
                 totalAssets:
                     result.totalAssets,
@@ -2239,7 +2239,7 @@ class QuickBooksService {
     // ============================================================
 
     console.log(
-        '📊 Balance Sheet parsed:',
+        'Balance Sheet parsed:',
         {
             totalAssets:
                 result.totalAssets,
@@ -2618,7 +2618,7 @@ parseAccountsPayable(report) {
 
 
         console.log(
-            "📊 AP NORMALIZED DATA:",
+            "AP NORMALIZED DATA:",
             result
         );
 
@@ -2629,7 +2629,7 @@ parseAccountsPayable(report) {
     } catch (error) {
 
         console.error(
-            "❌ Failed to parse Accounts Payable:",
+            "Failed to parse Accounts Payable:",
             error.message
         );
 

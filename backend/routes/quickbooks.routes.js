@@ -85,13 +85,13 @@ router.get('/connect-url', requireOrgAccess, (req, res) => {
             );
 
         console.log(
-            '🔗 Issuing QuickBooks authorization URL...'
+            'Issuing QuickBooks authorization URL...'
         );
 
         res.json({ authUrl });
     } catch (error) {
         console.error(
-            '❌ Error generating QB auth URL:',
+            'Error generating QB auth URL:',
             error
         );
 
@@ -148,7 +148,7 @@ router.get('/callback', async (req, res) => {
             stateData.organizationId;
 
         console.log(
-            '🏢 Organization:',
+            'Organization:',
             organizationId
         );
 
@@ -157,7 +157,7 @@ router.get('/callback', async (req, res) => {
         // --------------------------------------------------------
 
         console.log(
-            '🔄 Exchanging QuickBooks authorization code...'
+            'Exchanging QuickBooks authorization code...'
         );
 
         const tokens =
@@ -198,7 +198,7 @@ router.get('/callback', async (req, res) => {
             );
 
         console.log(
-            '✅ QuickBooks connection saved to Supabase'
+            'QuickBooks connection saved to Supabase'
         );
 
         console.log(
@@ -217,7 +217,7 @@ router.get('/callback', async (req, res) => {
         );
     } catch (error) {
         console.error(
-            '❌ OAuth callback failed:',
+            'OAuth callback failed:',
             error.response?.data ||
             error.message
         );
@@ -282,7 +282,7 @@ router.get('/status', requireOrgAccess, async (req, res) => {
                 companyInfo?.CompanyInfo?.CompanyName || null;
         } catch (companyError) {
             console.error(
-                '❌ Failed to fetch company name for status:',
+                'Failed to fetch company name for status:',
                 companyError.response?.data ||
                 companyError.message
             );
@@ -301,7 +301,7 @@ router.get('/status', requireOrgAccess, async (req, res) => {
         });
     } catch (error) {
         console.error(
-            '❌ Failed to check QuickBooks status:',
+            'Failed to check QuickBooks status:',
             error
         );
 
@@ -348,7 +348,7 @@ router.get('/expenses', requireOrgAccess, async (req, res) => {
     } catch (error) {
 
         console.error(
-            '❌ Failed to fetch QuickBooks expenses:',
+            'Failed to fetch QuickBooks expenses:',
             error.response?.data ||
             error.message
         );
@@ -401,7 +401,7 @@ router.get('/accounts-test', requireOrgAccess, async (req, res) => {
             );
 
         console.log(
-            "📊 QUICKBOOKS ACCOUNTS:",
+            "QUICKBOOKS ACCOUNTS:",
             JSON.stringify(
                 data,
                 null,
@@ -418,7 +418,7 @@ router.get('/accounts-test', requireOrgAccess, async (req, res) => {
     } catch (error) {
 
         console.error(
-            '❌ Failed to fetch QuickBooks accounts:',
+            'Failed to fetch QuickBooks accounts:',
             error.response?.data ||
             error.message
         );
@@ -519,7 +519,7 @@ router.get('/debt', requireOrgAccess, async (req, res) => {
     } catch (error) {
 
         console.error(
-            '❌ Failed to fetch debt:',
+            'Failed to fetch debt:',
             error.response?.data ||
             error.message
         );
@@ -572,13 +572,13 @@ router.get('/company', requireOrgAccess, async (req, res) => {
             );
 
         console.log(
-            '✅ CompanyInfo received from QuickBooks'
+            'CompanyInfo received from QuickBooks'
         );
 
         res.json(companyInfo);
     } catch (error) {
         console.error(
-            '❌ Failed to fetch company information:',
+            'Failed to fetch company information:',
             error.response?.data ||
             error.message
         );
@@ -653,7 +653,7 @@ router.get(
                 report
             );
             console.log(
-                "✅ NORMALIZED P&L:",
+                "NORMALIZED P&L:",
                 normalizedReport
             );
             return res.json(normalizedReport);
@@ -661,7 +661,7 @@ router.get(
         } catch (error) {
 
             console.error(
-                '❌ Failed to fetch Profit & Loss:',
+                'Failed to fetch Profit & Loss:',
                 error.response?.data ||
                 error.message
             );
@@ -737,7 +737,7 @@ router.get(
             res.json(normalizedReport);
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Balance Sheet:',
+                'Failed to fetch Balance Sheet:',
                 error.response?.data ||
                 error.message
             );
@@ -828,19 +828,19 @@ router.get(
                 normalizedReport.endingCash;
 
                 console.log(
-            "✅ FINAL Cash Flow Opening Cash:",
+            "FINAL Cash Flow Opening Cash:",
             normalizedReport.openingCash
         );
         
         console.log(
-            "✅ FINAL Cash Flow Closing Cash:",
+            "FINAL Cash Flow Closing Cash:",
             normalizedReport.closingCash
         );
 
             res.json(normalizedReport);
         } catch (error) {
             console.error(
-                '❌ Failed to fetch Cash Flow:',
+                'Failed to fetch Cash Flow:',
                 error.response?.data ||
                 error.message
             );
@@ -919,7 +919,7 @@ router.get(
         } catch (error) {
 
             console.error(
-                '❌ Failed to fetch Accounts Receivable:',
+                'Failed to fetch Accounts Receivable:',
                 error.response?.data ||
                 error.message
             );
@@ -945,7 +945,7 @@ router.get(
 
 
             console.log(
-                "📥 AP REQUEST:",
+                "AP REQUEST:",
                 {
                     organizationId,
                     startDate
@@ -980,7 +980,7 @@ router.get(
 
 
             console.log(
-                "🔗 AP CONNECTION:",
+                "AP CONNECTION:",
                 !!connection
             );
 
@@ -1002,13 +1002,13 @@ router.get(
 
 
             console.log(
-                "🔑 AP ACCESS TOKEN:",
+                "AP ACCESS TOKEN:",
                 !!accessToken
             );
 
 
             console.log(
-                "📡 Calling QuickBooks AgedPayables..."
+                "Calling QuickBooks AgedPayables..."
             );
 
 
@@ -1021,7 +1021,7 @@ router.get(
 
 
             console.log(
-                "📊 RAW AP REPORT:",
+                "RAW AP REPORT:",
                 JSON.stringify(
                     report,
                     null,
@@ -1037,7 +1037,7 @@ router.get(
 
 
             console.log(
-                "✅ NORMALIZED AP:",
+                "NORMALIZED AP:",
                 normalizedReport
             );
 
@@ -1050,14 +1050,14 @@ router.get(
         } catch (error) {
 
             console.error(
-                '❌ FAILED TO FETCH ACCOUNTS PAYABLE:',
+                'FAILED TO FETCH ACCOUNTS PAYABLE:',
                 error.response?.data ||
                 error.message
             );
 
 
             console.error(
-                '❌ FULL ERROR:',
+                'FULL ERROR:',
                 error
             );
 
@@ -1113,7 +1113,7 @@ router.get(
                 );
 
             console.log(
-                "📄 RAW INVOICES:",
+                "RAW INVOICES:",
                 JSON.stringify(
                     invoices,
                     null,
@@ -1128,7 +1128,7 @@ router.get(
         } catch (error) {
 
             console.error(
-                '❌ Failed to fetch invoices:',
+                'Failed to fetch invoices:',
                 error.response?.data ||
                 error.message
             );

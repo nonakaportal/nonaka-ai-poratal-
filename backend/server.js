@@ -4,6 +4,7 @@ require('dotenv').config({
   path: '../.env'
 });
 
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -49,8 +50,23 @@ const PORT =
 // different port). Helmet's default Cross-Origin-Resource-Policy is
 // same-origin, which would make browsers block the response even
 // though CORS allows it — relax just that one header for a JSON API.
+// The frontend uses inline style="..."/onclick="..." attributes throughout
+// index.html, plus the Chart.js CDN script and Google Fonts — Helmet's
+// default CSP (script-src/style-src 'self' only) blocks all of that, so
+// it's opened up to exactly what this app actually loads.
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"]
+    }
+  }
 }));
 
 // Wide-open CORS (the previous `cors()` with no options) let any
@@ -76,6 +92,13 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '1mb' }));
+
+// Serve the frontend from the same origin/port as the API. This is what
+// lets api.js/auth.js/app.js call relative paths ("/api/...") and avoids
+// CORS entirely in any environment where this server is the one hosting
+// the frontend — the FRONTEND_URL allowlist above only matters when the
+// frontend is served separately (e.g. local Live Server on :5500).
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Login/signup are the only unauthenticated, credential-checking
 // routes in the app — the natural target for brute-force and
@@ -163,7 +186,7 @@ app.use((err, req, res, next) => {
     return res.status(403).json({ error: 'Origin not allowed' });
   }
 
-  console.error('❌ Unhandled error:', err);
+  console.error('Unhandled error:', err);
 
   res.status(err.status || 500).json({
     error: 'Something went wrong. Please try again.'
@@ -178,15 +201,15 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
 
   console.log(
-    `🚀 Server running on http://localhost:${PORT}`
+    `Server running on http://localhost:${PORT}`
   );
 
   console.log(
-    `📊 Health check: http://localhost:${PORT}/api/health`
+    `Health check: http://localhost:${PORT}/api/health`
   );
 
   console.log(
-    `🔗 QB Status check: http://localhost:${PORT}/api/quickbooks/status`
+    `QB Status check: http://localhost:${PORT}/api/quickbooks/status`
   );
 
 });

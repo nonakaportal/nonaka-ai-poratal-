@@ -5,8 +5,8 @@
 
 console.log("🔐 Auth module loaded");
 
-const AUTH_API = "http://localhost:3000/api/auth";
-const QB_API = "http://localhost:3000/api";
+const AUTH_API = "/api/auth";
+const QB_API = "/api";
 
 // ------------------------------------------------------------
 // SIGN UP

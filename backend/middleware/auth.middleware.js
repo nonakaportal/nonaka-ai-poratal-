@@ -58,7 +58,7 @@ async function requireOrgAccess(req, res, next) {
         req.user = user;
         next();
     } catch (error) {
-        console.error('❌ Auth middleware failed:', error.message);
+        console.error('Auth middleware failed:', error.message);
 
         res.status(500).json({
             error: 'Failed to verify authentication'

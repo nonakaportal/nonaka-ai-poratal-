@@ -51,7 +51,7 @@
 
   const API_BASE =
     window.NFK_CONFIG?.API_BASE ||
-    "http://localhost:3000/api";
+    "/api";
 
   function getOrganizationId() {
     return (

@@ -18,7 +18,7 @@ class SupabaseService {
         // Uses the service-role key because this service runs on the server.
         this.client = this._buildClient();
 
-        console.log("✅ Supabase service initialized");
+        console.log("Supabase service initialized");
     }
 
     // ==========================================================
@@ -78,7 +78,7 @@ class SupabaseService {
                 lastError = error;
 
                 console.warn(
-                    `⚠️ ${label} failed (attempt ${attempt}/${retries}):`,
+                    `${label} failed (attempt ${attempt}/${retries}):`,
                     error.message || error
                 );
 
@@ -298,7 +298,7 @@ class SupabaseService {
 
                 if (error) {
                     console.error(
-                        "❌ saveQuickBooksTokens Supabase error:",
+                        "saveQuickBooksTokens Supabase error:",
                         {
                             code: error.code,
                             message: error.message,
@@ -318,7 +318,7 @@ class SupabaseService {
 
     async getQuickBooksTokens(organizationId) {
         console.log(
-            "🔎 Looking up QuickBooks connection:",
+            "Looking up QuickBooks connection:",
             organizationId
         );
 
@@ -332,7 +332,7 @@ class SupabaseService {
 
                 if (error) {
                     console.error(
-                        "❌ Supabase QuickBooks lookup failed:",
+                        "Supabase QuickBooks lookup failed:",
                         error
                     );
 
@@ -340,7 +340,7 @@ class SupabaseService {
                 }
 
                 console.log(
-                    "✅ QuickBooks connection found:",
+                    "QuickBooks connection found:",
                     data
                         ? {
                             id: data.id,
@@ -396,7 +396,7 @@ class SupabaseService {
 
                 if (error) {
                     console.error(
-                        "❌ updateQuickBooksTokens Supabase error:",
+                        "updateQuickBooksTokens Supabase error:",
                         {
                             code: error.code,
                             message: error.message,

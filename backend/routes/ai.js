@@ -20,7 +20,7 @@ router.use(requireOrgAccess);
 // ============================================================
 
 function handleAIError(error, res, label) {
-    console.error(`❌ ${label} failed:`, error.message);
+    console.error(`${label} failed:`, error.message);
 
     if (error.code === "AI_KEY_NOT_CONFIGURED") {
         return res.status(503).json({
@@ -193,7 +193,7 @@ router.post("/ask", async (req, res) => {
             });
         }
 
-        console.log("🤖 Nonaka AI question:", question);
+        console.log("Nonaka AI question:", question);
 
         const snapshot =
             await financialContext.buildFinancialSnapshot(organizationId);
