@@ -5,8 +5,9 @@
 
 console.log("🔐 Auth module loaded");
 
-const AUTH_API = "/api/auth";
-const QB_API = "/api";
+const API_BASE = window.NFK_CONFIG?.API_BASE || "/api";
+const AUTH_API = `${API_BASE}/auth`;
+const QB_API = API_BASE;
 
 // ------------------------------------------------------------
 // SIGN UP

@@ -141,6 +141,20 @@ const starts = [
 ];
 
 
+  // Scale the Y-axis to the data instead of a fixed/auto range, with
+  // headroom reserved for the value labels the cashFlowLabelsPlugin
+  // draws above/below each bar — otherwise a bar near the axis max
+  // gets its label clipped by the canvas edge (small values get a
+  // tight range, large values get a proportionally wider one).
+  const positiveMax = Math.max(0, ...barValues);
+  const negativeMin = Math.min(0, ...barValues);
+  const valueRange = (positiveMax - negativeMin) || 1;
+  const axisPadding = valueRange * 0.2;
+
+  const yAxisMax = positiveMax + axisPadding;
+  const yAxisMin = negativeMin < 0 ? negativeMin - axisPadding : 0;
+
+
   const barColors = [
     colors.primary,
 
@@ -342,6 +356,8 @@ const cashFlowLabelsPlugin = {
 
               stacked: true,
               beginAtZero: true,
+              suggestedMax: yAxisMax,
+              suggestedMin: yAxisMin,
 
             grid: {
               color: ctx =>

@@ -807,23 +807,30 @@ router.get(
                     endDate
                 );
 
-            const openingCash =
-    await quickbooksService.getOpeningCashBalance(
-        accessToken,
-        connection.realmId,
-        startDate
-     );
-
             const normalizedReport =
                 quickbooksService.parseCashFlow(
                     report
                 );
-            normalizedReport.openingCash =
-                openingCash.amount;
-            
-            normalizedReport.openingCashDate =
-                openingCash.date;
-            
+
+            // parseCashFlow reads the real "Cash at beginning of period"
+            // figure straight from QuickBooks' own report — matches the
+            // sandbox exactly. Only fall back to estimating it from the
+            // prior day's Balance Sheet if that row wasn't present.
+            if (!normalizedReport.openingCash) {
+                const openingCash =
+                    await quickbooksService.getOpeningCashBalance(
+                        accessToken,
+                        connection.realmId,
+                        startDate
+                    );
+
+                normalizedReport.openingCash =
+                    openingCash.amount;
+
+                normalizedReport.openingCashDate =
+                    openingCash.date;
+            }
+
             normalizedReport.closingCash =
                 normalizedReport.endingCash;
 

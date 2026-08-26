@@ -1499,10 +1499,47 @@ class QuickBooksService {
                         result.cashIncrease = value;
                         break;
 
+                    case "BeginningCash":
+                        result.openingCash = value;
+                        break;
+
                     case "EndingCash":
                         result.endingCash = value;
                         break;
 
+                }
+            }
+
+            // "Cash at beginning of period" isn't guaranteed to carry
+            // the `group` value matched above, and — unlike the section
+            // totals — it may be a flat data row (plain ColData) rather
+            // than a row with a nested Summary. Match on the row's own
+            // label text against both shapes so the real QuickBooks
+            // figure is used instead of falling through to the Balance
+            // Sheet estimate.
+            if (result.openingCash === 0) {
+                const label =
+                    String(
+                        row?.Summary?.ColData?.[0]?.value ||
+                        row?.ColData?.[0]?.value ||
+                        row?.Header?.ColData?.[0]?.value ||
+                        ""
+                    ).toLowerCase();
+
+                const rawValue =
+                    row?.Summary?.ColData?.[1]?.value ??
+                    row?.ColData?.[1]?.value;
+
+                if (
+                    rawValue !== undefined &&
+                    label.includes("cash") &&
+                    (
+                        label.includes("beginning") ||
+                        label.includes("opening")
+                    )
+                ) {
+                    result.openingCash =
+                        Number(rawValue) || 0;
                 }
             }
 
