@@ -773,6 +773,53 @@ async function connectQB(_isRetry = false) {
 
 
 // ------------------------------------------------------------
+// DISCONNECT QUICKBOOKS (wrong company was connected)
+// ------------------------------------------------------------
+
+async function disconnectQB() {
+    const organizationId = getOrganizationId();
+    const token = getAccessToken();
+
+    if (!organizationId || !token) {
+        return;
+    }
+
+    if (!confirm("Disconnect this QuickBooks company? You can reconnect with the right account afterward.")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${QB_API}/quickbooks/disconnect?organizationId=${encodeURIComponent(organizationId)}`,
+            {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error("Failed to disconnect");
+        }
+
+        alert("Disconnected. Before reconnecting, sign out of QuickBooks/Intuit in this browser (or use a private window) so it prompts you to choose the right account.");
+
+        showView("view-connect-qb");
+
+        const connectingEl = document.getElementById("qb-state-connecting");
+        const successEl = document.getElementById("qb-state-success");
+        const idleEl = document.getElementById("qb-state-idle");
+
+        if (connectingEl) connectingEl.style.display = "none";
+        if (successEl) successEl.style.display = "none";
+        if (idleEl) idleEl.style.display = "block";
+    } catch (error) {
+        console.error("❌ Failed to disconnect QuickBooks:", error);
+        alert("Couldn't disconnect. Please try again.");
+    }
+}
+
+
+// ------------------------------------------------------------
 // QUICKBOOKS CONNECTING ANIMATION
 // ------------------------------------------------------------
 
@@ -837,9 +884,27 @@ function runQBConnectAnimation() {
         if (step >= QB_CONNECT_STEPS.length) {
             clearInterval(interval);
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (connectingEl) connectingEl.style.display = "none";
                 if (successEl) successEl.style.display = "block";
+
+                // Show which company actually got connected — Intuit can
+                // silently authorize whatever account is already logged
+                // into this browser, so surfacing the name here is what
+                // lets the user catch a wrong connection instead of
+                // assuming it's correct.
+                const companyEl = document.getElementById("qb-connected-company");
+
+                if (companyEl) {
+                    try {
+                        const status = await checkQBStatus();
+                        companyEl.textContent = status?.companyName
+                            ? `Connected to: ${status.companyName}`
+                            : "";
+                    } catch {
+                        companyEl.textContent = "";
+                    }
+                }
 
                 const step2 = document.getElementById("qb-onboard-step-2");
                 const line2 = document.getElementById("qb-onboard-line-2");
@@ -961,6 +1026,7 @@ window.NFK_Auth = {
     forgotPassword,
     sendReset,
     connectQB,
+    disconnectQB,
     enterPortal
 };
 

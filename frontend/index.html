@@ -243,6 +243,8 @@
  <div class="onboard-icon-wrap" style="color:var(--positive);font-size:48px;">✓</div>
  <h2 class="onboard-h2">Connected Successfully!</h2>
  <p class="onboard-p">Your QuickBooks data has been imported. You're ready to explore your financial dashboard.</p>
+ <p class="onboard-p" style="font-weight:600;" id="qb-connected-company"></p>
+ <p class="onboard-p" style="font-size:13px;">Not your company? QuickBooks may have used an account already signed in on this browser. <a href="#" onclick="NFK_Auth.disconnectQB();return false;" style="color:var(--accent);">Disconnect and try again</a>.</p>
  <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_Auth.enterPortal()">Enter Portal →</button>
  </div>
  </div>

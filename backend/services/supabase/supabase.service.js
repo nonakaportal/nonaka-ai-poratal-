@@ -356,6 +356,29 @@ class SupabaseService {
             { label: "getQuickBooksTokens" }
         );
     }
+    // Lets a user unlink a wrongly-connected QuickBooks company — e.g. a
+    // stale Intuit browser session auto-authorized the wrong company
+    // during OAuth instead of prompting for login. Deleting the row
+    // (rather than just clearing tokens) lets a fresh /connect-url flow
+    // upsert cleanly afterward.
+    async deleteQuickBooksTokens(organizationId) {
+        return this._withRetry(
+            async () => {
+                const { error } = await this._buildClient()
+                    .from("quickbooks_connections")
+                    .delete()
+                    .eq("organization_id", organizationId);
+
+                if (error) {
+                    throw error;
+                }
+
+                return true;
+            },
+            { label: "deleteQuickBooksTokens" }
+        );
+    }
+
     async createProfile(userId, fullName) {
         const { data, error } = await this._buildClient()
             .from("profiles")

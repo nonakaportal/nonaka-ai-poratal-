@@ -233,6 +233,45 @@ router.get('/callback', async (req, res) => {
 });
 
 // ============================================================
+// DELETE /api/quickbooks/disconnect
+//
+// Unlinks whatever QuickBooks company is currently connected to this
+// organization. Needed because OAuth can silently connect the wrong
+// company — Intuit auto-authorizes using whatever account is already
+// logged into the browser, with no confirmation step — so users need
+// a way to undo that and reconnect with the right account.
+// ============================================================
+
+router.delete('/disconnect', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        await supabaseService.deleteQuickBooksTokens(
+            organizationId
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error(
+            'Failed to disconnect QuickBooks:',
+            error
+        );
+
+        res.status(500).json({
+            error: 'Failed to disconnect QuickBooks'
+        });
+    }
+});
+
+// ============================================================
 // GET /api/quickbooks/status
 // ============================================================
 
