@@ -138,9 +138,16 @@ async function handleSignup() {
             data
         );
 
-        alert(
-            "Account created successfully!"
-        );
+        if (data.needsEmailConfirmation) {
+            alert(
+                "Account created! Check your email for a confirmation " +
+                "link before logging in."
+            );
+        } else {
+            alert(
+                "Account created successfully!"
+            );
+        }
 
         showLogin();
 
@@ -669,9 +676,28 @@ function forgotPassword() {
     }
 }
 
-function sendReset() {
+async function sendReset() {
+    const emailInput = document.getElementById("forgot-email");
+    const email = emailInput ? emailInput.value.trim() : "";
     const successEl = document.getElementById("forgot-success");
 
+    if (!email) {
+        alert("Please enter your email address.");
+        return;
+    }
+
+    try {
+        await fetch(`${AUTH_API}/forgot-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+        });
+    } catch (error) {
+        console.error("❌ Forgot password request failed:", error);
+    }
+
+    // Shown regardless of outcome, on purpose — matches the backend
+    // never revealing whether that email actually has an account.
     if (successEl) {
         successEl.style.display = "block";
     }

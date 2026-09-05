@@ -24,10 +24,15 @@ router.post("/signup", async (req, res) => {
             });
         }
 
-        // 1. Create Supabase Auth user
-        const user = await supabaseService.signUpUser(
+        // 1. Create Supabase Auth user (sends a real confirmation email —
+        // see signUpUser's comment for why admin.createUser isn't used)
+        const confirmRedirect =
+            `${process.env.FRONTEND_URL || "http://127.0.0.1:5500"}/index.html?confirmed=true`;
+
+        const { user, needsEmailConfirmation } = await supabaseService.signUpUser(
             email,
-            password
+            password,
+            confirmRedirect
         );
 
         // 2. Create profile
@@ -57,7 +62,8 @@ router.post("/signup", async (req, res) => {
             },
             profile,
             organization,
-            userOrganization
+            userOrganization,
+            needsEmailConfirmation
         });
 
     } catch (error) {
@@ -195,6 +201,97 @@ router.post("/refresh", async (req, res) => {
             success: false,
             error: error.message,
             code: "AUTH_INVALID"
+        });
+    }
+});
+
+
+// ============================================================
+// FORGOT PASSWORD — sends Supabase's real reset email
+// ============================================================
+
+router.post("/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: "email is required"
+            });
+        }
+
+        const redirectTo =
+            `${process.env.FRONTEND_URL || "http://127.0.0.1:5500"}/reset-password.html`;
+
+        try {
+            await supabaseService.sendPasswordResetEmail(email, redirectTo);
+        } catch (error) {
+            // Swallowed on purpose: responding differently for a
+            // nonexistent email vs. a real one would let an attacker
+            // enumerate which addresses have accounts. Still logged
+            // server-side for debugging.
+            console.error("Password reset email failed:", error.message);
+        }
+
+        res.json({
+            success: true,
+            message: "If an account exists for that email, a reset link has been sent."
+        });
+
+    } catch (error) {
+        console.error("Forgot password failed:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Failed to process request"
+        });
+    }
+});
+
+
+// ============================================================
+// RESET PASSWORD — called from reset-password.html with the
+// access_token Supabase put in the emailed link
+// ============================================================
+
+router.post("/reset-password", async (req, res) => {
+    try {
+        const { access_token, password } = req.body;
+
+        if (!access_token || !password) {
+            return res.status(400).json({
+                success: false,
+                error: "access_token and password are required"
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: "Password must be at least 6 characters"
+            });
+        }
+
+        const user = await supabaseService.getUserFromToken(access_token);
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                error: "This reset link is invalid or has expired"
+            });
+        }
+
+        await supabaseService.updateUserPassword(user.id, password);
+
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error("Reset password failed:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Failed to reset password"
         });
     }
 });

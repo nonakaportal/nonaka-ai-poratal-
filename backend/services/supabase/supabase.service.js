@@ -97,17 +97,58 @@ class SupabaseService {
     // AUTH
     // ==========================================================
     
-    async signUpUser(email, password) {
-        const { data, error } = await this._buildClient().auth.admin.createUser({
+    // Uses the public signUp() call (not admin.createUser) specifically so
+    // Supabase actually sends a confirmation email — admin.createUser is a
+    // bypass endpoint that never emails anyone. With "Confirm email"
+    // enabled in the Supabase project (the default), data.session comes
+    // back null until the user clicks that email's link; callers use
+    // needsEmailConfirmation to tell the user to check their inbox instead
+    // of silently treating signup as fully complete.
+    async signUpUser(email, password, redirectTo) {
+        const { data, error } = await this._buildClient().auth.signUp({
             email,
             password,
-            email_confirm: true
+            options: redirectTo
+                ? { emailRedirectTo: redirectTo }
+                : undefined
         });
-    
+
         if (error) {
             throw error;
         }
-    
+
+        return {
+            user: data.user,
+            needsEmailConfirmation: !data.session
+        };
+    }
+
+    // Sends Supabase's real "reset your password" email. Errors are
+    // swallowed by the caller (auth.routes.js) so the response never
+    // reveals whether an email address has an account — only whether the
+    // request itself was malformed.
+    async sendPasswordResetEmail(email, redirectTo) {
+        const { error } = await this._buildClient()
+            .auth.resetPasswordForEmail(email, { redirectTo });
+
+        if (error) {
+            throw error;
+        }
+
+        return true;
+    }
+
+    // Called after verifying the access_token from the reset-password
+    // email link (see getUserFromToken) — sets the new password via the
+    // admin API rather than requiring the client to hold a live session.
+    async updateUserPassword(userId, newPassword) {
+        const { data, error } = await this._buildClient()
+            .auth.admin.updateUserById(userId, { password: newPassword });
+
+        if (error) {
+            throw error;
+        }
+
         return data.user;
     }
     
