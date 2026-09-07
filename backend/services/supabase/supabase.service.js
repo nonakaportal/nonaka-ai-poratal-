@@ -117,6 +117,45 @@ class SupabaseService {
             throw error;
         }
 
+        const alreadyRegistered = () => {
+            const err = new Error(
+                "An account with this email already exists. Please log in instead."
+            );
+
+            err.code = "EMAIL_ALREADY_REGISTERED";
+
+            return err;
+        };
+
+        // Case 1 — already registered AND confirmed: Supabase's
+        // anti-enumeration behavior returns a decoy user object
+        // (identities: []) instead of erroring, so an attacker can't
+        // tell "already registered" apart from "signup succeeded" by
+        // response shape alone. That decoy id has no real row behind
+        // it — creating a profile/org for it fails downstream with a
+        // confusing foreign-key error instead of a clear message.
+        if (data.user && data.user.identities?.length === 0) {
+            throw alreadyRegistered();
+        }
+
+        // Case 2 — already registered but never confirmed, signing up
+        // again: Supabase treats this as "resend the confirmation
+        // email" and returns the same *real* existing user (not a
+        // decoy), which already has a profile row from the first
+        // attempt. Blindly creating one again hits a unique-constraint
+        // violation, so check first instead of letting that happen.
+        if (data.user) {
+            const { data: existingProfile } = await this._buildClient()
+                .from("profiles")
+                .select("id")
+                .eq("id", data.user.id)
+                .maybeSingle();
+
+            if (existingProfile) {
+                throw alreadyRegistered();
+            }
+        }
+
         return {
             user: data.user,
             needsEmailConfirmation: !data.session

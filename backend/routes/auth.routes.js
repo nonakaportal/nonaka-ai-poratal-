@@ -69,6 +69,25 @@ router.post("/signup", async (req, res) => {
     } catch (error) {
         console.error("Signup failed:", error);
 
+        // Backstop for duplicate-email signups Supabase's own response
+        // didn't clearly flag ahead of time (see signUpUser's comments):
+        // a decoy id with no real row hits a foreign-key violation
+        // (23503) on the profiles insert, a real existing id hits a
+        // unique-constraint violation (23505). Either way, it always
+        // means "this email already has an account" — never leak the
+        // raw Postgres error for that.
+        const isDuplicateEmail =
+            error.code === "EMAIL_ALREADY_REGISTERED" ||
+            error.code === "23503" ||
+            error.code === "23505";
+
+        if (isDuplicateEmail) {
+            return res.status(409).json({
+                success: false,
+                error: "An account with this email already exists. Please log in instead."
+            });
+        }
+
         res.status(500).json({
             success: false,
             error: error.message
