@@ -59,7 +59,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      // No 'unsafe-inline' here on purpose — every page loads its JS from
+      // a real file (js/*.js), so inline <script> blocks are never
+      // needed and CSP can actually block one if an injection point ever
+      // appears. Inline onclick="..." attributes still need
+      // scriptSrcAttr below — that's a narrower allowance than this.
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
       scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
