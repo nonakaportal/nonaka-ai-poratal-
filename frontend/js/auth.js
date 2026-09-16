@@ -167,7 +167,18 @@ async function handleSignup() {
 
 // ------------------------------------------------------------
 // LOGIN
+//
+// Two steps now: this function only verifies the password and asks
+// the backend to email a 6-digit code — it never receives a session.
+// verifyLoginOtp() below is what actually completes login. Both the
+// code itself and its verification happen entirely server-side; this
+// file only collects input and calls the two endpoints.
 // ------------------------------------------------------------
+
+// Holds the email between the password step and the OTP step. Not
+// persisted anywhere — a fresh page load means starting over at login,
+// which is intentional for a pending, unverified login attempt.
+let pendingLoginEmail = null;
 
 async function login(email, password) {
 
@@ -203,14 +214,54 @@ async function login(email, password) {
             throw new Error(data.error || "Login failed");
         }
 
+        console.log("✅ Password verified — code sent to email");
+
+        pendingLoginEmail = email;
+
+        showOtpStep(email);
+
+        return data;
+
+    } catch (error) {
+        console.error("❌ Login failed:", error);
+        throw error;
+    }
+}
+
+
+// ------------------------------------------------------------
+// VERIFY LOGIN OTP — completes login. Everything login() used to do
+// after a successful password check now happens here instead, once
+// the emailed code is confirmed.
+// ------------------------------------------------------------
+
+async function verifyLoginOtp(otp) {
+    if (!pendingLoginEmail) {
+        throw new Error("Please log in again.");
+    }
+
+    try {
+        const response = await fetch(`${AUTH_API}/verify-login-otp`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                email: pendingLoginEmail,
+                otp
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Verification failed");
+        }
+
         console.log("✅ Login successful");
         console.log("👤 User:", data.user);
         console.log("🏢 Organization:", data.organization);
         console.log("🔗 User Organization:", data.userOrganization);
-
-        // ----------------------------------------------------
-        // SAVE USER
-        // ----------------------------------------------------
 
         if (data.user) {
             localStorage.setItem(
@@ -219,20 +270,12 @@ async function login(email, password) {
             );
         }
 
-        // ----------------------------------------------------
-        // SAVE PROFILE
-        // ----------------------------------------------------
-
         if (data.profile) {
             localStorage.setItem(
                 "nfk_profile",
                 JSON.stringify(data.profile)
             );
         }
-
-        // ----------------------------------------------------
-        // SAVE ORGANIZATION
-        // ----------------------------------------------------
 
         if (data.organization) {
             localStorage.setItem(
@@ -251,20 +294,12 @@ async function login(email, password) {
             );
         }
 
-        // ----------------------------------------------------
-        // SAVE USER ORGANIZATION
-        // ----------------------------------------------------
-
         if (data.userOrganization) {
             localStorage.setItem(
                 "nfk_user_organization",
                 JSON.stringify(data.userOrganization)
             );
         }
-
-        // ----------------------------------------------------
-        // SAVE SESSION
-        // ----------------------------------------------------
 
         if (data.session) {
             localStorage.setItem(
@@ -273,16 +308,14 @@ async function login(email, password) {
             );
         }
 
-        // ----------------------------------------------------
-        // NAVIGATE PAST THE LOGIN SCREEN
-        // ----------------------------------------------------
+        pendingLoginEmail = null;
 
         await routeAfterLogin();
 
         return data;
 
     } catch (error) {
-        console.error("❌ Login failed:", error);
+        console.error("❌ OTP verification failed:", error);
         throw error;
     }
 }
@@ -322,6 +355,60 @@ async function handleLoginClick() {
         if (btnSpin) btnSpin.style.display = "none";
     }
 }
+
+
+// ------------------------------------------------------------
+// HANDLE VERIFY OTP BUTTON (loading state + error display)
+// ------------------------------------------------------------
+
+async function handleVerifyOtpClick() {
+    const btnText = document.getElementById("otp-btn-text");
+    const btnSpin = document.getElementById("otp-btn-spin");
+    const errorBox = document.getElementById("otp-error");
+    const codeInput = document.getElementById("otp-code");
+
+    const otp = codeInput ? codeInput.value.trim() : "";
+
+    if (errorBox) {
+        errorBox.style.display = "none";
+    }
+
+    if (!otp) {
+        const msgEl = document.getElementById("otp-error-msg");
+
+        if (msgEl) {
+            msgEl.textContent = "Please enter the 6-digit code.";
+        }
+
+        if (errorBox) {
+            errorBox.style.display = "flex";
+        }
+
+        return;
+    }
+
+    if (btnText) btnText.style.display = "none";
+    if (btnSpin) btnSpin.style.display = "inline-block";
+
+    try {
+        await verifyLoginOtp(otp);
+    } catch (error) {
+        const msgEl = document.getElementById("otp-error-msg");
+
+        if (msgEl) {
+            msgEl.textContent =
+                error.message || "That code is incorrect or has expired.";
+        }
+
+        if (errorBox) {
+            errorBox.style.display = "flex";
+        }
+    } finally {
+        if (btnText) btnText.style.display = "inline";
+        if (btnSpin) btnSpin.style.display = "none";
+    }
+}
+
 
 // ------------------------------------------------------------
 // GET SAVED USER
@@ -486,6 +573,8 @@ function logout() {
     localStorage.removeItem("nfk_session");
     localStorage.removeItem("nfk-organization-id");
 
+    pendingLoginEmail = null;
+
     console.log("Logged out");
 
     // replace() (not href =) drops the dashboard from browser history,
@@ -564,7 +653,112 @@ function showSignup() {
     if (signupForm) {
         signupForm.style.display = "block";
     }
+
+    const otpStep =
+        document.getElementById("otp-step");
+
+    if (otpStep) {
+        otpStep.style.display = "none";
+    }
 }
+
+// ------------------------------------------------------------
+// SHOW OTP STEP (after password is verified, before login completes)
+// ------------------------------------------------------------
+
+function showOtpStep(email) {
+    console.log("🔢 Awaiting login verification code");
+
+    const loginEmail =
+        document.getElementById("login-email");
+
+    const loginPassword =
+        document.getElementById("login-password");
+
+    const loginButton =
+        document.getElementById("login-btn");
+
+    const loginRow =
+        document.querySelector(".auth-row");
+
+    const loginSignup =
+        document.querySelector(".auth-card > .auth-signup");
+
+    if (loginEmail) {
+        loginEmail.closest(".form-group").style.display = "none";
+    }
+
+    if (loginPassword) {
+        loginPassword.closest(".form-group").style.display = "none";
+    }
+
+    if (loginButton) {
+        loginButton.style.display = "none";
+    }
+
+    if (loginRow) {
+        loginRow.style.display = "none";
+    }
+
+    if (loginSignup) {
+        loginSignup.style.display = "none";
+    }
+
+    const title =
+        document.querySelector(".auth-card > .auth-card-title");
+
+    const subtitle =
+        document.querySelector(".auth-card > .auth-card-sub");
+
+    if (title) {
+        title.style.display = "none";
+    }
+
+    if (subtitle) {
+        subtitle.style.display = "none";
+    }
+
+    const signupForm =
+        document.getElementById("signup-form");
+
+    if (signupForm) {
+        signupForm.style.display = "none";
+    }
+
+    const otpStep =
+        document.getElementById("otp-step");
+
+    const otpSub =
+        document.getElementById("otp-sub");
+
+    const otpCode =
+        document.getElementById("otp-code");
+
+    const otpError =
+        document.getElementById("otp-error");
+
+    if (otpSub && email) {
+        otpSub.textContent =
+            `Enter the 6-digit code sent to ${email}`;
+    }
+
+    if (otpCode) {
+        otpCode.value = "";
+    }
+
+    if (otpError) {
+        otpError.style.display = "none";
+    }
+
+    if (otpStep) {
+        otpStep.style.display = "block";
+    }
+
+    if (otpCode) {
+        otpCode.focus();
+    }
+}
+
 function showLogin() {
     console.log("🔐 Returning to login");
 
@@ -573,6 +767,13 @@ function showLogin() {
 
     if (signupForm) {
         signupForm.style.display = "none";
+    }
+
+    const otpStep =
+        document.getElementById("otp-step");
+
+    if (otpStep) {
+        otpStep.style.display = "none";
     }
 
     // Show login fields
@@ -1037,8 +1238,11 @@ window.NFK_Auth = {
     handleSignup,
     login,
     handleLoginClick,
+    verifyLoginOtp,
+    handleVerifyOtpClick,
     showSignup,
     showLogin,
+    showOtpStep,
     getCurrentUser,
     getCurrentOrganization,
     getOrganizationId,

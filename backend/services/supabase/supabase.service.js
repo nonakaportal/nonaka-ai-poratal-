@@ -206,6 +206,55 @@ class SupabaseService {
         return data;
     }
 
+    // ==========================================================
+    // LOGIN OTP (second factor, sent by email)
+    //
+    // Both methods lean entirely on Supabase's own email-OTP system —
+    // the same mechanism behind magic links, just consumed as a typed
+    // 6-digit code. Generation, hashing, storage, and expiry all happen
+    // inside Supabase; nothing OTP-related is generated or stored by
+    // this app itself.
+    // ==========================================================
+
+    // Called only after the caller has already verified the account's
+    // password (see auth.routes.js) — this step sends the code, it does
+    // not grant access on its own. shouldCreateUser: false is required
+    // here specifically: without it, calling this for an email with no
+    // account would silently create one, which would defeat the
+    // password check that's supposed to happen first.
+    async sendLoginOtp(email) {
+        const { error } = await this._buildClient()
+            .auth.signInWithOtp({
+                email,
+                options: { shouldCreateUser: false }
+            });
+
+        if (error) {
+            throw error;
+        }
+
+        return true;
+    }
+
+    // Verifies the 6-digit code and returns the real session — this is
+    // the point where login actually completes. Supabase enforces the
+    // code's correctness, expiry, and attempt limits; this call is a
+    // thin pass-through, not a second implementation of that check.
+    async verifyLoginOtp(email, otp) {
+        const { data, error } = await this._buildClient()
+            .auth.verifyOtp({
+                email,
+                token: otp,
+                type: "email"
+            });
+
+        if (error) {
+            throw error;
+        }
+
+        return data;
+    }
+
 
     // Supabase rotates the refresh token on every use — the old one
     // becomes invalid the moment this succeeds, so the caller must

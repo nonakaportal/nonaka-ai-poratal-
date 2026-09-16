@@ -114,22 +114,93 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        // 1. Authenticate user with Supabase
-        const authData =
+        // 1. Verify the password. This step alone does not grant
+        // access or return a session — it only confirms the caller
+        // actually knows this account's password before a one-time
+        // code is sent to its registered email as the second factor.
+        try {
             await supabaseService.signInUser(
                 email,
                 password
             );
+        } catch (error) {
+            console.error("Login failed (bad credentials):", error.message);
+
+            return res.status(401).json({
+                success: false,
+                error: "Invalid email or password"
+            });
+        }
+
+        // 2. Send the 6-digit login code to the user's registered
+        // email. No session is issued until it's verified below.
+        try {
+            await supabaseService.sendLoginOtp(email);
+        } catch (error) {
+            console.error("Failed to send login OTP:", error);
+
+            return res.status(500).json({
+                success: false,
+                error: "Could not send a verification code. Please try again."
+            });
+        }
+
+        res.json({
+            success: true,
+            otpRequired: true,
+            email
+        });
+
+    } catch (error) {
+        console.error("Login failed:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Something went wrong. Please try again."
+        });
+    }
+});
+
+
+// ============================================================
+// VERIFY LOGIN OTP
+//
+// The second factor — this is what actually issues the session.
+// Password verification in /login is a gate that must pass before a
+// code is sent; the code verified here is what completes login.
+// ============================================================
+
+router.post("/verify-login-otp", async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                error: "email and otp are required"
+            });
+        }
+
+        let authData;
+
+        try {
+            authData = await supabaseService.verifyLoginOtp(email, otp);
+        } catch (error) {
+            console.error("OTP verification failed:", error.message);
+
+            return res.status(401).json({
+                success: false,
+                error: "That code is incorrect or has expired."
+            });
+        }
 
         const user = authData.user;
 
-        // 2. Get user's profile
         const profile =
             await supabaseService.getProfile(
                 user.id
             );
 
-        // 3. Get user's organization
         const userOrganization =
             await supabaseService.getUserOrganization(
                 user.id
@@ -170,11 +241,11 @@ router.post("/login", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Login failed:", error);
+        console.error("OTP verification failed:", error);
 
-        res.status(401).json({
+        res.status(500).json({
             success: false,
-            error: error.message
+            error: "Something went wrong. Please try again."
         });
     }
 });
