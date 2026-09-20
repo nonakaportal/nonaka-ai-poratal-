@@ -732,8 +732,21 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .cashflow-bar-wrap { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .cashflow-bar-label { font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
 .cashflow-bar { display: flex; width: 100%; height: 8px; border-radius: 999px; overflow: hidden; background: var(--bg-hover); }
-.cashflow-bar-in { height: 100%; background: var(--positive); }
-.cashflow-bar-out { height: 100%; background: var(--n-neutral-600); }
+.cashflow-bar-in, .cashflow-bar-out { height: 100%; position: relative; overflow: hidden; }
+.cashflow-bar-in { background: var(--positive); }
+.cashflow-bar-out { background: var(--n-neutral-600); }
+/* A slow, restrained highlight sweep — reads as "live data", not a loading state. */
+.cashflow-bar-in::after, .cashflow-bar-out::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  transform: translateX(-100%);
+  animation: cashflowSweep 3.4s ease-in-out infinite;
+}
+.cashflow-bar-out::after { animation-delay: 1.2s; }
+@keyframes cashflowSweep { 0%, 15% { transform: translateX(-100%); } 65%, 100% { transform: translateX(220%); } }
+@media (prefers-reduced-motion: reduce) {
+  .cashflow-bar-in::after, .cashflow-bar-out::after { animation: none; }
+}
 .cashflow-bar-legend { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 11.5px; color: var(--text-secondary); flex-wrap: wrap; }
 .cashflow-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .cashflow-dot-in { background: var(--positive); }
@@ -1174,6 +1187,9 @@ textarea.ai-chat-input { max-height: 140px; }
 .metric-card .stat-sub { gap: 7px; }
 .metric-glyph svg { width: 15px; height: 15px; display: block; }
 .stat-sub-quiet { color: var(--text-muted); font-weight: 400; }
+
+.stat-sparkline-slot { height: 28px; margin-bottom: 7px; }
+.stat-sparkline { width: 100%; height: 100%; display: block; overflow: visible; }
 
 .chart-frame { height: 300px; position: relative; }
 .chart-frame canvas { width: 100% !important; height: 100% !important; }

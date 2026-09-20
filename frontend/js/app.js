@@ -190,6 +190,44 @@
         .replaceAll("'", "&#039;");
     }
 
+    // Tiny inline trend line for a metric card — reuses whatever monthly
+    // history is already on hand (no extra API call). Renders nothing if
+    // there isn't enough real data to draw a meaningful line.
+    function sparklineSvg(values, width = 100, height = 28) {
+      const clean = values.filter(v => Number.isFinite(v));
+      if (clean.length < 2) return "";
+
+      const min = Math.min(...clean);
+      const max = Math.max(...clean);
+      const range = max - min || 1;
+      const stepX = width / (values.length - 1);
+
+      const points = values
+        .map((v, i) =>
+          Number.isFinite(v)
+            ? [i * stepX, height - ((v - min) / range) * height]
+            : null
+        )
+        .filter(Boolean);
+
+      if (points.length < 2) return "";
+
+      const d = points
+        .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`)
+        .join(" ");
+
+      const [lastX, lastY] = points[points.length - 1];
+      const trendUp = clean[clean.length - 1] >= clean[0];
+      const color = trendUp ? "var(--positive)" : "var(--negative)";
+
+      return `
+        <svg class="stat-sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+          <path d="${d}" fill="none" style="stroke:${color};" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="2.5" style="fill:${color};" />
+        </svg>
+      `;
+    }
+
     // --------------------------------------------------------
     // SKELETON LOADERS
     // Shown while a page's QuickBooks data is being fetched, in place
@@ -4842,6 +4880,31 @@ function renderCashFlow(data) {
     `;
   }
 
+  // Fills in the two headline metric cards' sparkline slots once the
+  // 12-month history they need has loaded. Net income isn't in the
+  // history array directly — revenue minus total expenses is a close
+  // enough proxy for a trend line (not the headline figure itself).
+  function renderOverviewSparklines() {
+    const history = overviewState.history;
+    if (!history) return;
+
+    const incomeEl = document.getElementById("overview-spark-income");
+    if (incomeEl) {
+      incomeEl.innerHTML = sparklineSvg(history.map(h => h.revenue));
+    }
+
+    const netIncomeEl = document.getElementById("overview-spark-netincome");
+    if (netIncomeEl) {
+      netIncomeEl.innerHTML = sparklineSvg(
+        history.map(h =>
+          Number.isFinite(h.revenue) && Number.isFinite(h.totalExpenses)
+            ? h.revenue - h.totalExpenses
+            : null
+        )
+      );
+    }
+  }
+
   async function loadOverviewTrendChart() {
     const wrap = document.getElementById("overview-trend-body");
     if (!wrap) return;
@@ -4849,6 +4912,7 @@ function renderCashFlow(data) {
     try {
       overviewState.history = await loadOverviewHistory(12);
       renderCashRunway();
+      renderOverviewSparklines();
 
       const usable = overviewState.history.filter(
         h => Number.isFinite(h.revenue) || Number.isFinite(h.totalExpenses)
@@ -5198,7 +5262,7 @@ function renderCashFlow(data) {
     // language headline — per the product plan's rule of leading with
     // owner language and keeping the accounting term as an optional
     // secondary label, not deleting it.
-    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel) {
+    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel, sparklineId) {
       const hasDelta =
         !isError &&
         Number.isFinite(value) &&
@@ -5229,6 +5293,8 @@ function renderCashFlow(data) {
                 : formatCurrency(Number(value), currency)
             }
           </div>
+
+          ${sparklineId ? `<div class="stat-sparkline-slot" id="${sparklineId}"></div>` : ""}
 
           <div class="stat-sub">
             ${
@@ -5261,8 +5327,8 @@ function renderCashFlow(data) {
       </div>
 
       <div class="stat-grid section-gap">
-        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue")}
-        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income")}
+        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income")}
+        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome")}
         ${metricCard("Cash Balance", cashBalance, priorCash, !!cf?.error, icon_flow())}
         ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital")}
 
