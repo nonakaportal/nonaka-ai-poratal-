@@ -4245,45 +4245,50 @@ function renderCashFlow(data) {
     });
   }
 
+  // Titles/labels here are plain-language on purpose — they double as
+  // both the tab-selector button text and the chart title, so one
+  // change covers both. The underlying accounting terms aren't gone;
+  // they're just not the first thing an owner reads (see the product
+  // plan's jargon-translation rule).
   const FORECAST_VIEWS = [
     {
       id: "revenue-expenses",
-      title: "Revenue vs. Expenses",
+      title: "Money In vs. Money Out",
       metrics: [
-        { key: "revenue", label: "Revenue", color: "primary" },
-        { key: "totalExpenses", label: "Expenses", color: "danger" }
+        { key: "revenue", label: "Money In", color: "primary" },
+        { key: "totalExpenses", label: "Money Out", color: "danger" }
       ]
     },
     {
       id: "revenue-profit",
-      title: "Revenue vs. Net Profit",
+      title: "Money In vs. What You Kept",
       metrics: [
-        { key: "revenue", label: "Revenue", color: "primary" },
-        { key: "netIncome", label: "Net Profit", color: "success" }
+        { key: "revenue", label: "Money In", color: "primary" },
+        { key: "netIncome", label: "What You Kept", color: "success" }
       ]
     },
     {
       id: "revenue-gross-net",
-      title: "Revenue, Gross Profit & Net Income",
+      title: "Money In, Money Left After Costs & What You Kept",
       metrics: [
-        { key: "revenue", label: "Revenue", color: "primary" },
-        { key: "grossProfit", label: "Gross Profit", color: "purple" },
-        { key: "netIncome", label: "Net Income", color: "success" }
+        { key: "revenue", label: "Money In", color: "primary" },
+        { key: "grossProfit", label: "Money Left After Costs", color: "purple" },
+        { key: "netIncome", label: "What You Kept", color: "success" }
       ]
     },
     {
       id: "expenses-profit",
-      title: "Expenses vs. Net Profit",
+      title: "Money Out vs. What You Kept",
       metrics: [
-        { key: "totalExpenses", label: "Expenses", color: "danger" },
-        { key: "netIncome", label: "Net Profit", color: "success" }
+        { key: "totalExpenses", label: "Money Out", color: "danger" },
+        { key: "netIncome", label: "What You Kept", color: "success" }
       ]
     },
     {
       id: "cash-flow",
-      title: "Operating Cash Flow Trend",
+      title: "Cash From Running the Business",
       metrics: [
-        { key: "operatingCashFlow", label: "Operating Cash Flow", color: "warning" }
+        { key: "operatingCashFlow", label: "Cash From Running the Business", color: "warning" }
       ]
     }
   ];
@@ -4495,7 +4500,7 @@ function renderCashFlow(data) {
     page.innerHTML = `
       <div class="page-header">
         <div>
-          <h1 class="page-title">Financial KPIs</h1>
+          <h1 class="page-title">Business Ratios</h1>
           <p class="page-subtitle">Calculated from live QuickBooks data — click any card for the full calculation and trend</p>
         </div>
       </div>
@@ -4624,6 +4629,182 @@ function renderCashFlow(data) {
     }
   }
 
+  // ------------------------------------------------------------
+  // SCAN RECEIPT
+  //
+  // Extract-and-display only, on purpose: this never writes anything
+  // to QuickBooks. The owner reviews what the AI read and enters it
+  // themselves — auto-creating real accounting transactions from a
+  // guess is a trust risk not worth taking for a first version. All
+  // the actual reading happens on the backend (see ai.js /scan-receipt)
+  // using the private Claude API key; this file only ever sees the
+  // finished result, never the raw AI call.
+  // ------------------------------------------------------------
+
+  let receiptScanState = { imageDataUrl: null };
+
+  // Shrinks the photo before it ever leaves the browser — a raw phone
+  // photo can be several MB; a resized JPEG is typically under a few
+  // hundred KB, well inside the backend's request-size limit and
+  // faster to upload on a mobile connection.
+  function resizeImageFile(file, maxWidth = 1200, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => reject(new Error("Could not read that file."));
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onerror = () => reject(new Error("Could not read that image."));
+
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+
+        img.src = reader.result;
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function openReceiptScanner() {
+    const overlay = document.getElementById("modal-overlay");
+    const content = document.getElementById("modal-content");
+
+    if (!overlay || !content) return;
+
+    receiptScanState = { imageDataUrl: null };
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+        <div class="kpi-label">Scan Receipt</div>
+        <button class="btn btn-ghost" onclick="NFK_App.closeKPIModal()">✕</button>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px;">
+        Take a photo or upload one. Nothing is saved to QuickBooks automatically —
+        you'll see what was read and enter it yourself.
+      </p>
+
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        id="receipt-file-input"
+        onchange="NFK_App.handleReceiptFileSelected(event)"
+        style="margin-bottom:14px;"
+      >
+
+      <div id="receipt-preview-wrap"></div>
+      <div id="receipt-result-wrap"></div>
+    `;
+
+    overlay.classList.add("open");
+  }
+
+  async function handleReceiptFileSelected(event) {
+    const file = event.target.files?.[0];
+    const previewWrap = document.getElementById("receipt-preview-wrap");
+    const resultWrap = document.getElementById("receipt-result-wrap");
+
+    if (!file || !previewWrap) return;
+
+    if (resultWrap) resultWrap.innerHTML = "";
+
+    previewWrap.innerHTML = `
+      <p style="font-size:12.5px;color:var(--text-muted);">Preparing photo...</p>
+    `;
+
+    try {
+      receiptScanState.imageDataUrl = await resizeImageFile(file);
+
+      previewWrap.innerHTML = `
+        <img
+          src="${receiptScanState.imageDataUrl}"
+          alt="Receipt preview"
+          style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px;display:block;"
+        >
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_App.submitReceiptScan()">
+          Scan this receipt
+        </button>
+      `;
+    } catch (error) {
+      console.error("❌ Failed to prepare receipt photo:", error);
+      previewWrap.innerHTML = `
+        <p style="font-size:12.5px;color:var(--negative);">${escapeHtml(error.message)}</p>
+      `;
+    }
+  }
+
+  async function submitReceiptScan() {
+    const resultWrap = document.getElementById("receipt-result-wrap");
+    const organizationId = getOrganizationId();
+
+    if (!resultWrap || !receiptScanState.imageDataUrl || !organizationId) return;
+
+    resultWrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 0;">
+        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
+        <span style="font-size:13px;color:var(--text-secondary);">Reading the receipt...</span>
+      </div>
+    `;
+
+    try {
+      const result = await apiPost("/ai/scan-receipt", {
+        organizationId,
+        image: receiptScanState.imageDataUrl
+      });
+
+      const rows = [
+        ["Vendor", result.vendor],
+        ["Date", result.date],
+        ["Amount", Number.isFinite(result.amount) ? formatCurrency(result.amount) : null],
+        ["Category", result.category]
+      ]
+        .filter(([, value]) => value !== null && value !== undefined)
+        .map(
+          ([label, value]) => `
+            <div class="bs-account-row">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(String(value))}</strong>
+            </div>
+          `
+        )
+        .join("");
+
+      resultWrap.innerHTML = `
+        <div class="card card-pad" style="background:var(--bg-subtle);margin-top:4px;">
+          ${rows || `<p style="font-size:12.5px;color:var(--text-muted);">Couldn't read the details clearly — try a clearer photo.</p>`}
+          ${
+            result.notes
+              ? `<p style="font-size:12px;color:var(--text-muted);margin-top:10px;">${escapeHtml(result.notes)}</p>`
+              : ""
+          }
+        </div>
+        <p style="font-size:11.5px;color:var(--text-muted);margin-top:10px;">
+          Double-check these details, then enter them into QuickBooks yourself — nothing was saved automatically.
+        </p>
+      `;
+    } catch (error) {
+      console.error("❌ Receipt scan failed:", error);
+      resultWrap.innerHTML = `
+        <p style="font-size:12.5px;color:var(--negative);">
+          ${escapeHtml(error.message || "Couldn't scan that receipt. Please try again.")}
+        </p>
+      `;
+    }
+  }
+
   // Reuses the same AI-computed health score as the AI Insights page
   // (backend-cached for 5 minutes) — no second scoring calculation.
   async function loadOverviewHealthScore() {
@@ -4749,10 +4930,10 @@ function renderCashFlow(data) {
   }
 
   const OVERVIEW_TREND_VIEW = {
-    title: "Revenue vs. Expenses",
+    title: "Money In vs. Money Out",
     metrics: [
-      { key: "revenue", label: "Revenue", color: "primary" },
-      { key: "totalExpenses", label: "Expenses", color: "danger" }
+      { key: "revenue", label: "Money In", color: "primary" },
+      { key: "totalExpenses", label: "Money Out", color: "danger" }
     ]
   };
 
@@ -4780,12 +4961,70 @@ function renderCashFlow(data) {
     drawOverviewTrend();
   }
 
+  // Cash Runway — "at this pace, how long does your cash last." Uses the
+  // same 12-month history the trend chart already fetches (no extra API
+  // call), averaged over the last 3 months so one unusual month doesn't
+  // swing the number wildly.
+  function renderCashRunway() {
+    const el = document.getElementById("overview-cash-runway");
+    if (!el) return;
+
+    const cashBalance = overviewState.cashBalance;
+    const history = overviewState.history;
+
+    const notEnoughData = () => {
+      el.innerHTML = `
+        <div class="stat-label">Cash Runway</div>
+        <div class="stat-val">—</div>
+        <div class="stat-sub-quiet">Not enough monthly history yet</div>
+      `;
+    };
+
+    if (!Number.isFinite(cashBalance) || !history) {
+      notEnoughData();
+      return;
+    }
+
+    const recentMonths = history
+      .filter(h => Number.isFinite(h.revenue) && Number.isFinite(h.totalExpenses))
+      .slice(-3);
+
+    if (recentMonths.length === 0) {
+      notEnoughData();
+      return;
+    }
+
+    const avgMonthlyBurn =
+      recentMonths.reduce((sum, h) => sum + (h.totalExpenses - h.revenue), 0) /
+      recentMonths.length;
+
+    // Spending less than you're bringing in — there's no countdown to show.
+    if (avgMonthlyBurn <= 0) {
+      el.innerHTML = `
+        <div class="stat-label">Cash Runway</div>
+        <div class="stat-val pos-val">Growing</div>
+        <div class="stat-sub-quiet">You're bringing in more than you're spending</div>
+      `;
+      return;
+    }
+
+    const months = Math.max(cashBalance, 0) / avgMonthlyBurn;
+    const urgencyClass = months < 2 ? "neg-val" : months < 6 ? "" : "pos-val";
+
+    el.innerHTML = `
+      <div class="stat-label">Cash Runway</div>
+      <div class="stat-val ${urgencyClass}">${months.toFixed(1)} months</div>
+      <div class="stat-sub-quiet">At your recent spending pace</div>
+    `;
+  }
+
   async function loadOverviewTrendChart() {
     const wrap = document.getElementById("overview-trend-body");
     if (!wrap) return;
 
     try {
       overviewState.history = await loadOverviewHistory(12);
+      renderCashRunway();
 
       const usable = overviewState.history.filter(
         h => Number.isFinite(h.revenue) || Number.isFinite(h.totalExpenses)
@@ -4809,6 +5048,7 @@ function renderCashFlow(data) {
           Unable to load monthly history.
         </div>
       `;
+      renderCashRunway();
     }
   }
 
@@ -4940,6 +5180,76 @@ function renderCashFlow(data) {
     renderOverviewAlerts();
   }
 
+  // ------------------------------------------------------------
+  // TAX SET-ASIDE ESTIMATOR
+  //
+  // Real tax rates vary too much (entity type, state, deductions) for
+  // this app to compute one accurately, so the owner sets their own
+  // rough rate. Deliberately kept in localStorage rather than the
+  // database — this is a per-user rule-of-thumb setting, not shared
+  // organization data, and it means zero backend changes for a small,
+  // low-stakes feature.
+  // ------------------------------------------------------------
+
+  const TAX_RATE_STORAGE_KEY = "nfk-tax-rate-pct";
+  const DEFAULT_TAX_RATE_PCT = 25;
+
+  function getTaxRatePct() {
+    const stored = Number(localStorage.getItem(TAX_RATE_STORAGE_KEY));
+    return Number.isFinite(stored) && stored >= 0 && stored <= 60
+      ? stored
+      : DEFAULT_TAX_RATE_PCT;
+  }
+
+  function taxSetAsideCardHtml(netIncome) {
+    const rate = getTaxRatePct();
+
+    const hasIncome = Number.isFinite(netIncome);
+    const suggested = hasIncome && netIncome > 0 ? netIncome * (rate / 100) : 0;
+
+    return `
+      <div class="stat-card" id="overview-tax-setaside">
+        <div class="stat-label">Tax Set-Aside</div>
+        <div class="stat-val">
+          ${hasIncome ? formatCurrency(suggested) : "—"}
+        </div>
+        <div class="stat-sub-quiet">
+          ${
+            hasIncome && netIncome <= 0
+              ? "No profit this period — nothing to set aside"
+              : `Suggested, at`
+          }
+          ${
+            hasIncome && netIncome > 0
+              ? `<input
+                  type="number"
+                  id="tax-rate-input"
+                  value="${rate}"
+                  min="0"
+                  max="60"
+                  style="width:40px;margin:0 3px;background:transparent;border:none;border-bottom:1px solid var(--border);color:inherit;font:inherit;text-align:center;"
+                  onchange="NFK_App.updateTaxRate(this.value)"
+                >% of profit`
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  // Called by the rate input's onchange — recalculates and re-renders
+  // just this one card, so editing the rate doesn't reload the page
+  // or lose scroll position.
+  function updateTaxRate(rawValue) {
+    const value = Math.min(60, Math.max(0, Number(rawValue) || 0));
+    localStorage.setItem(TAX_RATE_STORAGE_KEY, String(value));
+
+    const el = document.getElementById("overview-tax-setaside");
+    if (el && Number.isFinite(overviewState.netIncome)) {
+      el.outerHTML = taxSetAsideCardHtml(overviewState.netIncome);
+    }
+  }
+
   function renderOverview({ pl, bs, cf, ar, ap, debt }) {
 
     const page =
@@ -5031,6 +5341,11 @@ function renderCashFlow(data) {
 
     const cashBalance = cf?.error ? null : Number(cf?.closingCash || 0);
 
+    // Stashed for renderCashRunway(), which runs later once
+    // overviewState.history has loaded (see loadOverviewTrendChart).
+    overviewState.cashBalance = cashBalance;
+    overviewState.netIncome = netIncome;
+
     const kpi = computeKPIValues({ pl, bs, ar, ap });
     const workingCapital = kpi?.workingCapital?.value ?? null;
 
@@ -5054,8 +5369,12 @@ function renderCashFlow(data) {
     ].join(" · ");
 
     // Headline metric card: the figure, then its movement against
-    // the comparable prior window.
-    function metricCard(label, value, priorValue, isError, glyph) {
+    // the comparable prior window. `secondaryLabel`, when given, shows
+    // the accounting term in small muted text next to the plain-
+    // language headline — per the product plan's rule of leading with
+    // owner language and keeping the accounting term as an optional
+    // secondary label, not deleting it.
+    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel) {
       const hasDelta =
         !isError &&
         Number.isFinite(value) &&
@@ -5073,7 +5392,11 @@ function renderCashFlow(data) {
 
           <div class="metric-glyph">${glyph}</div>
 
-          <div class="stat-label">${escapeHtml(label)}</div>
+          <div class="stat-label">${escapeHtml(label)}${
+            secondaryLabel
+              ? ` <span class="stat-sub-quiet">(${escapeHtml(secondaryLabel)})</span>`
+              : ""
+          }</div>
 
           <div class="stat-val">
             ${
@@ -5107,6 +5430,10 @@ function renderCashFlow(data) {
         <div class="page-header-actions">
           ${renderPeriodSelector(state.overviewPeriod, "setOverviewPeriod")}
 
+          <button class="btn btn-secondary" onclick="NFK_App.openReceiptScanner()">
+            📷 Scan Receipt
+          </button>
+
           <button class="btn btn-primary" onclick="NFK_App.nav('ai-insights')">
             AI Insights
           </button>
@@ -5114,17 +5441,26 @@ function renderCashFlow(data) {
       </div>
 
       <div class="stat-grid section-gap">
-        ${metricCard(`Revenue (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl())}
-        ${metricCard("Net Income", netIncome, priorNetIncome, !!pl?.error, icon_forecast())}
+        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue")}
+        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income")}
         ${metricCard("Cash Balance", cashBalance, priorCash, !!cf?.error, icon_flow())}
-        ${metricCard("Working Capital", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale())}
+        ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital")}
+
+        <div class="stat-card" id="overview-cash-runway">
+          <div class="stat-label">Cash Runway</div>
+          <div class="stat-val">
+            <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+          </div>
+        </div>
+
+        ${taxSetAsideCardHtml(netIncome)}
       </div>
 
       <div class="grid-2 section-gap">
 
         <div class="card card-pad">
           <div class="card-header">
-            <div class="card-title">Revenue vs. Expenses — 12 Months</div>
+            <div class="card-title">Money In vs. Money Out — 12 Months</div>
 
             <div class="period-selector">
               <button
@@ -5169,12 +5505,12 @@ function renderCashFlow(data) {
           </div>
 
           <div class="bs-account-row">
-            <span>Accounts Receivable</span>
+            <span>Customers owe you <span class="stat-sub-quiet">(Accounts Receivable)</span></span>
             <strong>${ar?.error ? "—" : formatCurrency(Number(ar?.total || 0), currency)}</strong>
           </div>
 
           <div class="bs-account-row">
-            <span>Accounts Payable</span>
+            <span>Bills you need to pay <span class="stat-sub-quiet">(Accounts Payable)</span></span>
             <strong>${ap?.error ? "—" : formatCurrency(Number(ap?.total || 0), currency)}</strong>
           </div>
 
@@ -5548,15 +5884,15 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>AR & Customers</h1>
+                <h1>Customers</h1>
                 <p>Accounts Receivable · Last synced today</p>
               </div>
             </div>
-        
+
             <div class="card ar-summary-card">
-        
+
               <div class="ar-summary-header">
-                <h2>Accounts Receivable</h2>
+                <h2>Customers owe you <span class="stat-sub-quiet">(Accounts Receivable)</span></h2>
         
                 <strong id="ar-total">
                   ${formatCurrency(0)}
@@ -5808,15 +6144,15 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>AP & Vendors</h1>
+                <h1>Bills & Vendors</h1>
                 <p>Accounts Payable · Last synced today</p>
               </div>
             </div>
-        
+
             <div class="card ar-summary-card">
-        
+
               <div class="ar-summary-header">
-                <h2>Accounts Payable</h2>
+                <h2>Bills you need to pay <span class="stat-sub-quiet">(Accounts Payable)</span></h2>
         
                 <strong id="ap-total">
                   ${formatCurrency(0)}
@@ -6301,7 +6637,7 @@ function renderCashFlow(data) {
                 <div class="page-header">
             
                     <div>
-                        <h1>Debt Register</h1>
+                        <h1>Debt</h1>
             
                         <p>
                             Debt obligations · Live QuickBooks data
@@ -6618,7 +6954,7 @@ function renderCashFlow(data) {
 
     {
       id: "g-statements",
-      label: "Financial Statements",
+      label: "Reports",
       icon: icon_pl_sm(),
       open: false,
 
@@ -6650,12 +6986,12 @@ function renderCashFlow(data) {
       items: [
         {
           id: "working-capital",
-          label: "AR & Customers",
+          label: "Customers",
           icon: icon_ar_cust()
         },
         {
           id: "ap-vendors",
-          label: "AP & Vendors",
+          label: "Bills & Vendors",
           icon: icon_ap_vend()
         },
         {
@@ -6674,12 +7010,12 @@ function renderCashFlow(data) {
       items: [
         {
           id: "kpis",
-          label: "Financial KPIs",
+          label: "Business Ratios",
           icon: icon_gauge()
         },
         {
             id: "debt-register",
-            label: "Debt Register",
+            label: "Debt",
             icon: icon_ar()
         },
       ]
@@ -7287,6 +7623,14 @@ function renderCashFlow(data) {
     setOverviewChartType,
 
     dismissOverviewAlert,
+
+    updateTaxRate,
+
+    openReceiptScanner,
+
+    handleReceiptFileSelected,
+
+    submitReceiptScan,
 
     _init: init,
 

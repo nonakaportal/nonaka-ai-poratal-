@@ -210,4 +210,41 @@ router.post("/ask", async (req, res) => {
     }
 });
 
+// ============================================================
+// SCAN RECEIPT
+//
+// Extract-and-display only — this never writes anything to QuickBooks.
+// The image is processed entirely here; the frontend only ever gets
+// the structured result back, never the raw Claude response or
+// anything resembling direct access to the AI call itself.
+// ============================================================
+
+router.post("/scan-receipt", async (req, res) => {
+    try {
+        const { organizationId, image } = req.body;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: "organizationId is required"
+            });
+        }
+
+        if (!image) {
+            return res.status(400).json({
+                error: "image is required"
+            });
+        }
+
+        // The frontend sends a data URL (data:image/jpeg;base64,....) —
+        // Claude's API wants just the base64 payload, not the prefix.
+        const base64Data = image.includes(",") ? image.split(",")[1] : image;
+
+        const result = await aiService.scanReceipt(base64Data);
+
+        return res.json(result);
+    } catch (error) {
+        return handleAIError(error, res, "scan receipt");
+    }
+});
+
 module.exports = router;

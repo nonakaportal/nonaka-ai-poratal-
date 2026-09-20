@@ -96,7 +96,11 @@ app.use(cors({
   }
 }));
 
-app.use(express.json({ limit: '1mb' }));
+// 5mb (not the original 1mb) specifically to fit a receipt photo as base64
+// JSON — the frontend resizes/compresses the image before sending, so a
+// real photo lands well under this in practice; the limit is just a
+// backstop, not the expected size.
+app.use(express.json({ limit: '5mb' }));
 
 // Serve the frontend from the same origin/port as the API. This is what
 // lets api.js/auth.js/app.js call relative paths ("/api/...") and avoids
