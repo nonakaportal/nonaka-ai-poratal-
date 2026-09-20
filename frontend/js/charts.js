@@ -16,18 +16,18 @@ function getVar(name) {
 function getColors() {
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   return {
-    primary:      "#9184d9",   // Nocturne accent (blurple)
-    secondary:    "#262a60",   // Section indigo
-    success:      isDark ? "#79c2a4" : "#2f8f6c",
-    danger:       isDark ? "#e08a8f" : "#c05055",
+    primary:      "#D9954B",   // Warm Amber accent
+    secondary:    "#3B2A1A",   // Warm section umber
+    success:      isDark ? "#6FA37E" : "#3E7A54",
+    danger:       isDark ? "#C4726B" : "#B8564E",
     warning:      isDark ? "#d4a86a" : "#a67535",
-    purple:       "#b5abfc",   // Accent 400
-    teal:         "#8fa8d9",   // Info
-    grid:         isDark ? "rgba(233,233,237,0.07)" : "rgba(41,43,49,0.08)",
-    text:         isDark ? "#9397ab" : "#75798c",
-    textPrimary:  isDark ? "#e9e9ed" : "#292b31",
-    bg:           isDark ? "#1b1e2c" : "#ffffff",
-    border:       isDark ? "rgba(233,233,237,0.10)" : "rgba(41,43,49,0.12)",
+    purple:       "#E3AC71",   // Warm accent 400
+    teal:         "#8fa8d9",   // Info — unchanged, low-priority per design review
+    grid:         isDark ? "rgba(243,236,228,0.07)" : "rgba(46,40,34,0.08)",
+    text:         isDark ? "#A89A87" : "#6E6355",
+    textPrimary:  isDark ? "#F3ECE4" : "#2E2822",
+    bg:           isDark ? "#211D19" : "#ffffff",
+    border:       isDark ? "rgba(243,236,228,0.10)" : "rgba(46,40,34,0.12)",
   };
 }
 
@@ -51,7 +51,7 @@ function applyDefaults() {
 
   const colors = getColors();
 
-  Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+  Chart.defaults.font.family = "'Outfit', system-ui, -apple-system, sans-serif";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = colors.text;
   Chart.defaults.animation.duration = 600;

@@ -25,7 +25,7 @@
 }
 .glass-button:hover { border-color: var(--n-neutral-600); background: color-mix(in srgb, var(--n-text) 5%, transparent); }
 .glass-button.primary { color: var(--accent); border-color: var(--accent); background: transparent; }
-.glass-button.primary:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: 0 0 18px var(--accent-glow); }
+.glass-button.primary:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 /* --- Accordion sidebar --- */
 .accordion-group { margin-bottom: 2px; }

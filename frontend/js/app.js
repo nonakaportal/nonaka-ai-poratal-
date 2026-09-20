@@ -5514,6 +5514,33 @@ function renderCashFlow(data) {
             <strong>${ap?.error ? "—" : formatCurrency(Number(ap?.total || 0), currency)}</strong>
           </div>
 
+          ${(() => {
+            const arTotal = ar?.error ? null : Number(ar?.total || 0);
+            const apTotal = ap?.error ? null : Number(ap?.total || 0);
+
+            if (arTotal === null || apTotal === null || arTotal + apTotal === 0) {
+              return "";
+            }
+
+            const sum = arTotal + apTotal;
+            const arPct = (arTotal / sum) * 100;
+            const apPct = 100 - arPct;
+
+            return `
+              <div class="cashflow-bar-wrap">
+                <div class="cashflow-bar-label">Coming in vs. going out</div>
+                <div class="cashflow-bar">
+                  <div class="cashflow-bar-in" style="width:${arPct}%;"></div>
+                  <div class="cashflow-bar-out" style="width:${apPct}%;"></div>
+                </div>
+                <div class="cashflow-bar-legend">
+                  <span><span class="cashflow-dot cashflow-dot-in"></span>${formatCurrency(arTotal, currency)} coming in</span>
+                  <span><span class="cashflow-dot cashflow-dot-out"></span>${formatCurrency(apTotal, currency)} going out</span>
+                </div>
+              </div>
+            `;
+          })()}
+
           <div class="bs-account-row">
             <span>Current Ratio</span>
             <strong>${currentRatio === null ? "—" : currentRatio.toFixed(2) + "x"}</strong>
@@ -6979,7 +7006,7 @@ function renderCashFlow(data) {
 
     {
       id: "g-operations",
-      label: "Operations",
+      label: "Customers & Bills",
       icon: icon_ops_sm(),
       open: false,
 
@@ -7003,28 +7030,13 @@ function renderCashFlow(data) {
     },
 
     {
-      id: "g-performance",
-      label: "Business Performance",
+      // Merged from the former separate "Business Performance" and
+      // "Financial Intelligence" groups — 4 accordion groups was a lot
+      // for a first-time user to parse before seeing a single number.
+      // Every item.id below is unchanged, so routing/state is untouched.
+      id: "g-insights",
+      label: "Insights",
       icon: icon_gauge(),
-      open: false,
-      items: [
-        {
-          id: "kpis",
-          label: "Business Ratios",
-          icon: icon_gauge()
-        },
-        {
-            id: "debt-register",
-            label: "Debt",
-            icon: icon_ar()
-        },
-      ]
-    },
-    
-    {
-      id: "g-intelligence",
-      label: "Financial Intelligence",
-      icon: icon_ai(),
       open: false,
       items: [
         {
@@ -7041,19 +7053,29 @@ function renderCashFlow(data) {
           id: "scenarios",
           label: "Scenarios",
           icon: icon_scenarios()
-        }
+        },
+        {
+          id: "kpis",
+          label: "Business Ratios",
+          icon: icon_gauge()
+        },
+        {
+            id: "debt-register",
+            label: "Debt",
+            icon: icon_ar()
+        },
       ]
     },
     {
       id: "g-nonaka-ai",
-      label: "NFP AI",
+      label: "Ask NFP AI",
       icon: icon_ai(),
       flat: true,
       open: true,
       items: [
         {
           id: "nonaka-ai",
-          label: "NFP AI",
+          label: "Ask NFP AI",
           icon: icon_ai()
         }
       ]
