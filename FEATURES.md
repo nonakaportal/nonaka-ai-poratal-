@@ -31,8 +31,8 @@ The first thing the user sees after logging in. Currently shows:
 - A financial health score (AI-generated, with plain-language reasoning)
 - AI-generated alerts/insights specific to this business's data
 - A summary of what customers owe you and what bills you owe, plus a
-  simple debt breakdown
-- A button to scan a receipt (photo → AI reads vendor/amount/date/category)
+  simple debt breakdown, including a visual "coming in vs. going out"
+  proportion bar
 - A button to open the fuller AI Insights page
 
 ## Reports (secondary/detailed section — for people who want full detail)

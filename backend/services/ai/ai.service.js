@@ -119,26 +119,6 @@ const HealthScoreSchema = z.object({
         .describe('3-5 factors that most influenced the score, each grounded in a specific figure')
 });
 
-const ReceiptSchema = z.object({
-    vendor: z.string().nullable().describe('Merchant/vendor name as printed on the receipt, or null if illegible'),
-    date: z.string().nullable().describe('Purchase date in YYYY-MM-DD format, or null if not visible'),
-    amount: z.number().nullable().describe('Total amount paid, or null if not visible'),
-    category: z.enum([
-        'supplies',
-        'materials',
-        'equipment',
-        'travel',
-        'meals',
-        'utilities',
-        'rent',
-        'professional-services',
-        'marketing',
-        'other'
-    ]).describe('Best-guess expense category based on what was purchased'),
-    confidence: z.enum(['low', 'medium', 'high']).describe('How confident the extraction is overall'),
-    notes: z.string().nullable().describe('Anything unclear, missing, or worth the owner double-checking before entering this into QuickBooks')
-});
-
 const RecommendationSchema = z.object({
     recommendations: z.array(
         z.object({
@@ -287,57 +267,6 @@ async function generateHealthScore(snapshot, trend) {
     return response.parsed_output;
 }
 
-const RECEIPT_SYSTEM_PROMPT =
-    'You are a receipt-reading assistant for a small-business accounting ' +
-    'app. You are given a photo of a single receipt. Extract only what is ' +
-    'actually visible in the image — never guess or invent a vendor name, ' +
-    'amount, or date that you cannot actually read. If something is ' +
-    'blurry, cut off, or missing, say so in notes and leave that field ' +
-    'null rather than fabricating a plausible-looking value. This is for ' +
-    'a real business expense record, so accuracy matters more than ' +
-    'completeness.';
-
-// Image never leaves the server unprocessed — the frontend only ever
-// receives the structured result below, never the raw Claude response.
-// Always expects JPEG: the frontend resizes/compresses to JPEG before
-// upload, so there's one fixed media type to trust here rather than
-// accepting an arbitrary client-supplied one.
-async function scanReceipt(imageBase64) {
-    const client = getClient();
-
-    const response = await client.messages.parse({
-        model: FAST_MODEL,
-        max_tokens: 1024,
-        thinking: { type: 'adaptive' },
-        system: RECEIPT_SYSTEM_PROMPT,
-        messages: [
-            {
-                role: 'user',
-                content: [
-                    {
-                        type: 'image',
-                        source: {
-                            type: 'base64',
-                            media_type: 'image/jpeg',
-                            data: imageBase64
-                        }
-                    },
-                    {
-                        type: 'text',
-                        text: 'Extract the vendor, date, total amount, and likely expense category from this receipt.'
-                    }
-                ]
-            }
-        ],
-        output_config: {
-            effort: 'low',
-            format: zodOutputFormat(ReceiptSchema)
-        }
-    });
-
-    return response.parsed_output;
-}
-
 async function chat(question, snapshot, history = []) {
     const client = getClient();
 
@@ -367,6 +296,5 @@ module.exports = {
     detectAnomalies,
     generateRecommendations,
     generateHealthScore,
-    scanReceipt,
     chat
 };

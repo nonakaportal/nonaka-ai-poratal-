@@ -4629,182 +4629,6 @@ function renderCashFlow(data) {
     }
   }
 
-  // ------------------------------------------------------------
-  // SCAN RECEIPT
-  //
-  // Extract-and-display only, on purpose: this never writes anything
-  // to QuickBooks. The owner reviews what the AI read and enters it
-  // themselves — auto-creating real accounting transactions from a
-  // guess is a trust risk not worth taking for a first version. All
-  // the actual reading happens on the backend (see ai.js /scan-receipt)
-  // using the private Claude API key; this file only ever sees the
-  // finished result, never the raw AI call.
-  // ------------------------------------------------------------
-
-  let receiptScanState = { imageDataUrl: null };
-
-  // Shrinks the photo before it ever leaves the browser — a raw phone
-  // photo can be several MB; a resized JPEG is typically under a few
-  // hundred KB, well inside the backend's request-size limit and
-  // faster to upload on a mobile connection.
-  function resizeImageFile(file, maxWidth = 1200, quality = 0.7) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onerror = () => reject(new Error("Could not read that file."));
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onerror = () => reject(new Error("Could not read that image."));
-
-        img.onload = () => {
-          const scale = Math.min(1, maxWidth / img.width);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          resolve(canvas.toDataURL("image/jpeg", quality));
-        };
-
-        img.src = reader.result;
-      };
-
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function openReceiptScanner() {
-    const overlay = document.getElementById("modal-overlay");
-    const content = document.getElementById("modal-content");
-
-    if (!overlay || !content) return;
-
-    receiptScanState = { imageDataUrl: null };
-
-    content.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
-        <div class="kpi-label">Scan Receipt</div>
-        <button class="btn btn-ghost" onclick="NFK_App.closeKPIModal()">✕</button>
-      </div>
-
-      <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px;">
-        Take a photo or upload one. Nothing is saved to QuickBooks automatically —
-        you'll see what was read and enter it yourself.
-      </p>
-
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        id="receipt-file-input"
-        onchange="NFK_App.handleReceiptFileSelected(event)"
-        style="margin-bottom:14px;"
-      >
-
-      <div id="receipt-preview-wrap"></div>
-      <div id="receipt-result-wrap"></div>
-    `;
-
-    overlay.classList.add("open");
-  }
-
-  async function handleReceiptFileSelected(event) {
-    const file = event.target.files?.[0];
-    const previewWrap = document.getElementById("receipt-preview-wrap");
-    const resultWrap = document.getElementById("receipt-result-wrap");
-
-    if (!file || !previewWrap) return;
-
-    if (resultWrap) resultWrap.innerHTML = "";
-
-    previewWrap.innerHTML = `
-      <p style="font-size:12.5px;color:var(--text-muted);">Preparing photo...</p>
-    `;
-
-    try {
-      receiptScanState.imageDataUrl = await resizeImageFile(file);
-
-      previewWrap.innerHTML = `
-        <img
-          src="${receiptScanState.imageDataUrl}"
-          alt="Receipt preview"
-          style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px;display:block;"
-        >
-        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_App.submitReceiptScan()">
-          Scan this receipt
-        </button>
-      `;
-    } catch (error) {
-      console.error("❌ Failed to prepare receipt photo:", error);
-      previewWrap.innerHTML = `
-        <p style="font-size:12.5px;color:var(--negative);">${escapeHtml(error.message)}</p>
-      `;
-    }
-  }
-
-  async function submitReceiptScan() {
-    const resultWrap = document.getElementById("receipt-result-wrap");
-    const organizationId = getOrganizationId();
-
-    if (!resultWrap || !receiptScanState.imageDataUrl || !organizationId) return;
-
-    resultWrap.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;padding:14px 0;">
-        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
-        <span style="font-size:13px;color:var(--text-secondary);">Reading the receipt...</span>
-      </div>
-    `;
-
-    try {
-      const result = await apiPost("/ai/scan-receipt", {
-        organizationId,
-        image: receiptScanState.imageDataUrl
-      });
-
-      const rows = [
-        ["Vendor", result.vendor],
-        ["Date", result.date],
-        ["Amount", Number.isFinite(result.amount) ? formatCurrency(result.amount) : null],
-        ["Category", result.category]
-      ]
-        .filter(([, value]) => value !== null && value !== undefined)
-        .map(
-          ([label, value]) => `
-            <div class="bs-account-row">
-              <span>${escapeHtml(label)}</span>
-              <strong>${escapeHtml(String(value))}</strong>
-            </div>
-          `
-        )
-        .join("");
-
-      resultWrap.innerHTML = `
-        <div class="card card-pad" style="background:var(--bg-subtle);margin-top:4px;">
-          ${rows || `<p style="font-size:12.5px;color:var(--text-muted);">Couldn't read the details clearly — try a clearer photo.</p>`}
-          ${
-            result.notes
-              ? `<p style="font-size:12px;color:var(--text-muted);margin-top:10px;">${escapeHtml(result.notes)}</p>`
-              : ""
-          }
-        </div>
-        <p style="font-size:11.5px;color:var(--text-muted);margin-top:10px;">
-          Double-check these details, then enter them into QuickBooks yourself — nothing was saved automatically.
-        </p>
-      `;
-    } catch (error) {
-      console.error("❌ Receipt scan failed:", error);
-      resultWrap.innerHTML = `
-        <p style="font-size:12.5px;color:var(--negative);">
-          ${escapeHtml(error.message || "Couldn't scan that receipt. Please try again.")}
-        </p>
-      `;
-    }
-  }
-
   // Reuses the same AI-computed health score as the AI Insights page
   // (backend-cached for 5 minutes) — no second scoring calculation.
   async function loadOverviewHealthScore() {
@@ -5429,10 +5253,6 @@ function renderCashFlow(data) {
 
         <div class="page-header-actions">
           ${renderPeriodSelector(state.overviewPeriod, "setOverviewPeriod")}
-
-          <button class="btn btn-secondary" onclick="NFK_App.openReceiptScanner()">
-            📷 Scan Receipt
-          </button>
 
           <button class="btn btn-primary" onclick="NFK_App.nav('ai-insights')">
             AI Insights
@@ -7647,12 +7467,6 @@ function renderCashFlow(data) {
     dismissOverviewAlert,
 
     updateTaxRate,
-
-    openReceiptScanner,
-
-    handleReceiptFileSelected,
-
-    submitReceiptScan,
 
     _init: init,
 
