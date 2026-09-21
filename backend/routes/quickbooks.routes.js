@@ -301,8 +301,12 @@ router.get('/status', requireOrgAccess, async (req, res) => {
             });
         }
 
-        // Best-effort — the topbar company name shouldn't block
-        // status entirely if this one extra call fails.
+        // A saved row is not the same thing as a working connection.
+        // Reporting "connected" purely because a row exists meant an
+        // organization whose refresh token had been revoked still saw a
+        // green badge while every data call failed, with nothing telling
+        // the owner to reconnect. So the token is exercised here, and a
+        // terminal auth failure is reported as needing reconnection.
         let companyName = null;
 
         try {
@@ -321,10 +325,25 @@ router.get('/status', requireOrgAccess, async (req, res) => {
                 companyInfo?.CompanyInfo?.CompanyName || null;
         } catch (companyError) {
             console.error(
-                'Failed to fetch company name for status:',
+                'Failed to verify QuickBooks connection for status:',
                 companyError.response?.data ||
                 companyError.message
             );
+
+            if (companyError.code === 'QB_REAUTH_REQUIRED') {
+                return res.json({
+                    connected: false,
+                    needsReconnect: true,
+                    realmId: connection.realmId,
+                    connectedAt: connection.connectedAt,
+                    message:
+                        'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.'
+                });
+            }
+
+            // Anything else (a network blip, an Intuit outage) is
+            // transient — the connection itself is still good, so don't
+            // push the owner through a reconnect they don't need.
         }
 
         return res.json({

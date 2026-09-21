@@ -205,6 +205,22 @@ class QuickBooksService {
                 error.response?.data || error.message
             );
 
+            // Intuit answers a refresh token it will never honour again
+            // with invalid_grant (revoked, superseded, or issued by a
+            // different client). That is terminal — no amount of retrying
+            // fixes it, the owner has to reconnect — so mark it as such
+            // rather than letting callers treat it as a transient blip.
+            const intuitError = error.response?.data?.error;
+
+            if (
+                error.response?.status === 400 &&
+                (intuitError === 'invalid_grant' || intuitError === 'invalid_client')
+            ) {
+                const expired = new Error('QuickBooks connection needs to be reconnected');
+                expired.code = 'QB_REAUTH_REQUIRED';
+                throw expired;
+            }
+
             throw error;
         }
     }

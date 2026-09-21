@@ -2997,10 +2997,23 @@ function renderCashFlow(data) {
         return `
           <div class="card card-pad">
             <div style="font-weight:700;margin-bottom:6px;">
-              🔗 QuickBooks not connected
+              QuickBooks not connected
             </div>
             <p style="color:var(--text-secondary);">
               Connect QuickBooks first so NFP AI has real data to work with.
+            </p>
+          </div>
+        `;
+      }
+
+      if (error?.code === "AI_NO_CREDITS") {
+        return `
+          <div class="card card-pad">
+            <div style="font-weight:700;margin-bottom:6px;">
+              AI features are paused
+            </div>
+            <p style="color:var(--text-secondary);">
+              ${escapeHtml(error.message || "This account is out of Anthropic credits.")}
             </p>
           </div>
         `;

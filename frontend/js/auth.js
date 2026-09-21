@@ -680,9 +680,32 @@ async function routeAfterLogin() {
 
     if (status.connected) {
         enterPortal();
-    } else {
-        showView("view-connect-qb");
+        return;
     }
+
+    showView("view-connect-qb");
+
+    // A connection that has gone stale looks identical to never having
+    // connected at all, which leaves the owner wondering why they're
+    // being asked to do something they already did. Say what happened.
+    if (status.needsReconnect) {
+        showReconnectNotice(status.message);
+    }
+}
+
+// Shown on the connect screen when a previously working QuickBooks
+// connection can no longer be refreshed.
+function showReconnectNotice(message) {
+    const box = document.getElementById("qb-connect-error");
+    const msg = document.getElementById("qb-connect-error-msg");
+
+    if (msg) {
+        msg.textContent =
+            message ||
+            "Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.";
+    }
+
+    if (box) box.style.display = "flex";
 }
 
 

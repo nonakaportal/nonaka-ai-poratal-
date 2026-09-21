@@ -36,6 +36,23 @@ function handleAIError(error, res, label) {
         });
     }
 
+    // An exhausted Anthropic balance used to fall through to the generic
+    // 500 below, so every AI panel just said "unable to load" — which
+    // reads as a bug in the app and sends the owner looking for a fault
+    // that isn't theirs. It's an account problem with a specific fix, so
+    // it gets its own code and its own wording.
+    if (
+        error.status === 400 &&
+        /credit balance is too low/i.test(error.message || "")
+    ) {
+        return res.status(503).json({
+            error:
+                "The AI features are paused because this account is out of Anthropic credits. " +
+                "Everything else in the portal still works.",
+            code: "AI_NO_CREDITS"
+        });
+    }
+
     return res.status(500).json({
         error: `Failed to ${label}`
     });
