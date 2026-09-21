@@ -69,61 +69,101 @@ async function signup(email, password, fullName, organizationName) {
     }
 }
 
+// --------------------------------------------------------
+// Inline field/banner errors, replacing the alert() dialogs signup
+// used to use — an alert interrupts the whole page and pushes what the
+// user typed out of view, which is the wrong tone for someone already
+// nervous about the money side of their business.
+// --------------------------------------------------------
+
+const SIGNUP_FIELDS = [
+    "signup-name",
+    "signup-organization",
+    "signup-email",
+    "signup-password",
+    "signup-confirm-password"
+];
+
+function setFieldError(fieldId, message) {
+    const el = document.getElementById(`err-${fieldId}`);
+    if (el) el.textContent = message || "";
+}
+
+function clearSignupErrors() {
+    SIGNUP_FIELDS.forEach(id => setFieldError(id, ""));
+    hideAuthError();
+}
+
+function showAuthError(message) {
+    const box = document.getElementById("auth-error");
+    const msg = document.getElementById("auth-error-msg");
+    if (msg) msg.textContent = message;
+    if (box) box.style.display = "flex";
+}
+
+function hideAuthError() {
+    const box = document.getElementById("auth-error");
+    if (box) box.style.display = "none";
+}
+
 async function handleSignup() {
 
-    const fullName =
-        document.getElementById("signup-name")
-            .value
-            .trim();
+    const value = id => document.getElementById(id).value;
 
-    const email =
-        document.getElementById("signup-email")
-            .value
-            .trim();
+    const fullName = value("signup-name").trim();
+    const organizationName = value("signup-organization").trim();
+    const email = value("signup-email").trim();
+    const password = value("signup-password");
+    const confirmPassword = value("signup-confirm-password");
 
-    const password =
-        document.getElementById("signup-password")
-            .value;
-
-    const confirmPassword =
-        document.getElementById("signup-confirm-password")
-            .value;
-
-    const organizationName =
-        document.getElementById("signup-organization")
-            .value
-            .trim();
-
+    clearSignupErrors();
 
     // --------------------------------------------------------
-    // VALIDATION
+    // VALIDATION — each problem is reported against the field it
+    // belongs to, and all of them at once rather than one per submit.
     // --------------------------------------------------------
 
-    if (
-        !fullName ||
-        !email ||
-        !password ||
-        !confirmPassword ||
-        !organizationName
-    ) {
-        alert("Please fill in all fields.");
+    let firstBad = null;
+
+    const require = (id, val, message) => {
+        if (!val) {
+            setFieldError(id, message);
+            firstBad = firstBad || id;
+        }
+    };
+
+    require("signup-name", fullName, "Please enter your name.");
+    require("signup-organization", organizationName, "Please enter your business name.");
+    require("signup-email", email, "Please enter your email address.");
+    require("signup-password", password, "Please choose a password.");
+    require("signup-confirm-password", confirmPassword, "Please confirm your password.");
+
+    if (password && password.length < 6) {
+        setFieldError("signup-password", "Use at least 6 characters.");
+        firstBad = firstBad || "signup-password";
+    }
+
+    if (password && confirmPassword && password !== confirmPassword) {
+        setFieldError("signup-confirm-password", "These passwords don't match.");
+        firstBad = firstBad || "signup-confirm-password";
+    }
+
+    if (firstBad) {
+        document.getElementById(firstBad)?.focus();
         return;
     }
 
-    if (password !== confirmPassword) {
-        alert("Passwords do not match.");
-        return;
-    }
+    const btn = document.getElementById("signup-btn");
+    const btnText = document.getElementById("signup-btn-text");
+    const btnSpin = document.getElementById("signup-btn-spin");
 
-    if (password.length < 6) {
-        alert("Password must be at least 6 characters.");
-        return;
-    }
-
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.style.display = "none";
+    if (btnSpin) btnSpin.style.display = "inline-block";
 
     try {
 
-        console.log("📝 Creating account...");
+        console.log("Creating account...");
 
         const data =
             await signup(
@@ -133,35 +173,34 @@ async function handleSignup() {
                 organizationName
             );
 
-        console.log(
-            "✅ Account created:",
-            data
-        );
+        console.log("Account created:", data);
 
-        if (data.needsEmailConfirmation) {
-            alert(
-                "Account created! Check your email for a confirmation " +
-                "link before logging in."
-            );
-        } else {
-            alert(
-                "Account created successfully!"
-            );
+        // Supabase blocks sign-in until the emailed link is clicked, so
+        // dropping the user back on the form would only earn them a
+        // failed login. The confirmation pane says what to do instead.
+        const sentMsg = document.getElementById("signup-sent-msg");
+
+        if (sentMsg) {
+            sentMsg.textContent = data.needsEmailConfirmation
+                ? `We've sent a confirmation link to ${email}. Click it to activate your account, then sign in.`
+                : "Your account is ready. You can sign in now.";
         }
 
-        showLogin();
+        showSentPane();
 
     } catch (error) {
 
-        console.error(
-            "❌ Signup failed:",
-            error
+        console.error("Signup failed:", error);
+
+        showAuthError(
+            error.message ||
+            "Couldn't create your account. Please try again."
         );
 
-        alert(
-            error.message ||
-            "Failed to create account."
-        );
+    } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.style.display = "";
+        if (btnSpin) btnSpin.style.display = "none";
     }
 }
 
@@ -293,31 +332,22 @@ async function login(email, password) {
 // ------------------------------------------------------------
 
 async function handleLoginClick() {
+    const btn = document.getElementById("login-btn");
     const btnText = document.getElementById("login-btn-text");
     const btnSpin = document.getElementById("login-btn-spin");
-    const errorBox = document.getElementById("auth-error");
 
-    if (errorBox) {
-        errorBox.style.display = "none";
-    }
+    hideAuthError();
 
+    if (btn) btn.disabled = true;
     if (btnText) btnText.style.display = "none";
     if (btnSpin) btnSpin.style.display = "inline-block";
 
     try {
         await login();
     } catch (error) {
-        const msgEl = document.getElementById("auth-error-msg");
-
-        if (msgEl) {
-            msgEl.textContent =
-                error.message || "Invalid email or password.";
-        }
-
-        if (errorBox) {
-            errorBox.style.display = "flex";
-        }
+        showAuthError(error.message || "Invalid email or password.");
     } finally {
+        if (btn) btn.disabled = false;
         if (btnText) btnText.style.display = "inline";
         if (btnSpin) btnSpin.style.display = "none";
     }
@@ -501,130 +531,35 @@ function logout() {
 function isLoggedIn() {
     return getCurrentUser() !== null;
 }
-function showSignup() {
-    console.log("📝 Opening signup form");
+// The card shows one of three panes - sign in, sign up, or the
+// post-signup "check your email" confirmation. Which one is visible is
+// decided by a single class on the card, so the panes cannot end up
+// half-shown the way toggling each element individually could.
+function setAuthMode(mode) {
+    const card = document.getElementById("auth-card");
+    if (!card) return;
 
-    // Hide login elements
-    const loginEmail =
-        document.getElementById("login-email");
+    card.classList.remove("mode-signup", "mode-sent");
 
-    const loginPassword =
-        document.getElementById("login-password");
+    if (mode === "signup") card.classList.add("mode-signup");
+    if (mode === "sent") card.classList.add("mode-sent");
 
-    const loginButton =
-        document.getElementById("login-btn");
-
-    const loginRow =
-        document.querySelector(".auth-row");
-
-    const loginSignup =
-        document.querySelector(".auth-card > .auth-signup");
-
-    if (loginEmail) {
-        loginEmail.closest(".form-group").style.display = "none";
-    }
-
-    if (loginPassword) {
-        loginPassword.closest(".form-group").style.display = "none";
-    }
-
-    if (loginButton) {
-        loginButton.style.display = "none";
-    }
-
-    if (loginRow) {
-        loginRow.style.display = "none";
-    }
-
-    if (loginSignup) {
-        loginSignup.style.display = "none";
-    }
-
-    // Hide the login card's own title/subtitle — the signup form below
-    // already has its own "Create your account" heading, so leaving
-    // these visible (even retitled) duplicates it on screen.
-    const title =
-        document.querySelector(".auth-card > .auth-card-title");
-
-    const subtitle =
-        document.querySelector(".auth-card > .auth-card-sub");
-
-    if (title) {
-        title.style.display = "none";
-    }
-
-    if (subtitle) {
-        subtitle.style.display = "none";
-    }
-
-    // Show signup form
-    const signupForm =
-        document.getElementById("signup-form");
-
-    if (signupForm) {
-        signupForm.style.display = "block";
-    }
+    // A failed sign-in should not stay on screen over a different form.
+    hideAuthError();
+    clearSignupErrors();
 }
+
+function showSignup() {
+    setAuthMode("signup");
+    document.getElementById("signup-name")?.focus();
+}
+
 function showLogin() {
-    console.log("🔐 Returning to login");
+    setAuthMode("login");
+}
 
-    const signupForm =
-        document.getElementById("signup-form");
-
-    if (signupForm) {
-        signupForm.style.display = "none";
-    }
-
-    // Show login fields
-    const loginEmail =
-        document.getElementById("login-email");
-
-    const loginPassword =
-        document.getElementById("login-password");
-
-    const loginButton =
-        document.getElementById("login-btn");
-
-    const loginRow =
-        document.querySelector(".auth-row");
-
-    const loginSignup =
-        document.querySelector(".auth-card > .auth-signup");
-
-    if (loginEmail) {
-        loginEmail.closest(".form-group").style.display = "block";
-    }
-
-    if (loginPassword) {
-        loginPassword.closest(".form-group").style.display = "block";
-    }
-
-    if (loginButton) {
-        loginButton.style.display = "block";
-    }
-
-    if (loginRow) {
-        loginRow.style.display = "flex";
-    }
-
-    if (loginSignup) {
-        loginSignup.style.display = "flex";
-    }
-
-    // Restore heading
-    const title =
-        document.querySelector(".auth-card > .auth-card-title");
-
-    const subtitle =
-        document.querySelector(".auth-card > .auth-card-sub");
-
-    if (title) {
-        title.style.display = "";
-    }
-
-    if (subtitle) {
-        subtitle.style.display = "";
-    }
+function showSentPane() {
+    setAuthMode("sent");
 }
 
 // ------------------------------------------------------------
@@ -1039,6 +974,7 @@ window.NFK_Auth = {
     handleLoginClick,
     showSignup,
     showLogin,
+    showSentPane,
     getCurrentUser,
     getCurrentOrganization,
     getOrganizationId,
