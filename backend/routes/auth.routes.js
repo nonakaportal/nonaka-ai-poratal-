@@ -301,6 +301,32 @@ router.post("/reset-password", async (req, res) => {
             });
         }
 
+        // This endpoint sets a new password without asking for the old
+        // one, which is only acceptable for someone who proved control of
+        // the mailbox by clicking a recovery link. An ordinary sign-in
+        // token must not be enough: otherwise anyone who got hold of a
+        // session — a borrowed device, a token read out of localStorage —
+        // could lock the real owner out of their own account.
+        //
+        // Supabase records how the session was established in the token's
+        // `amr` claim: "password" for a sign-in, "otp" for a session
+        // minted from an emailed link. Safe to read here because
+        // getUserFromToken() has already verified the token is genuine.
+        const authMethods = supabaseService.getTokenAuthMethods(access_token);
+
+        if (!authMethods.includes("otp") && !authMethods.includes("recovery")) {
+            console.error(
+                "Password reset rejected — token was not from a recovery link. Methods:",
+                authMethods
+            );
+
+            return res.status(403).json({
+                success: false,
+                error:
+                    "Password can only be changed through a reset link sent to your email address."
+            });
+        }
+
         await supabaseService.updateUserPassword(user.id, password);
 
         res.json({ success: true });

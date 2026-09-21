@@ -345,6 +345,28 @@ class SupabaseService {
         return data.user;
     }
 
+    // How the session behind this token was established, read from the
+    // JWT's `amr` claim. A password sign-in reports "password"; a session
+    // minted by clicking an emailed recovery link reports "otp".
+    //
+    // Only ever call this on a token whose authenticity has already been
+    // confirmed by getUserFromToken() — the payload is decoded here
+    // without checking the signature, so on an unverified token these
+    // claims would be attacker-chosen.
+    getTokenAuthMethods(accessToken) {
+        try {
+            const payload = JSON.parse(
+                Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')
+            );
+
+            return Array.isArray(payload.amr)
+                ? payload.amr.map(entry => entry?.method).filter(Boolean)
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
     // ==========================================================
     // QUICKBOOKS CONNECTION
     // ==========================================================
