@@ -944,7 +944,8 @@
                 <div>
 
                     <div class="bs-title">
-                        ⚖️ Balance Sheet
+                        What you own &amp; owe
+                        <span class="page-title-term">Balance Sheet</span>
                     </div>
 
                     <div class="bs-subtitle">
@@ -1761,7 +1762,8 @@
                     <div>
     
                         <div class="pl-page-title">
-                            📊 Profit & Loss
+                            What you kept
+                            <span class="page-title-term">Profit &amp; Loss</span>
                         </div>
     
                         <div class="pl-page-subtitle">
@@ -2077,11 +2079,12 @@
     
                 <div>
                     <div class="page-title">
-                        AP & Vendors
+                        Bills to pay
+                        <span class="page-title-term">Accounts Payable</span>
                     </div>
     
                     <div class="page-subtitle">
-                        Accounts Payable · QuickBooks
+                        From QuickBooks
                     </div>
                 </div>
     
@@ -2464,7 +2467,8 @@ function renderCashFlow(data) {
                 <div>
 
                     <h1>
-                        💵 Cash Flow Statement
+                        Money in &amp; out
+                        <span class="page-title-term">Cash Flow</span>
                     </h1>
 
                     <p>
@@ -3264,7 +3268,7 @@ function renderCashFlow(data) {
 
           <div>
             <div class="page-title">
-              AI Insights
+              What we noticed
             </div>
 
             <div class="page-subtitle">
@@ -3548,7 +3552,7 @@ function renderCashFlow(data) {
       page.innerHTML = `
         <div class="page-header">
           <div>
-            <div class="page-title">Scenarios</div>
+            <div class="page-title">What if <span class="page-title-term">Scenarios</span></div>
             <div class="page-subtitle">
               What-if modeling from your real 12-month QuickBooks trend — not AI-generated, instant and fully under your control
             </div>
@@ -4500,7 +4504,7 @@ function renderCashFlow(data) {
     page.innerHTML = `
       <div class="page-header">
         <div>
-          <h1 class="page-title">Business Ratios</h1>
+          <h1 class="page-title">Health checks <span class="page-title-term">Business Ratios</span></h1>
           <p class="page-subtitle">Calculated from live QuickBooks data — click any card for the full calculation and trend</p>
         </div>
       </div>
@@ -5212,10 +5216,14 @@ function renderCashFlow(data) {
         })?.workingCapital?.value ?? null)
       : null;
 
+    // "Last synced <date>" used to print today's date unconditionally,
+    // which implied a sync job that doesn't exist — the app reads from
+    // QuickBooks live on each request, so the figures are current by
+    // construction. Say that instead of inventing a timestamp.
     const overviewSubtitle = [
       state.qbCompanyName || "QuickBooks",
       `FY ${new Date().getFullYear()}`,
-      `Last synced ${fmtDate(new Date().toISOString())}`
+      "Read live from QuickBooks"
     ].join(" · ");
 
     // Headline metric card: the figure, then its movement against
@@ -5275,7 +5283,7 @@ function renderCashFlow(data) {
     page.innerHTML = `
       <div class="page-header">
         <div>
-          <h1 class="page-title">Financial Overview</h1>
+          <h1 class="page-title">Overview</h1>
           <p class="page-subtitle">${escapeHtml(overviewSubtitle)}</p>
         </div>
 
@@ -5759,8 +5767,8 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>Customers</h1>
-                <p>Accounts Receivable · Last synced today</p>
+                <h1>Money owed to you <span class="page-title-term">Accounts Receivable</span></h1>
+                <p>Read live from QuickBooks</p>
               </div>
             </div>
 
@@ -6019,8 +6027,8 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>Bills & Vendors</h1>
-                <p>Accounts Payable · Last synced today</p>
+                <h1>Bills to pay <span class="page-title-term">Accounts Payable</span></h1>
+                <p>Read live from QuickBooks</p>
               </div>
             </div>
 
@@ -6297,7 +6305,7 @@ function renderCashFlow(data) {
         <div class="page-header">
             <div>
                 <h1>Invoices</h1>
-                <p>Accounts Receivable · Last synced today</p>
+                <p>Read live from QuickBooks</p>
             </div>
         </div>
     
@@ -6512,10 +6520,10 @@ function renderCashFlow(data) {
                 <div class="page-header">
             
                     <div>
-                        <h1>Debt</h1>
+                        <h1>Loans &amp; cards <span class="page-title-term">Debt</span></h1>
             
                         <p>
-                            Debt obligations · Live QuickBooks data
+                            Read live from QuickBooks
                         </p>
                     </div>
             
@@ -6810,6 +6818,12 @@ function renderCashFlow(data) {
   // SIDEBAR
   // ============================================================
 
+  // Navigation is labelled the way an owner would describe these things,
+  // not the way an accountant would name the report behind them. The
+  // accounting term still appears as the subtitle once the page opens, so
+  // nothing is hidden from a bookkeeper — it just isn't the first thing a
+  // first-time owner has to decode. Every item id is unchanged, so routing
+  // and page state are untouched by the relabelling.
   const NAV_GROUPS = [
     {
       id: "g-overview",
@@ -6828,64 +6842,82 @@ function renderCashFlow(data) {
     },
 
     {
-      id: "g-statements",
-      label: "Reports",
-      icon: icon_pl_sm(),
-      open: false,
+      id: "g-ask",
+      label: "Ask NFP AI",
+      icon: icon_ai(),
+      flat: true,
+      open: true,
 
       items: [
         {
-          id: "pl",
-          label: "Profit & Loss",
-          icon: icon_pl()
-        },
-        {
-          id: "balance-sheet",
-          label: "Balance Sheet",
-          icon: icon_scale()
-        },
-        {
-          id: "cash-flow",
-          label: "Cash Flow",
-          icon: icon_flow()
+          id: "nonaka-ai",
+          label: "Ask NFP AI",
+          icon: icon_ai()
         }
       ]
     },
 
     {
-      id: "g-operations",
-      label: "Customers & Bills",
-      icon: icon_ops_sm(),
+      id: "g-money",
+      label: "Your money",
+      icon: icon_flow(),
       open: false,
 
       items: [
         {
-          id: "working-capital",
-          label: "Customers",
-          icon: icon_ar_cust()
+          id: "cash-flow",
+          label: "Money in & out",
+          icon: icon_flow()
         },
         {
-          id: "ap-vendors",
-          label: "Bills & Vendors",
-          icon: icon_ap_vend()
+          id: "pl",
+          label: "What you kept",
+          icon: icon_pl()
         },
         {
-          id: "invoices",
-          label: "Invoices",
+          id: "balance-sheet",
+          label: "What you own & owe",
+          icon: icon_scale()
+        },
+        {
+          id: "debt-register",
+          label: "Loans & cards",
           icon: icon_ar()
         }
       ]
     },
 
     {
-      // Merged from the former separate "Business Performance" and
-      // "Financial Intelligence" groups — 4 accordion groups was a lot
-      // for a first-time user to parse before seeing a single number.
-      // Every item.id below is unchanged, so routing/state is untouched.
+      id: "g-operations",
+      label: "Customers & bills",
+      icon: icon_ops_sm(),
+      open: false,
+
+      items: [
+        {
+          id: "working-capital",
+          label: "Money owed to you",
+          icon: icon_ar_cust()
+        },
+        {
+          id: "invoices",
+          label: "Invoices",
+          icon: icon_ar()
+        },
+        {
+          id: "ap-vendors",
+          label: "Bills to pay",
+          icon: icon_ap_vend()
+        }
+      ]
+    },
+
+    {
       id: "g-insights",
-      label: "Insights",
+      label: "Looking ahead",
       icon: icon_gauge(),
       open: false,
+
       items: [
         {
           id: "forecast",
@@ -6893,38 +6925,19 @@ function renderCashFlow(data) {
           icon: icon_forecast()
         },
         {
-          id: "ai-insights",
-          label: "AI Insights",
-          icon: icon_ai()
-        },
-        {
           id: "scenarios",
-          label: "Scenarios",
+          label: "What if",
           icon: icon_scenarios()
         },
         {
-          id: "kpis",
-          label: "Business Ratios",
-          icon: icon_gauge()
-        },
-        {
-            id: "debt-register",
-            label: "Debt",
-            icon: icon_ar()
-        },
-      ]
-    },
-    {
-      id: "g-nonaka-ai",
-      label: "Ask NFP AI",
-      icon: icon_ai(),
-      flat: true,
-      open: true,
-      items: [
-        {
-          id: "nonaka-ai",
-          label: "Ask NFP AI",
+          id: "ai-insights",
+          label: "What we noticed",
           icon: icon_ai()
+        },
+        {
+          id: "kpis",
+          label: "Health checks",
+          icon: icon_gauge()
         }
       ]
     },
