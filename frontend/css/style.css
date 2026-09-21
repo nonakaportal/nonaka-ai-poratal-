@@ -73,25 +73,23 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 /* Sidebar is warm dark in both themes, so this reads fine unconditionally. */
 .sidebar-brand-text {
-  font-size: 15px; font-weight: 700; color: #F3ECE4;
+  font-size: 15px; font-weight: 700; color: var(--text-primary);
   letter-spacing: -0.01em; white-space: nowrap;
 }
 
 .brand-logo img { display: none; width: auto; }
-[data-theme="light"] .brand-logo .brand-logo-light { display: block; }
-[data-theme="dark"] .brand-logo .brand-logo-dark { display: block; }
+.brand-logo .brand-logo-dark { display: block; }
 
 .sidebar-logo-img img { height: 34px; }
 .auth-logo img { height: 78px; }
 .auth-card-logo-img img { height: 38px; }
 .connect-logo-img img { height: 60px; }
-/* Nocturne's image treatment: anything darker than the backdrop falls away,
-   so the logos' baked-in near-black grounds disappear. Dark grounds only —
-   in the light theme the light lockup is used as-is. */
+/* Anything darker than the backdrop falls away, so the logo's baked-in
+   near-black ground disappears. Relies on a dark surface underneath. */
 .auth-logo img,
-[data-theme="dark"] .sidebar-logo-img img,
-[data-theme="dark"] .connect-logo-img img,
-[data-theme="dark"] .auth-card-logo-img img {
+.sidebar-logo-img img,
+.connect-logo-img img,
+.auth-card-logo-img img {
   mix-blend-mode: lighten; background-color: transparent;
 }
 .qb-connect-mark {
@@ -282,7 +280,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   box-shadow: none;
 }
 .card { transition: border-color var(--transition), box-shadow var(--transition); }
-.card:hover, .kpi-card:hover { border-color: #4A4137; }
+.card:hover, .kpi-card:hover { border-color: var(--n-neutral-800); }
 .card-pad { padding: 20px 22px; }
 .card-pad-lg { padding: 26px 28px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
@@ -361,7 +359,7 @@ th.sort-asc::after { content: " ↑"; color: var(--accent); }
 th.sort-desc::after { content: " ↓"; color: var(--accent); }
 
 /* ------------------------------------------------------------
-   BUTTONS — outlined, never flooded
+   BUTTONS — one filled primary, everything else outlined
 ------------------------------------------------------------ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -373,9 +371,11 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .btn:hover { text-decoration: none; }
 .btn:active { transform: translateY(0.5px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { color: var(--accent); border-color: var(--accent); background: transparent; }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.btn-primary:active { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+/* The one flooded button in the system — the accent is a light periwinkle,
+   so its label has to be near-black rather than the usual light text. */
+.btn-primary { color: var(--accent-on); border-color: var(--accent); background: var(--accent); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary:active { background: var(--n-accent-600); border-color: var(--n-accent-600); }
 .btn-ghost { color: var(--text-secondary); border-color: var(--border); }
 .btn-ghost:hover { color: var(--text-primary); border-color: var(--n-neutral-600); background: color-mix(in srgb, var(--n-text) 5%, transparent); }
 .btn-danger { color: var(--negative); border-color: color-mix(in srgb, var(--negative) 55%, transparent); }
@@ -460,13 +460,13 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 
 .auth-split { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; width: 100%; }
 .auth-left {
-  background: var(--n-section);
-  background-image: radial-gradient(120% 90% at 8% 0%, var(--n-section-glow) 0%, var(--n-section) 55%, #241A10 100%);
+  background: var(--bg-card);
+  background-image: radial-gradient(120% 90% at 8% 0%, var(--n-accent-900) 0%, var(--bg-card) 55%, var(--bg-page) 100%);
   display: flex; align-items: center; padding: 64px 72px; position: relative; overflow: hidden;
 }
 .auth-left::after {
   content: ""; position: absolute; top: 0; right: 0; width: 1px; height: 100%;
-  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--n-section-ghost) 80%, transparent) 48px, color-mix(in srgb, var(--n-section-ghost) 80%, transparent) calc(100% - 48px), transparent);
+  background: linear-gradient(to bottom, transparent, var(--border) 48px, var(--border) calc(100% - 48px), transparent);
 }
 .auth-left-inner { max-width: 460px; }
 .auth-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 52px; }
@@ -1047,6 +1047,9 @@ textarea.ai-chat-input { max-height: 140px; }
 .settings-row-label { font-size: 12.5px; color: var(--text-secondary); }
 
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+/* Inside a filled primary button the accent is the background, so the
+   spinner has to invert or it disappears into it. */
+.btn-primary .spinner { border-color: color-mix(in srgb, var(--accent-on) 28%, transparent); border-top-color: var(--accent-on); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .pulse-ring { animation: pulse 1.6s ease-in-out infinite; }
 .success-ring { color: var(--positive); }
@@ -1210,7 +1213,7 @@ textarea.ai-chat-input { max-height: 140px; }
 .alert-row.warning { border-left-color: var(--warning); }
 .alert-row.info { border-left-color: var(--info); }
 .alert-row.positive { border-left-color: var(--positive); }
-.alert-row:hover { border-color: #4A4137; }
+.alert-row:hover { border-color: var(--n-neutral-800); }
 .alert-row:hover.warning { border-left-color: var(--warning); }
 .alert-row:hover.info { border-left-color: var(--info); }
 .alert-row:hover.positive { border-left-color: var(--positive); }

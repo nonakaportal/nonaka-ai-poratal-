@@ -5,7 +5,6 @@
   
   const state = {
     currentPage: "overview",
-    theme: localStorage.getItem("nfk-theme") || "dark",
     clientId: 1,
     qbConnected: false,
     plPeriod: "month",
@@ -2953,8 +2952,6 @@ function renderCashFlow(data) {
   async function init() {
     handleQBCallback();
 
-    applyTheme(state.theme);
-
     buildSidebar();
 
     buildAllPages();
@@ -2964,41 +2961,6 @@ function renderCashFlow(data) {
     navigate("overview");
 
     bindGlobalEvents();
-  }
-
-  // ============================================================
-  // THEME
-  // ============================================================
-
-  function applyTheme(t) {
-    document.documentElement.setAttribute(
-      "data-theme",
-      t
-    );
-
-    state.theme = t;
-
-    localStorage.setItem(
-      "nfk-theme",
-      t
-    );
-
-    const tog =
-      document.getElementById(
-        "theme-toggle"
-      );
-
-    if (tog) {
-      tog.checked = t === "dark";
-    }
-
-    if (window.NFK_Charts) {
-      setTimeout(
-        () =>
-          window.NFK_Charts.redrawAll(),
-        50
-      );
-    }
   }
 
   // ============================================================
@@ -7241,14 +7203,6 @@ function renderCashFlow(data) {
         Checking QuickBooks...
       </div>
 
-      <button
-        class="topbar-icon-btn"
-        onclick="NFK_App.toggleTheme()"
-        aria-label="Toggle dark mode"
-      >
-        ${icon_moon()}
-      </button>
-
       <div
         class="user-avatar"
         onclick="NFK_App.nav('settings')"
@@ -7307,11 +7261,6 @@ function renderCashFlow(data) {
   // ============================================================
   // SETTINGS
   // ============================================================
-
-  function setTheme(t) {
-    applyTheme(t);
-    renderSettings();
-  }
 
   async function loadSettingsQBStatus() {
     const body = document.getElementById("settings-qb-status");
@@ -7378,8 +7327,6 @@ function renderCashFlow(data) {
       profile = {};
     }
 
-    const currentTheme = localStorage.getItem("nfk-theme") || "light";
-
     page.innerHTML = `
       <div class="page-header">
         <div>
@@ -7412,14 +7359,6 @@ function renderCashFlow(data) {
         <div class="card-title" style="margin-bottom:16px;">QuickBooks Connection</div>
         <div id="settings-qb-status">
           <p style="color:var(--text-secondary);">Checking connection status...</p>
-        </div>
-      </div>
-
-      <div class="card card-pad section-gap">
-        <div class="card-title" style="margin-bottom:16px;">Appearance</div>
-        <div class="period-selector" style="width:max-content;">
-          <button class="period-btn ${currentTheme === "light" ? "active" : ""}" onclick="NFK_App.setTheme('light')">Light</button>
-          <button class="period-btn ${currentTheme === "dark" ? "active" : ""}" onclick="NFK_App.setTheme('dark')">Dark</button>
         </div>
       </div>
 
@@ -7546,8 +7485,6 @@ function renderCashFlow(data) {
 
     openHealthDetail,
 
-    setTheme,
-
     closeKPIModal,
 
     loadBalanceSheet,
@@ -7630,17 +7567,6 @@ function renderCashFlow(data) {
       window.NFK_Auth.logout();
     },
 
-    toggleTheme() {
-      applyTheme(
-        state.theme ===
-          "light"
-          ? "dark"
-          : "light"
-      );
-
-      buildTopBar();
-    },
-
     toggleClientDD() {
       const dd =
         document.getElementById(
@@ -7721,10 +7647,6 @@ function renderCashFlow(data) {
 
   function icon_logout() {
     return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>`;
-  }
-
-  function icon_moon() {
-    return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>`;
   }
 
   function icon_home_sm() {

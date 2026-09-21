@@ -1,69 +1,67 @@
 /* ============================================================
    NONAKA FINANCIAL PARTNERS — TOKENS
-   Warm, calm design system for a first-time small-business owner —
-   warm neutrals + one amber accent, replacing the earlier cool
-   purple/navy "AI tool" palette. Dark is the default;
-   [data-theme="light"] overrides. See DESIGN.md for the full
-   rationale; token names are unchanged so no application JS changes.
+   Neutral near-black surfaces with a single periwinkle accent,
+   cyan for data emphasis and peach for things needing attention.
+   Dark only — there is no light theme; every screen in the design
+   set is dark, so a light variant would be invented rather than
+   designed. Token names are unchanged, so application JS that
+   reads them needs no changes.
 ============================================================ */
 
 :root {
   /* --- source tokens ---------------------------------------- */
-  --n-bg:            #1A1611;
-  --n-surface:       #2A241D;
-  /* Warm near-white, not the literal DESIGN.md dark-mode value
-     (#3A342D) — that value is itself a near-black and measures
-     ~1.36:1 against this background, effectively invisible. This
-     clears ~14.3:1. */
-  --n-text:          #F3ECE4;
-  --n-accent:        #D9954B;
-  --n-section:       #3B2A1A;
-  --n-section-glow:  #5C4326;
-  --n-section-ghost: #7A5C36;
+  --n-bg:      #131314;
+  --n-surface: #1C1C1E;
+  --n-text:    #E4E1E6;
+  --n-accent:  #BEC2FF;
 
-  --n-neutral-100: #FAF6F0;
-  --n-neutral-200: #F0E9DF;
-  --n-neutral-300: #E1D7C8;
-  --n-neutral-400: #C7B9A6;
-  --n-neutral-500: #A89A87;
-  --n-neutral-600: #8C8175;
-  --n-neutral-700: #6E6355;
-  --n-neutral-800: #4A4137;
-  --n-neutral-900: #2E2822;
+  --n-neutral-100: #F5F5F7;
+  --n-neutral-200: #E4E1E6;
+  --n-neutral-300: #C7C5D0;
+  --n-neutral-400: #A9A7B3;
+  --n-neutral-500: #8F8FA1;
+  --n-neutral-600: #6E6E7D;
+  --n-neutral-700: #55555F;
+  --n-neutral-800: #3D3D44;
+  --n-neutral-900: #28282B;
 
-  --n-accent-100: #FBF0E3;
-  --n-accent-200: #F5DDBD;
-  --n-accent-300: #EBC496;
-  --n-accent-400: #E3AC71;
-  --n-accent-500: #D9954B;
-  --n-accent-600: #B87A3B;
-  --n-accent-700: #96612F;
-  --n-accent-800: #6E4823;
-  --n-accent-900: #402A16;
+  --n-accent-100: #F0F1FF;
+  --n-accent-200: #E0E0FF;
+  --n-accent-300: #D3D5FF;
+  --n-accent-400: #C9CCFF;
+  --n-accent-500: #BEC2FF;
+  --n-accent-600: #A0A5E8;
+  --n-accent-700: #8287C9;
+  --n-accent-800: #5A5F96;
+  --n-accent-900: #33375E;
 
   /* Semantic finance colours — kept low-chroma so the accent
-     stays the only saturated voice in the interface. */
-  --n-positive: #6FA37E;
-  --n-negative: #C4726B;
-  --n-warning:  #D4A86A;
-  --n-info:     #8fa8d9;
+     stays the only saturated voice in the interface. Peach is
+     the attention colour and cyan carries data emphasis. */
+  --n-positive: #6BBF93;
+  --n-negative: #EF8F86;
+  --n-warning:  #FFB689;
+  --n-info:     #50D8E9;
 
-  /* --- Portal roles (dark, default) ------------------------ */
-  --bg-page:     #1A1611;
-  --bg-card:     #211D19;
-  --bg-elevated: #2A241D96;
-  --bg-sidebar:  #17130F;
-  --bg-topbar:   rgba(33,29,25,0.82);
-  --bg-input:    #1C170F99;
-  --bg-subtle:   #241F19;
-  --bg-hover:    #2E2820;
+  /* --- Portal roles ----------------------------------------- */
+  --bg-page:     var(--n-bg);
+  --bg-card:     var(--n-surface);
+  --bg-elevated: #232326;
+  --bg-sidebar:  #0F0F10;
+  --bg-topbar:   rgba(19,19,20,0.82);
+  --bg-input:    #18181A;
+  --bg-subtle:   #1A1A1C;
+  --bg-hover:    #242426;
 
   --accent:         var(--n-accent);
-  --accent-hover:   var(--n-accent-400);
+  --accent-hover:   var(--n-accent-300);
   --accent-quiet:   var(--n-accent-700);
   --accent-subtle:  color-mix(in srgb, var(--n-accent) 14%, transparent);
   --accent-line:    color-mix(in srgb, var(--n-accent) 45%, transparent);
   --accent-glow:    color-mix(in srgb, var(--n-accent) 22%, transparent);
+  /* Text/icon colour for a filled accent button — the accent is a
+     light periwinkle, so anything sitting on it must be near-black. */
+  --accent-on:      var(--n-bg);
 
   --positive:    var(--n-positive);
   --positive-bg: color-mix(in srgb, var(--n-positive) 14%, transparent);
@@ -74,16 +72,15 @@
   --info:        var(--n-info);
 
   --text-primary:   var(--n-text);
-  --text-secondary: var(--n-neutral-400);
+  --text-secondary: var(--n-neutral-300);
   --text-muted:     var(--n-neutral-500);
-  /* Re-verified against the new #211D19 card background — clears
-     the 4.5:1 AA floor for the small (10-12px) label text this
-     token is used for. */
-  --text-faint:     #9C8F7D;
+  /* Small (10-12px) label text — measured against --bg-card so it
+     stays above the 4.5:1 AA floor on cards, not just on the page. */
+  --text-faint:     #85848F;
   --text-on-dark:   var(--n-neutral-100);
 
-  --border:       #35302A;
-  --border-light: #23263300;
+  --border:       #353438;
+  --border-light: #2A292D;
   --border-hair:  color-mix(in srgb, var(--n-text) 10%, transparent);
   --rule:         color-mix(in srgb, var(--n-text) 14%, transparent);
 
@@ -91,8 +88,8 @@
   --font-mono: "Outfit", system-ui, sans-serif; /* figures use tabular-nums, not a second face */
 
   --shadow-card:  0 0 0 1px var(--border);
-  --shadow-hover: 0 0 0 1px #4A4137, 0 8px 24px rgba(0,0,0,0.45);
-  --shadow-modal: 0 0 0 1px #5C5347, 0 24px 60px rgba(0,0,0,0.65);
+  --shadow-hover: 0 0 0 1px #45444A, 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-modal: 0 0 0 1px #4E4D55, 0 24px 60px rgba(0,0,0,0.68);
 
   --radius-card: 14px;
   --radius-btn: 12px;
@@ -105,7 +102,7 @@
   --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* legacy names still referenced by glassmorphism.css */
-  --glass-bg: rgba(42,36,29,0.55);
+  --glass-bg: rgba(28,28,30,0.55);
   --glass-blur: blur(14px);
   --glass-border: var(--border-hair);
   --glass-shadow: var(--shadow-card);
@@ -113,49 +110,4 @@
   --spacing-sm: 10px;
   --spacing-md: 16px;
   --accent-primary: var(--accent);
-}
-
-[data-theme="light"] {
-  --bg-page:     #FAF6F0;
-  --bg-card:     #ffffff;
-  --bg-elevated: #ffffff;
-  --bg-sidebar:  #1F1A14;
-  --bg-topbar:   rgba(255,255,255,0.86);
-  --bg-input:    #F7F2EA;
-  --bg-subtle:   #F2ECE2;
-  --bg-hover:    #EDE4D6;
-
-  /* Darkened from the base accent so it clears AA as running
-     link/text color (the literal accent hex is a button/fill
-     color, not a text color — same reason the previous palette's
-     accent-hover was also a deepened shade, not the raw accent). */
-  --accent-hover:  #96612F;
-  --accent-quiet:  var(--n-accent-300);
-  --accent-subtle: color-mix(in srgb, var(--n-accent) 12%, transparent);
-  --accent-line:   color-mix(in srgb, var(--n-accent) 55%, transparent);
-  --accent-glow:   color-mix(in srgb, var(--n-accent) 16%, transparent);
-
-  /* Deepened from the dark-mode positive/negative — the lighter
-     values only clear ~2.7:1 / ~3.3:1 against this cream
-     background, under the AA floor. */
-  --positive: #3E7A54;
-  --negative: #B8564E;
-  --warning:  #a67535;
-  --info:     #5a76b8;
-
-  --text-primary:   var(--n-neutral-900);
-  --text-secondary: var(--n-neutral-700);
-  --text-muted:     #6E6355;
-  --text-faint:     #7A6E5F;
-
-  --border:       #E4DCD1;
-  --border-light:  #EFE7DB;
-  --border-hair:  color-mix(in srgb, var(--n-neutral-900) 12%, transparent);
-  --rule:         color-mix(in srgb, var(--n-neutral-900) 14%, transparent);
-
-  --shadow-card:  0 0 0 1px var(--border);
-  --shadow-hover: 0 0 0 1px #DCD2C2, 0 8px 24px rgba(41,33,25,0.10);
-  --shadow-modal: 0 0 0 1px #DCD2C2, 0 24px 60px rgba(41,33,25,0.18);
-
-  --glass-bg: rgba(255,255,255,0.6);
 }

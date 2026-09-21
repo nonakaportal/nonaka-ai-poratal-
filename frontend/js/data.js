@@ -15,7 +15,6 @@ const NFK_DATA = {
     clients: [] 
   },
   ui: {
-    theme: localStorage.getItem("nfk-theme") || "dark",
     currentPage: "overview"
   }
 };

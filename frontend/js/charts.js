@@ -14,20 +14,20 @@ function getVar(name) {
 }
 
 function getColors() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  // Dark only — mirrors tokens.css, which no longer has a light theme.
   return {
-    primary:      "#D9954B",   // Warm Amber accent
-    secondary:    "#3B2A1A",   // Warm section umber
-    success:      isDark ? "#6FA37E" : "#3E7A54",
-    danger:       isDark ? "#C4726B" : "#B8564E",
-    warning:      isDark ? "#d4a86a" : "#a67535",
-    purple:       "#E3AC71",   // Warm accent 400
-    teal:         "#8fa8d9",   // Info — unchanged, low-priority per design review
-    grid:         isDark ? "rgba(243,236,228,0.07)" : "rgba(46,40,34,0.08)",
-    text:         isDark ? "#A89A87" : "#6E6355",
-    textPrimary:  isDark ? "#F3ECE4" : "#2E2822",
-    bg:           isDark ? "#211D19" : "#ffffff",
-    border:       isDark ? "rgba(243,236,228,0.10)" : "rgba(46,40,34,0.12)",
+    primary:      "#BEC2FF",   // Periwinkle accent
+    secondary:    "#33375E",   // Accent 900
+    success:      "#6BBF93",
+    danger:       "#EF8F86",
+    warning:      "#FFB689",
+    purple:       "#C9CCFF",   // Accent 400
+    teal:         "#50D8E9",   // Cyan — data emphasis
+    grid:         "rgba(228,225,230,0.07)",
+    text:         "#8F8FA1",
+    textPrimary:  "#E4E1E6",
+    bg:           "#1C1C1E",
+    border:       "rgba(228,225,230,0.10)",
   };
 }
 
