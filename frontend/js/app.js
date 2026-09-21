@@ -4802,7 +4802,7 @@ function renderCashFlow(data) {
 
     const notEnoughData = () => {
       el.innerHTML = `
-        <div class="stat-label">Cash Runway</div>
+        <div class="stat-label">How long your cash lasts</div>
         <div class="stat-val">—</div>
         <div class="stat-sub-quiet">Not enough monthly history yet</div>
       `;
@@ -4829,7 +4829,7 @@ function renderCashFlow(data) {
     // Spending less than you're bringing in — there's no countdown to show.
     if (avgMonthlyBurn <= 0) {
       el.innerHTML = `
-        <div class="stat-label">Cash Runway</div>
+        <div class="stat-label">How long your cash lasts</div>
         <div class="stat-val pos-val">Growing</div>
         <div class="stat-sub-quiet">You're bringing in more than you're spending</div>
       `;
@@ -4840,7 +4840,7 @@ function renderCashFlow(data) {
     const urgencyClass = months < 2 ? "neg-val" : months < 6 ? "" : "pos-val";
 
     el.innerHTML = `
-      <div class="stat-label">Cash Runway</div>
+      <div class="stat-label">How long your cash lasts</div>
       <div class="stat-val ${urgencyClass}">${months.toFixed(1)} months</div>
       <div class="stat-sub-quiet">At your recent spending pace</div>
     `;
@@ -5104,6 +5104,39 @@ function renderCashFlow(data) {
     }
   }
 
+  // The one-line answer to "how is my business doing", in the words an
+  // owner would use. Built only from figures that actually loaded — each
+  // clause is dropped if its number is missing, and the whole line is
+  // dropped if none of them are available, so it can never assert
+  // something the data doesn't support.
+  function overviewSummaryLine({ income, netIncome, cashBalance, periodLabel, currency }) {
+    const has = v => Number.isFinite(v);
+    const money = v => formatCurrency(Number(v), currency);
+    const period = (periodLabel || "this month").toLowerCase();
+
+    const sentences = [];
+
+    if (has(income) && income === 0) {
+      sentences.push(`No money has come in ${period} yet.`);
+    } else if (has(income) && has(netIncome)) {
+      sentences.push(
+        netIncome === 0
+          ? `You brought in ${money(income)} ${period} and broke even.`
+          : netIncome > 0
+          ? `You brought in ${money(income)} ${period} and kept ${money(netIncome)} of it.`
+          : `You brought in ${money(income)} ${period}, but spent ${money(Math.abs(netIncome))} more than that.`
+      );
+    } else if (has(income)) {
+      sentences.push(`You brought in ${money(income)} ${period}.`);
+    }
+
+    if (has(cashBalance)) {
+      sentences.push(`There's ${money(cashBalance)} in the bank right now.`);
+    }
+
+    return sentences.join(" ");
+  }
+
   function renderOverview({ pl, bs, cf, ar, ap, debt }) {
 
     const page =
@@ -5296,14 +5329,21 @@ function renderCashFlow(data) {
         </div>
       </div>
 
+      ${(() => {
+        const line = overviewSummaryLine({
+          income, netIncome, cashBalance, periodLabel, currency
+        });
+        return line ? `<p class="overview-summary">${escapeHtml(line)}</p>` : "";
+      })()}
+
       <div class="stat-grid section-gap">
         ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income")}
         ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome")}
-        ${metricCard("Cash Balance", cashBalance, priorCash, !!cf?.error, icon_flow())}
+        ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow())}
         ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital")}
 
         <div class="stat-card" id="overview-cash-runway">
-          <div class="stat-label">Cash Runway</div>
+          <div class="stat-label">How long your cash lasts</div>
           <div class="stat-val">
             <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
           </div>

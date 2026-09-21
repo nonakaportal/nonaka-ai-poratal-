@@ -1170,6 +1170,13 @@ textarea.ai-chat-input { max-height: 140px; }
 /* The accounting name for a page, kept beside the plain-language title.
    A bookkeeper still finds "Balance Sheet"; an owner isn't asked to know
    the term before they can open the page. */
+/* The plain-English answer to "how is my business doing", sitting above
+   the numbers so the owner gets it before reading a single card. */
+.overview-summary {
+  font-size: 15.5px; line-height: 1.6; color: var(--text-secondary);
+  margin: -6px 0 22px; max-width: 70ch; text-wrap: pretty;
+}
+
 .page-title-term {
   font-size: 0.55em; font-weight: 500; color: var(--text-muted);
   letter-spacing: 0.06em; text-transform: uppercase; margin-left: 10px;
