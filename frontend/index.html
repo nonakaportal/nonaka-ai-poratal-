@@ -8,7 +8,7 @@
  <!-- CSS Imports -->
  <link rel="stylesheet" href="css/tokens.css?v=34">
  <link rel="stylesheet" href="css/glassmorphism.css?v=33">
- <link rel="stylesheet" href="css/style.css?v=38">
+ <link rel="stylesheet" href="css/style.css?v=39">
 
  <!-- Google Fonts -->
  <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -153,21 +153,21 @@
  <div class="onboard-icon-wrap">
  <img class="qb-connect-mark" src="assest/images.png" alt="QuickBooks">
  </div>
- <h2 class="onboard-h2">Connect to QuickBooks Online</h2>
- <p class="onboard-p">Securely link your QuickBooks Online account so NFP AI can pull your financial data — automatically, every 24 hours.</p>
+ <h2 class="onboard-h2">Connect your QuickBooks</h2>
+ <p class="onboard-p">Link the QuickBooks Online account you already use for your books. We read your numbers straight from it, so what you see here is always current.</p>
  <div class="auth-error" id="qb-connect-error" style="display:none;">
  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.169 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg><span id="qb-connect-error-msg">We couldn't complete the QuickBooks connection. Please try again.</span>
  </div>
  <div class="onboard-feature-grid">
- <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> Profit & Loss, COGS, Net Income</div>
- <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> Balance Sheet & Equity</div>
- <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> Cash Flow Statements</div>
- <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> AR / AP & Invoices</div>
+ <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> What you earned and what you kept</div>
+ <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> What your business owns and owes</div>
+ <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> Money coming in and going out</div>
+ <div class="onboard-feature"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg> Who owes you, and bills to pay</div>
  </div>
  <div class="onboard-actions">
  <button class="btn btn-qb" style="width:100%;justify-content:center;font-size:15px;" onclick="NFK_Auth.connectQB()">
  <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;margin-right:8px;"><circle cx="10" cy="10" r="9" fill="white" opacity="0.3"/><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zm.5 10.5v1h-1v-1a3 3 0 01-2.45-2.95h1.2a1.85 1.85 0 003.7 0 1.9 1.9 0 00-1.9-1.9H10a3 3 0 010-6v-1h1v1a3 3 0 012.45 2.95h-1.2a1.85 1.85 0 00-3.7 0 1.9 1.9 0 001.9 1.9h.05a3 3 0 010 6z" fill="white"/></svg>
- Connect to QuickBooks Online
+ Connect QuickBooks
  </button>
  </div>
  <div class="onboard-security">Read-only access · No passwords stored · You can disconnect any time</div>
@@ -175,7 +175,7 @@
 
  <!-- State: Connecting -->
  <div class="onboard-card" id="qb-state-connecting" style="display:none;">
- <div class="onboard-icon-wrap"><span class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(255,255,255,0.2);border-top-color:var(--accent);"></span></div>
+ <div class="onboard-icon-wrap"><span class="spinner spinner-lg"></span></div>
  <h2 class="onboard-h2">Connecting to QuickBooks…</h2>
  <p class="onboard-p">This takes about 10 seconds. Please don't close this window.</p>
  <div class="qb-progress-wrap" id="qb-steps-v2"></div>
@@ -183,12 +183,16 @@
 
  <!-- State: Success / Company Select Trigger -->
  <div class="onboard-card" id="qb-state-success" style="display:none;">
- <div class="onboard-icon-wrap" style="color:var(--positive);font-size:48px;">✓</div>
- <h2 class="onboard-h2">Connected Successfully!</h2>
- <p class="onboard-p">Your QuickBooks data has been imported. You're ready to explore your financial dashboard.</p>
- <p class="onboard-p" style="font-weight:600;" id="qb-connected-company"></p>
- <p class="onboard-p" style="font-size:13px;">Not your company? QuickBooks may have used an account already signed in on this browser. <a href="#" onclick="NFK_Auth.disconnectQB();return false;" style="color:var(--accent);">Disconnect and try again</a>.</p>
- <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_Auth.enterPortal()">Enter Portal →</button>
+ <div class="onboard-icon-wrap">
+ <span class="onboard-done-mark">
+ <svg viewBox="0 0 20 20" fill="currentColor" width="22" height="22"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+ </span>
+ </div>
+ <h2 class="onboard-h2">You're connected</h2>
+ <p class="onboard-p">We can now read your numbers from QuickBooks. Here's the business we linked:</p>
+ <p class="onboard-company" id="qb-connected-company"></p>
+ <p class="onboard-p onboard-p-quiet">Not the right business? QuickBooks may have used an account already signed in on this browser. <a href="#" class="auth-link" onclick="NFK_Auth.disconnectQB();return false;">Disconnect and try again</a>.</p>
+ <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_Auth.enterPortal()">Go to my dashboard</button>
  </div>
  </div>
  </div>
