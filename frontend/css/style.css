@@ -313,7 +313,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
    SURFACES
 ------------------------------------------------------------ */
 .card, .table-wrap, .kpi-card, .stat-card, .insight-card, .bs-col,
-.pl-table-card, .cf-waterfall, .cf-activity-card, .cf-summary,
+.cf-waterfall, .cf-activity-card, .cf-summary,
 .cf-net-change, .bs-card, .bs-check, .scenario-panel, .ai-chat-panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -424,7 +424,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .btn-qb { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 55%, transparent); }
 .btn-qb:hover { background: var(--positive-bg); border-color: var(--positive); }
 
-.badge, .insight-type-badge, .health-badge, .balanced-badge, .pl-live-badge,
+.badge, .insight-type-badge, .health-badge, .balanced-badge,
 .sync-badge, .field-badge, .fy-badge, .bs-flag {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px; border-radius: 999px;
@@ -432,7 +432,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
   border: 1px solid transparent; white-space: nowrap;
 }
 .badge-pos, .badge-healthy, .badge-strong, .badge-current, .health-badge.pos,
-.balanced-badge, .pl-live-badge, .sync-ok, .field-badge.qb {
+.balanced-badge, .sync-ok, .field-badge.qb {
   background: var(--positive-bg); color: var(--positive);
   border-color: color-mix(in srgb, var(--positive) 25%, transparent);
 }
@@ -619,56 +619,6 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 /* ------------------------------------------------------------
    PROFIT & LOSS
 ------------------------------------------------------------ */
-.pl-table-card { overflow: hidden; }
-.pl-table-header { padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
-.pl-table-header h2 { margin: 0; font-size: 16px; font-weight: 500; color: var(--text-primary); }
-.pl-table-header p { margin: 5px 0 0; color: var(--text-muted); font-size: 12.5px; font-weight: 400; }
-.pl-table-wrapper { width: 100%; overflow-x: auto; }
-.pl-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.pl-table th {
-  background: transparent; color: var(--text-faint); font-size: 10px; font-weight: 600;
-  padding: 14px 20px; text-align: right; white-space: nowrap;
-  text-transform: uppercase; letter-spacing: 0.12em; border-bottom: 1px solid var(--border);
-}
-.pl-table th:first-child { width: 68%; text-align: left; }
-.pl-table th:last-child { width: 32%; text-align: right; }
-.pl-table td { padding: 12px 20px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-primary); }
-.pl-table td:first-child { width: 68%; text-align: left; }
-.pl-table td:last-child { width: 32%; text-align: right; }
-.pl-number { text-align: right; white-space: nowrap; }
-.pl-indent { padding-left: 40px !important; color: var(--text-secondary) !important; }
-.pl-indent-2 { padding-left: 60px !important; }
-.pl-group-row td {
-  text-align: left !important; padding-left: 40px !important;
-  padding-top: 11px !important; padding-bottom: 11px !important;
-  font-weight: 600; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text-faint) !important; background: transparent;
-}
-.pl-section-row td { background: transparent; font-size: 12.5px; font-weight: 500; color: var(--text-primary); border-top: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.06em; }
-.pl-section-row.income-section td { border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
-.pl-section-row.cogs-section td { border-left: 2px solid var(--warning); background: color-mix(in srgb, var(--warning) 6%, transparent); }
-.pl-section-row.expense-section td { border-left: 2px solid var(--negative); background: color-mix(in srgb, var(--negative) 6%, transparent); }
-.pl-section-row.other-section td { border-left: 2px solid var(--n-accent-2-500, var(--info)); background: color-mix(in srgb, var(--info) 6%, transparent); }
-.pl-section-icon { margin-right: 8px; opacity: 0.7; }
-.pl-account-row:hover td { background: color-mix(in srgb, var(--n-text) 3%, transparent); }
-.pl-total-row td { background: transparent; border-top: 1px solid var(--border); font-size: 13.5px; font-weight: 500; }
-.gross-profit-row td { background: color-mix(in srgb, var(--positive) 8%, transparent); border-left: 2px solid var(--positive); font-weight: 500; }
-.operating-income-row td { background: color-mix(in srgb, var(--accent) 9%, transparent); border-left: 2px solid var(--accent); font-weight: 500; }
-.pl-profit-row td {
-  background: var(--n-section);
-  background-image: linear-gradient(100deg, var(--n-section) 0%, var(--n-section-glow) 100%);
-  color: #fff; font-size: 16px; font-weight: 500; border-bottom: none; padding-top: 18px; padding-bottom: 18px;
-}
-.pl-profit-row .pl-number { color: #fff; }
-.pl-profit-row .pl-number.pl-profit-positive { color: var(--n-accent-200) !important; }
-.pl-profit-row .pl-number.pl-profit-negative { color: #F2B8AE !important; }
-.pl-row-header td { font-weight: 500; font-size: 13px; color: var(--text-primary); background: transparent; }
-.pl-row-item td { font-size: 12.5px; color: var(--text-secondary); }
-.pl-row-cogs td { font-weight: 500; font-size: 13px; color: var(--negative); background: color-mix(in srgb, var(--negative) 5%, transparent); }
-.pl-row-sub td { font-weight: 500; font-size: 13.5px; color: var(--text-primary); background: color-mix(in srgb, var(--accent) 9%, transparent); border-top: 1px solid var(--accent-line); }
-.pl-row-net { background: var(--n-section) !important; }
-.pl-row-net td { color: #fff !important; font-weight: 500 !important; font-size: 15px; }
-.pl-section-divider td:first-child { border-left: 2px solid var(--accent); padding-left: 18px; }
 .pl-data-note { margin-top: 18px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 15px 18px; display: flex; gap: 12px; align-items: flex-start; }
 .pl-data-note strong { color: var(--text-primary); font-size: 12.5px; font-weight: 500; }
 .pl-data-note p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
