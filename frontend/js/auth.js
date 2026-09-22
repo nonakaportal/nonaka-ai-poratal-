@@ -906,29 +906,87 @@ async function disconnectQB() {
 // QUICKBOOKS CONNECTING ANIMATION
 // ------------------------------------------------------------
 
-const QB_CONNECT_STEPS = [
-    "Opening QuickBooks OAuth window...",
-    "Authenticating credentials...",
-    "Fetching company list...",
-    "Pulling Chart of Accounts...",
-    "Importing financial statements...",
-    "Calculating metrics & KPIs...",
-    "Connection complete!"
-];
+// These steps are real work, not a timer.
+//
+// Each one is a question the Overview is about to ask anyway. Asking
+// them here, while the person is watching a progress list rather than
+// an empty dashboard, means the answers are already in hand by the
+// time they arrive — the page fills straight away instead of firing
+// everything at QuickBooks at once and having the slowest cards
+// refused. A tick appears when that step's own answer comes back, so
+// the list says what is actually happening.
+//
+// One at a time on purpose: QuickBooks turns away a burst of calls for
+// the same company. See backend/services/quickbooks/request-gate.js.
+function qbWarmupSteps(organizationId) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const iso = d =>
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-function renderQBSteps(activeIndex) {
+    // This has to match getPeriodRange("month") in app.js exactly. A
+    // different date range is a different question, and the Overview
+    // would just ask again — losing the whole point of warming up.
+    const endDate = iso(now);
+    const startDate = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+
+    const org = encodeURIComponent(organizationId);
+    const range =
+        `&startDate=${encodeURIComponent(startDate)}` +
+        `&endDate=${encodeURIComponent(endDate)}`;
+
+    return [
+        {
+            label: "Checking your QuickBooks connection",
+            path: `/quickbooks/status?organizationId=${org}`
+        },
+        {
+            label: "Reading what you earned and spent",
+            path: `/quickbooks/pl-story?organizationId=${org}${range}`
+        },
+        {
+            label: "Looking at what's in the bank",
+            path: `/quickbooks/cash-projection?organizationId=${org}&days=30`
+        },
+        {
+            label: "Working out where the money went",
+            path: `/quickbooks/money-flow?organizationId=${org}${range}`
+        },
+        {
+            label: "Finding who still owes you",
+            path: `/quickbooks/invoice-urgency?organizationId=${org}`
+        },
+        {
+            label: "Listing the bills coming due",
+            path: `/quickbooks/bills-schedule?organizationId=${org}`
+        },
+        {
+            label: "Adding up what you own and what you owe",
+            path: `/quickbooks/balance-questions?organizationId=${org}`
+        }
+    ];
+}
+
+// statuses[i] is "done", "warn", or undefined for not reached yet.
+function renderQBSteps(steps, activeIndex, statuses = []) {
     const wrap = document.getElementById("qb-steps-v2");
 
     if (!wrap) return;
 
-    wrap.innerHTML = QB_CONNECT_STEPS
-        .map((label, i) => {
+    wrap.innerHTML = steps
+        .map(({ label }, i) => {
             let stateClass = "";
             let icon = "○";
 
-            if (i < activeIndex) {
+            if (statuses[i] === "done") {
                 stateClass = "done";
                 icon = "✓";
+            } else if (statuses[i] === "warn") {
+                // Not a failure worth alarming anyone about — the page
+                // asks again by itself. Say it was skipped, don't tick
+                // it as if it worked.
+                stateClass = "warn";
+                icon = "–";
             } else if (i === activeIndex) {
                 stateClass = "active";
                 icon = `<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>`;
@@ -944,7 +1002,48 @@ function renderQBSteps(activeIndex) {
         .join("");
 }
 
-function runQBConnectAnimation() {
+// A step that is already answered comes back in milliseconds, which
+// would flash past too fast to read. Hold each one briefly so the list
+// reads as progress rather than a flicker.
+const QB_STEP_MIN_MS = 280;
+
+async function runOneWarmupStep(step) {
+    const token = getAccessToken();
+    const startedAt = Date.now();
+
+    let outcome = "warn";
+
+    try {
+        const response = await fetch(`${QB_API}${step.path}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        // The answer itself is thrown away on purpose. It is already
+        // held on the server for the next minute, which is what the
+        // Overview will read. This is only about having asked.
+        if (response.ok) {
+            outcome = "done";
+        } else {
+            console.warn(
+                `Warm-up step failed (${response.status}): ${step.label}`
+            );
+        }
+    } catch (error) {
+        console.warn(`Warm-up step failed: ${step.label}`, error);
+    }
+
+    const elapsed = Date.now() - startedAt;
+
+    if (elapsed < QB_STEP_MIN_MS) {
+        await new Promise(resolve =>
+            setTimeout(resolve, QB_STEP_MIN_MS - elapsed)
+        );
+    }
+
+    return outcome;
+}
+
+async function runQBConnectAnimation() {
     showView("view-connect-qb");
 
     const idleEl = document.getElementById("qb-state-idle");
@@ -955,59 +1054,58 @@ function runQBConnectAnimation() {
     if (successEl) successEl.style.display = "none";
     if (connectingEl) connectingEl.style.display = "block";
 
-    let step = 0;
+    const organizationId = getOrganizationId();
+    const steps = qbWarmupSteps(organizationId);
+    const statuses = [];
 
-    renderQBSteps(step);
-
-    const interval = setInterval(() => {
-        step++;
-
-        renderQBSteps(step);
-
-        if (step >= QB_CONNECT_STEPS.length) {
-            clearInterval(interval);
-
-            setTimeout(async () => {
-                if (connectingEl) connectingEl.style.display = "none";
-                if (successEl) successEl.style.display = "block";
-
-                // Show which company actually got connected — Intuit can
-                // silently authorize whatever account is already logged
-                // into this browser, so surfacing the name here is what
-                // lets the user catch a wrong connection instead of
-                // assuming it's correct.
-                const companyEl = document.getElementById("qb-connected-company");
-
-                if (companyEl) {
-                    try {
-                        const status = await checkQBStatus();
-                        companyEl.textContent = status?.companyName
-                            ? `Connected to: ${status.companyName}`
-                            : "";
-                    } catch {
-                        companyEl.textContent = "";
-                    }
-                }
-
-                const step2 = document.getElementById("qb-onboard-step-2");
-                const line2 = document.getElementById("qb-onboard-line-2");
-                const step3 = document.getElementById("qb-onboard-step-3");
-
-                if (step2) {
-                    step2.classList.remove("active");
-                    step2.classList.add("done");
-                    step2.querySelector(".step-num").textContent = "✓";
-                }
-
-                if (line2) line2.classList.add("done");
-
-                if (step3) {
-                    step3.classList.add("done");
-                    step3.querySelector(".step-num").textContent = "✓";
-                }
-            }, 500);
+    if (organizationId) {
+        for (let i = 0; i < steps.length; i++) {
+            renderQBSteps(steps, i, statuses);
+            statuses[i] = await runOneWarmupStep(steps[i]);
         }
-    }, 650);
+    }
+
+    renderQBSteps(steps, steps.length, statuses);
+
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    if (connectingEl) connectingEl.style.display = "none";
+    if (successEl) successEl.style.display = "block";
+
+    // Show which company actually got connected — Intuit can
+    // silently authorize whatever account is already logged
+    // into this browser, so surfacing the name here is what
+    // lets the user catch a wrong connection instead of
+    // assuming it's correct.
+    const companyEl = document.getElementById("qb-connected-company");
+
+    if (companyEl) {
+        try {
+            const status = await checkQBStatus();
+            companyEl.textContent = status?.companyName
+                ? `Connected to: ${status.companyName}`
+                : "";
+        } catch {
+            companyEl.textContent = "";
+        }
+    }
+
+    const step2 = document.getElementById("qb-onboard-step-2");
+    const line2 = document.getElementById("qb-onboard-line-2");
+    const step3 = document.getElementById("qb-onboard-step-3");
+
+    if (step2) {
+        step2.classList.remove("active");
+        step2.classList.add("done");
+        step2.querySelector(".step-num").textContent = "✓";
+    }
+
+    if (line2) line2.classList.add("done");
+
+    if (step3) {
+        step3.classList.add("done");
+        step3.querySelector(".step-num").textContent = "✓";
+    }
 }
 
 
