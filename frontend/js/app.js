@@ -2177,6 +2177,100 @@
       }
     }
 
+    // Every row on the statement opens to show what is inside it: the
+    // accounts for the rows that have accounts, and the sum it came
+    // from for the subtotals, which have none. Same behaviour on every
+    // row, so nothing looks clickable that isn't.
+    function renderPLStep(step, { money, widthOf }) {
+      const detailRow = (name, amount, extra = "") => `
+        <div class="plstory-line ${extra}">
+          <span class="plstory-line-name">${escapeHtml(name)}</span>
+          <span class="plstory-line-amount">${money(amount)}</span>
+        </div>
+      `;
+
+      let inside = "";
+
+      if (Array.isArray(step.lines) && step.lines.length) {
+        inside = step.lines.map(line => {
+          if (Array.isArray(line.items) && line.items.length) {
+            return `
+              <div class="plstory-line-group">
+                ${detailRow(line.name, line.amount, "is-group")}
+                ${line.items.map(item =>
+                  detailRow(item.name, item.amount, "is-child")).join("")}
+              </div>
+            `;
+          }
+
+          // A parent account posted to directly, sitting next to the
+          // category of the same name. Saying so stops it reading as
+          // a mistake.
+          return detailRow(
+            line.ownPosting ? `${line.name} — posted directly` : line.name,
+            line.amount
+          );
+        }).join("");
+
+        inside += `
+          ${detailRow("Total", step.linesTotal, "is-total")}
+          ${step.adds_up === false
+            ? `<div class="plstory-line-warn">
+                 These lines come to ${money(step.linesTotal)}, not
+                 ${money(step.amount)}. The figure above is the one
+                 QuickBooks reports.
+               </div>`
+            : ""}
+        `;
+      } else if (Array.isArray(step.workings) && step.workings.length) {
+        inside = `
+          ${step.workings.map(w => detailRow(w.name, w.amount)).join("")}
+          ${detailRow("Leaves", step.amount, "is-total")}
+        `;
+      } else {
+        inside = `<div class="plstory-line-empty">
+                    QuickBooks has no accounts recorded under this.
+                  </div>`;
+      }
+
+      return `
+        <details class="plstory-step kind-${escapeHtml(step.kind)}">
+          <summary class="plstory-summary">
+            <div class="plstory-step-top">
+              <span class="plstory-label">
+                <span class="plstory-name">${escapeHtml(step.label)}</span>
+                <span class="plstory-term">${escapeHtml(step.term)}</span>
+              </span>
+              <span class="plstory-right">
+                <strong class="plstory-amount">
+                  ${step.kind === "out" ? "−" : ""}${money(Math.abs(step.amount))}
+                </strong>
+                <svg class="plstory-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                </svg>
+              </span>
+            </div>
+
+            <div class="plstory-bar">
+              <span
+                class="plstory-bar-fill"
+                style="width:${widthOf(step.amount)}%"
+              ></span>
+            </div>
+
+            <div class="plstory-step-foot">
+              <span class="plstory-explain">${escapeHtml(step.explain)}</span>
+              ${step.share !== null && step.share !== undefined
+                ? `<span class="plstory-share">${Number(step.share)}% of sales</span>`
+                : ""}
+            </div>
+          </summary>
+
+          <div class="plstory-detail">${inside}</div>
+        </details>
+      `;
+    }
+
     function renderPLStory(story) {
       const body = document.getElementById("pl-story-body");
       if (!body || !story) return;
@@ -2203,33 +2297,7 @@
         </div>
 
         <div class="plstory-steps">
-          ${steps.map(step => `
-            <div class="plstory-step kind-${escapeHtml(step.kind)}">
-              <div class="plstory-step-top">
-                <span class="plstory-label">
-                  ${escapeHtml(step.label)}
-                  <span class="plstory-term">${escapeHtml(step.term)}</span>
-                </span>
-                <strong class="plstory-amount">
-                  ${step.kind === "out" ? "−" : ""}${money(Math.abs(step.amount))}
-                </strong>
-              </div>
-
-              <div class="plstory-bar">
-                <span
-                  class="plstory-bar-fill"
-                  style="width:${widthOf(step.amount)}%"
-                ></span>
-              </div>
-
-              <div class="plstory-step-foot">
-                <span class="plstory-explain">${escapeHtml(step.explain)}</span>
-                ${step.share !== null && step.share !== undefined
-                  ? `<span class="plstory-share">${Number(step.share)}% of sales</span>`
-                  : ""}
-              </div>
-            </div>
-          `).join("")}
+          ${steps.map(step => renderPLStep(step, { money, widthOf })).join("")}
         </div>
 
         ${!story.reconciliation?.balances

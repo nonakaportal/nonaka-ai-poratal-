@@ -23,6 +23,60 @@ function shareOf(value, base) {
     return Math.round((value / Math.abs(base)) * 1000) / 10;
 }
 
+// Turns a section's flat account list back into the shape the report
+// shows it in: top-level accounts in their original order, with
+// sub-accounts nested under the category they belong to.
+//
+// Each row carries its own total so a reader can check the arithmetic
+// without adding the children up themselves.
+function groupLines(accounts) {
+    const order = [];
+    const groups = new Map();
+
+    for (const account of accounts || []) {
+        const name = String(account?.name || '').trim();
+
+        if (!name) continue;
+
+        const amount = round2(account?.amount);
+        const parent = String(account?._group || '').trim();
+
+        if (!parent) {
+            order.push({
+                name,
+                amount,
+                // A parent account that was also posted to directly.
+                // Worth flagging, or it reads like a duplicate of the
+                // category sitting next to it.
+                ownPosting: Boolean(account?._isOwnPosting)
+            });
+            continue;
+        }
+
+        let group = groups.get(parent);
+
+        if (!group) {
+            group = { name: parent, amount: 0, items: [] };
+            groups.set(parent, group);
+            order.push(group);
+        }
+
+        group.amount = round2(group.amount + amount);
+        group.items.push({ name, amount });
+    }
+
+    return order;
+}
+
+// A subtotal has no accounts of its own — it is the rows above it,
+// combined. Showing that arithmetic is the honest equivalent of
+// opening it up.
+function sumOf(lines) {
+    return round2(
+        (lines || []).reduce((total, line) => total + Number(line.amount || 0), 0)
+    );
+}
+
 // Each step is either money arriving, money leaving, or a subtotal that
 // falls out of the two. The distinction is what lets the page draw them
 // differently without hard-coding which row is which.
@@ -35,6 +89,23 @@ function buildSteps(report) {
     const netOther = round2(report?.netOtherIncome);
     const netIncome = round2(report?.netIncome);
 
+    const accounts = report?.accounts || {};
+
+    const incomeLines = groupLines(accounts.income);
+    const cogsLines = groupLines(accounts.cogs);
+    const expenseLines = groupLines(accounts.expenses);
+    const otherLines = groupLines(accounts.otherIncomeExpense);
+
+    // Says whether the accounts listed under a row actually add up to
+    // the row. They should — but if a report is shaped in a way this
+    // code didn't expect, the page should admit it rather than show a
+    // list that quietly disagrees with the figure above it.
+    const detail = (lines, total) => ({
+        lines,
+        linesTotal: sumOf(lines),
+        adds_up: Math.abs(sumOf(lines) - round2(total)) < 0.02
+    });
+
     const steps = [
         {
             key: 'sales',
@@ -43,7 +114,8 @@ function buildSteps(report) {
             term: 'Revenue',
             amount: income,
             share: 100,
-            explain: 'Everything you invoiced or took payment for in this period.'
+            explain: 'Everything you invoiced or took payment for in this period.',
+            ...detail(incomeLines, income)
         },
         {
             key: 'cogs',
@@ -57,7 +129,8 @@ function buildSteps(report) {
             // consultancy has neither.
             explain:
                 'The costs that only exist because you made the sale — ' +
-                'whatever you had to buy in, or pay someone, to deliver it.'
+                'whatever you had to buy in, or pay someone, to deliver it.',
+            ...detail(cogsLines, cogs)
         },
         {
             key: 'gross',
@@ -68,7 +141,13 @@ function buildSteps(report) {
             share: shareOf(grossProfit, income),
             explain:
                 'What each sale leaves behind before you pay for anything ' +
-                'else. This is the number that has to cover everything below.'
+                'else. This is the number that has to cover everything below.',
+            // A subtotal owns no accounts. Opening it shows the sum it
+            // came from instead.
+            workings: [
+                { name: 'What you sold', amount: income },
+                { name: 'Less what it cost to deliver it', amount: round2(-cogs) }
+            ]
         },
         {
             key: 'opex',
@@ -79,7 +158,8 @@ function buildSteps(report) {
             share: shareOf(expenses, income),
             explain:
                 'Rent, insurance, software, accountants — the costs you pay ' +
-                'whether or not you sell anything.'
+                'whether or not you sell anything.',
+            ...detail(expenseLines, expenses)
         }
     ];
 
@@ -94,7 +174,11 @@ function buildSteps(report) {
             term: 'Operating profit',
             amount: netOperatingIncome,
             share: shareOf(netOperatingIncome, income),
-            explain: 'What the business itself made, before anything unusual.'
+            explain: 'What the business itself made, before anything unusual.',
+            workings: [
+                { name: 'Left after those direct costs', amount: grossProfit },
+                { name: 'Less what it costs to run the business', amount: round2(-expenses) }
+            ]
         });
 
         steps.push({
@@ -109,7 +193,8 @@ function buildSteps(report) {
             share: shareOf(Math.abs(netOther), income),
             explain:
                 'Things outside your day-to-day trading — interest, ' +
-                'one-offs, and anything your bookkeeper put here.'
+                'one-offs, and anything your bookkeeper put here.',
+            ...detail(otherLines, Math.abs(netOther))
         });
     }
 
@@ -122,7 +207,16 @@ function buildSteps(report) {
         share: shareOf(netIncome, income),
         explain:
             'What is left once everything is paid. Not the same as cash ' +
-            'in the bank — money owed to you counts here before it arrives.'
+            'in the bank — money owed to you counts here before it arrives.',
+        workings: netOther !== 0
+            ? [
+                { name: 'Left from trading', amount: netOperatingIncome },
+                { name: netOther >= 0 ? 'Plus other money in' : 'Less other costs', amount: netOther }
+            ]
+            : [
+                { name: 'Left after those direct costs', amount: grossProfit },
+                { name: 'Less what it costs to run the business', amount: round2(-expenses) }
+            ]
     });
 
     return steps;
@@ -234,5 +328,5 @@ async function getPLStory(connection, { startDate, endDate } = {}) {
 module.exports = {
     getPLStory,
     buildPLStory,
-    _internals: { buildSteps, reconcile, describeResult, shareOf }
+    _internals: { buildSteps, reconcile, describeResult, shareOf, groupLines, sumOf }
 };
