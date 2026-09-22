@@ -3605,6 +3605,10 @@ function renderCashFlow(data) {
           </div>
         </div>
 
+        <div class="card card-pad section-gap" id="cash-cushion-body">
+          ${renderSkeletonCard(4)}
+        </div>
+
         <div class="card card-pad">
           <div class="card-title" style="margin-bottom:14px;">Revenue, Gross Profit & Net Income</div>
           <div id="scenario-chart-wrap" style="height:340px;display:flex;align-items:center;justify-content:center;">
@@ -3612,6 +3616,8 @@ function renderCashFlow(data) {
           </div>
         </div>
       `;
+
+      loadCashCushion();
 
       try {
         scenarioActuals = await loadScenarioActuals();
@@ -3640,6 +3646,10 @@ function renderCashFlow(data) {
     }
 
     function updateScenarioChart() {
+      // The cushion depends only on the assumptions, not on the chart's
+      // history, so it is refreshed even when the history failed to load.
+      loadCashCushion({ debounce: 350 });
+
       if (!scenarioActuals) return;
 
       if (window.NFK_Charts?.renderPLWithProjection) {
@@ -3700,6 +3710,167 @@ function renderCashFlow(data) {
           "Projected, end of horizon",
           netMargin < 0
         );
+    }
+
+    // ------------------------------------------------------------
+    // WHAT'S LEFT IN THE BANK
+    //
+    // The outcome cards above this one are all profit figures. This is
+    // the one an owner actually acts on: how much money is in the
+    // account at the end, starting from today's real balance and their
+    // own recent trading. The projection is done server-side; a slider
+    // drag fires a lot of requests, so it is debounced and the server
+    // caches the baseline behind it.
+    // ------------------------------------------------------------
+
+    let cushionTimer = null;
+    let cushionRequest = 0;
+
+    function loadCashCushion({ debounce = 0 } = {}) {
+      clearTimeout(cushionTimer);
+
+      // The figures on screen belong to the previous set of assumptions.
+      // Leaving them looking authoritative while a new answer is on its
+      // way would show the owner a number that is already wrong, so the
+      // card is visibly marked as recalculating.
+      document
+        .getElementById("cash-cushion-body")
+        ?.classList.add("is-pending");
+
+      cushionTimer = setTimeout(async () => {
+        const body = document.getElementById("cash-cushion-body");
+        if (!body) return;
+
+        const organizationId = getOrganizationId();
+        if (!organizationId) return;
+
+        const params = new URLSearchParams({
+          organizationId,
+          months: scenarioParams.months,
+          revGrowth: scenarioParams.revGrowth,
+          cogsGrowth: scenarioParams.cogsGrowth,
+          opexGrowth: scenarioParams.opexGrowth,
+          taxRate: scenarioParams.taxRate
+        });
+
+        // Slider drags can overlap, and an older reply landing last
+        // would show a figure for assumptions that are no longer set.
+        const ticket = ++cushionRequest;
+
+        try {
+          const cushion = await apiGet(`/quickbooks/cash-cushion?${params}`);
+
+          if (ticket === cushionRequest) {
+            renderCashCushion(cushion);
+            body.classList.remove("is-pending");
+          }
+        } catch (error) {
+          console.error("Cash cushion failed:", error);
+
+          if (ticket !== cushionRequest) return;
+
+          body.classList.remove("is-pending");
+
+          body.innerHTML = `
+            <div class="empty-state">
+              ${escapeHtml(
+                error?.code === "QB_REAUTH_REQUIRED"
+                  ? "Reconnect QuickBooks to estimate your bank balance."
+                  : "Unable to estimate your bank balance right now."
+              )}
+            </div>
+          `;
+        }
+      }, debounce);
+    }
+
+    function renderCashCushion(cushion) {
+      const body = document.getElementById("cash-cushion-body");
+      if (!body || !cushion) return;
+
+      const money = v => formatCurrency(Number(v || 0));
+
+      if (!cushion.available) {
+        body.innerHTML = `
+          <div class="cushion-head">
+            <span class="cashproj-eyebrow">What's left in the bank</span>
+            <span class="cashproj-title">Not enough history yet</span>
+          </div>
+          <div class="cashproj-nodata">${escapeHtml(cushion.reason || "")}</div>
+        `;
+        return;
+      }
+
+      const months = Number(cushion.months || 0);
+      const verdict = cushion.verdict || {};
+      const change = Number(cushion.change || 0);
+
+      const monthWord = months === 1 ? "month" : "months";
+
+      // The lowest point only tells the owner something new when it
+      // isn't simply the last month of an always-falling balance.
+      const dip =
+        cushion.lowestPoint &&
+        cushion.lowestPoint.month < months &&
+        cushion.lowestPoint.balance < Number(cushion.openingCash || 0)
+          ? cushion.lowestPoint
+          : null;
+
+      body.innerHTML = `
+        <div class="cushion-head">
+          <span class="cashproj-eyebrow">What's left in the bank</span>
+          <span class="cashproj-title">
+            Estimated cushion in ${months} ${monthWord}
+          </span>
+        </div>
+
+        <div class="cushion-figures">
+          <div class="cushion-figure">
+            <span class="cashproj-figure-label">In the bank today</span>
+            <strong>${money(cushion.openingCash)}</strong>
+          </div>
+
+          <div class="cushion-arrow" aria-hidden="true">&rarr;</div>
+
+          <div class="cushion-figure">
+            <span class="cashproj-figure-label">
+              After ${months} ${monthWord}
+            </span>
+            <strong class="${Number(cushion.endBalance) < 0 ? "neg-val" : ""}">
+              ${money(cushion.endBalance)}
+            </strong>
+            <span class="cushion-delta ${change >= 0 ? "pos-val" : "neg-val"}">
+              ${change >= 0 ? "+" : "−"}${money(Math.abs(change))}
+            </span>
+          </div>
+
+          <div class="cushion-figure">
+            <span class="cashproj-figure-label">Typical month</span>
+            <strong class="${Number(cushion.monthlyChange) >= 0 ? "pos-val" : "neg-val"}">
+              ${Number(cushion.monthlyChange) >= 0 ? "+" : "−"}${money(Math.abs(cushion.monthlyChange))}
+            </strong>
+          </div>
+        </div>
+
+        <div class="cushion-verdict tone-${escapeHtml(verdict.tone || "good")}">
+          <span class="cushion-verdict-head">${escapeHtml(verdict.headline || "")}</span>
+          <span class="cushion-verdict-body">${escapeHtml(verdict.detail || "")}</span>
+          ${dip
+            ? `<span class="cushion-verdict-meta">
+                 Lowest point is month ${dip.month}, at ${money(dip.balance)}.
+               </span>`
+            : ""}
+        </div>
+
+        <div class="cushion-basis">
+          Based on your last ${Number(cushion.monthsOfHistory || 0)}
+          ${Number(cushion.monthsOfHistory) === 1 ? "month" : "months"} of
+          trading — about ${money(cushion.baseline?.revenue)} a month coming in
+          and ${money(Number(cushion.baseline?.cogs || 0) + Number(cushion.baseline?.opex || 0))}
+          going out — moved by the assumptions you set above.
+          ${escapeHtml(cushion.assumption || "")}
+        </div>
+      `;
     }
 
     function updateScenarioParam(id, value) {

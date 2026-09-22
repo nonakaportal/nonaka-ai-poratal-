@@ -1221,6 +1221,79 @@ textarea.ai-chat-input { max-height: 140px; }
   .cashproj-overdue { grid-template-columns: 1fr; }
 }
 
+/* Estimated bank cushion on Scenarios */
+.cushion-head {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px;
+}
+/* One shared 3-row grid so the labels, the figures and the deltas each
+   line up across all three columns, whether or not a column has a
+   delta to show. */
+.cushion-figures {
+  display: grid; grid-auto-flow: column; grid-auto-columns: max-content;
+  grid-template-rows: auto auto auto;
+  align-items: end; gap: 3px 28px; margin-bottom: 20px;
+}
+.cushion-figure { display: contents; }
+.cushion-figure strong {
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; grid-row: 2;
+}
+.cushion-figure .cashproj-figure-label { grid-row: 1; }
+.cushion-arrow {
+  font-size: 18px; color: var(--text-faint); grid-row: 2; padding-bottom: 4px;
+}
+.cushion-delta {
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  grid-row: 3;
+}
+.cushion-verdict {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 14px 16px; border-radius: var(--radius-md);
+  border-left: 2px solid var(--border); background: var(--bg-subtle);
+}
+.cushion-verdict.tone-good { border-left-color: var(--positive); }
+.cushion-verdict.tone-warn { border-left-color: var(--warning); }
+.cushion-verdict.tone-bad  { border-left-color: var(--negative); }
+.cushion-verdict-head {
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+}
+.cushion-verdict-body {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6; text-wrap: pretty;
+}
+.cushion-verdict-meta { font-size: 11.5px; color: var(--text-muted); }
+.cushion-basis {
+  font-size: 11.5px; color: var(--text-faint); line-height: 1.65;
+  margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--border-light);
+  text-wrap: pretty;
+}
+/* While a new set of assumptions is being worked out, the figures on
+   screen are the previous answer — shown, but not as fact. */
+#cash-cushion-body { position: relative; }
+#cash-cushion-body.is-pending .cushion-figures,
+#cash-cushion-body.is-pending .cushion-verdict {
+  opacity: 0.4; transition: opacity 120ms ease;
+}
+#cash-cushion-body.is-pending::after {
+  content: "Recalculating";
+  position: absolute; top: 18px; right: 20px;
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent);
+}
+@media (max-width: 640px) {
+  .cushion-figures {
+    grid-auto-flow: row; grid-auto-columns: auto;
+    grid-template-rows: none; align-items: start; gap: 16px;
+  }
+  .cushion-figure {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .cushion-figure strong,
+  .cushion-figure .cashproj-figure-label,
+  .cushion-delta { grid-row: auto; }
+  .cushion-arrow { display: none; }
+  .cushion-figure strong { font-size: 19px; }
+}
+
 /* Ranked money in / money out */
 .moneyflow-head {
   display: flex; flex-direction: column; gap: 3px; margin-bottom: 18px;

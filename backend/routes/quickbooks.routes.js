@@ -22,6 +22,9 @@ const billsScheduleService =
 const moneyFlowService =
     require('../services/quickbooks/money-flow.service');
 
+const cashCushionService =
+    require('../services/quickbooks/cash-cushion.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -499,6 +502,72 @@ router.get('/money-flow', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to work out where your money went'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/cash-cushion
+//
+// What the bank balance looks like at the end of a scenario's horizon,
+// starting from today's real balance and the business's own recent
+// monthly trading. Called as the Scenarios sliders move, so the
+// baseline behind it is cached per organization for a few minutes.
+// ============================================================
+
+router.get('/cash-cushion', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId,
+            months,
+            revGrowth,
+            cogsGrowth,
+            opexGrowth,
+            taxRate
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const cushion = await cashCushionService.getCashCushion(connection, {
+            months: Number(months),
+            revGrowth: Number(revGrowth),
+            cogsGrowth: Number(cogsGrowth),
+            opexGrowth: Number(opexGrowth),
+            taxRate: Number(taxRate)
+        });
+
+        return res.json(cushion);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to estimate the cash cushion:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to estimate your bank balance'
         });
     }
 });
