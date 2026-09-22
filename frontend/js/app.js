@@ -2167,13 +2167,13 @@ function cashFlowVerdict({
 
     const others = [
         {
-            label: "money put in or borrowed",
-            outLabel: "loan repayments and money taken out",
+            label: "loans or owner funding",
+            outLabel: "loan repayments or money taken out",
             amount: Number(financingTotal || 0)
         },
         {
-            label: "selling something the business owned",
-            outLabel: "buying things for the business",
+            label: "selling assets",
+            outLabel: "buying assets",
             amount: Number(investingTotal || 0)
         }
     ];
@@ -2446,7 +2446,8 @@ function renderCashFlow(data) {
         title,
         icon,
         accounts,
-        total
+        total,
+        totalLabel
     ) {
 
         return `
@@ -2486,7 +2487,7 @@ function renderCashFlow(data) {
                 <div class="cf-activity-footer">
 
                     <span>
-                        Net ${title}
+                        ${totalLabel || `Net ${title}`}
                     </span>
 
                     <strong class="
@@ -2570,8 +2571,7 @@ function renderCashFlow(data) {
                 <div class="cf-waterfall-head">
 
                     <h2>
-                        Cash Waterfall —
-                        Opening to Closing
+                        How your balance moved
                     </h2>
 
                     <span>
@@ -2609,24 +2609,27 @@ function renderCashFlow(data) {
             <div class="cf-activities">
 
                 ${activityCard(
-                    "Operating Activities",
+                    "Day-to-day trading",
                     "🏢",
                     operating,
-                    operatingTotal
+                    operatingTotal,
+                    "Total from trading"
                 )}
 
                 ${activityCard(
-                    "Investing Activities",
+                    "Buying and selling assets",
                     "📈",
                     investing,
-                    investingTotal
+                    investingTotal,
+                    "Total from assets"
                 )}
 
                 ${activityCard(
-                    "Financing Activities",
+                    "Loans and owner funding",
                     "🏦",
                     financing,
-                    financingTotal
+                    financingTotal,
+                    "Total from loans and funding"
                 )}
 
             </div>
@@ -2639,7 +2642,7 @@ function renderCashFlow(data) {
                 <div class="cf-summary-item">
 
                     <span>
-                        Opening Cash
+                        Opening balance
                     </span>
 
                     <strong>
@@ -2652,7 +2655,7 @@ function renderCashFlow(data) {
                 <div class="cf-summary-item">
 
                     <span>
-                        Operating
+                        From trading
                     </span>
 
                     <strong class="
@@ -2671,7 +2674,7 @@ function renderCashFlow(data) {
                 <div class="cf-summary-item">
 
                     <span>
-                        Investing
+                        Assets
                     </span>
 
                     <strong class="
@@ -2690,7 +2693,7 @@ function renderCashFlow(data) {
                 <div class="cf-summary-item">
 
                     <span>
-                        Financing
+                        Funding
                     </span>
 
                     <strong class="
@@ -2712,7 +2715,7 @@ function renderCashFlow(data) {
                 ">
 
                     <span>
-                        Closing Cash Balance
+                        Closing balance
                     </span>
 
                     <strong>
@@ -2737,11 +2740,11 @@ function renderCashFlow(data) {
                     <div>
 
                         <strong>
-                            Net Change in Cash
+                            Change over the period
                         </strong>
 
                         <small>
-                            Operating + Investing + Financing
+                            Trading, assets and funding combined
                         </small>
 
                     </div>
@@ -2779,11 +2782,11 @@ function renderCashFlow(data) {
             window.NFK_Charts.renderCashWaterfall({
 
                 labels: [
-                    "Opening Cash",
-                    "Operating CF",
-                    "Investing CF",
-                    "Financing CF",
-                    "Closing Cash"
+                    "Opening",
+                    "Trading",
+                    "Assets",
+                    "Funding",
+                    "Closing"
                 ],
 
                 values: [
