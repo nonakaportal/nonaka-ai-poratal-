@@ -5365,6 +5365,10 @@ function renderCashFlow(data) {
         ${taxSetAsideCardHtml(netIncome)}
       </div>
 
+      <div class="card card-pad section-gap" id="cash-projection-body">
+        ${renderSkeletonCard(4)}
+      </div>
+
       <div class="grid-2 section-gap">
 
         <div class="card card-pad">
@@ -5485,6 +5489,129 @@ function renderCashFlow(data) {
     loadOverviewHealthScore();
     loadOverviewTrendChart();
     loadOverviewAlerts();
+    loadCashProjection();
+  }
+
+  // ------------------------------------------------------------
+  // WHERE YOUR CASH IS HEADING
+  //
+  // The only forward-looking figure on the Overview that comes from
+  // dated records rather than a trend: today's bank balance walked
+  // forward through the due dates on unpaid invoices and bills. All of
+  // the arithmetic happens server-side; this only draws the result.
+  // ------------------------------------------------------------
+
+  async function loadCashProjection() {
+    const body = document.getElementById("cash-projection-body");
+    if (!body) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    try {
+      const projection = await apiGet(
+        `/quickbooks/cash-projection?organizationId=${encodeURIComponent(organizationId)}&days=30`
+      );
+
+      renderCashProjection(projection);
+    } catch (error) {
+      console.error("Cash projection failed:", error);
+
+      body.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(
+            error?.code === "QB_REAUTH_REQUIRED"
+              ? "Reconnect QuickBooks to see where your cash is heading."
+              : "Unable to work out your cash projection right now."
+          )}
+        </div>
+      `;
+    }
+  }
+
+  function renderCashProjection(projection) {
+    const body = document.getElementById("cash-projection-body");
+    if (!body || !projection) return;
+
+    const currency = projection.currency || "USD";
+    const money = v => formatCurrency(Number(v || 0), currency);
+
+    const movementDays = (projection.timeline || []).filter(
+      d => d.moneyIn || d.moneyOut
+    ).length;
+
+    const tip = projection.timingTip;
+    const overdue = projection.overdue || {};
+
+    // With nothing dated in the window the chart would be a flat line
+    // that implies a forecast we don't have, so say what's actually
+    // known instead of drawing a straight line and calling it a
+    // projection.
+    const hasForwardMovement = movementDays > 0;
+
+    body.innerHTML = `
+      <div class="cashproj-head">
+        <div>
+          <div class="cashproj-eyebrow">Next 30 days</div>
+          <div class="cashproj-title">Where your cash is heading</div>
+        </div>
+        <div class="cashproj-figures">
+          <div class="cashproj-figure">
+            <span class="cashproj-figure-label">In the bank now</span>
+            <strong>${money(projection.openingCash)}</strong>
+          </div>
+          ${
+            Number.isFinite(projection.safeFloor)
+              ? `<div class="cashproj-figure">
+                   <span class="cashproj-figure-label">Your usual monthly outgoings</span>
+                   <strong class="cashproj-floor">${money(projection.safeFloor)}</strong>
+                 </div>`
+              : ""
+          }
+        </div>
+      </div>
+
+      ${
+        hasForwardMovement
+          ? `<div class="chart-frame cashproj-chart"><canvas id="chart-cash-projection"></canvas></div>`
+          : `<div class="cashproj-nodata">
+               Nothing is currently dated in the next 30 days — every unpaid
+               invoice and bill in your books is already past its due date,
+               so there is no future timing to plot yet.
+             </div>`
+      }
+
+      ${
+        tip
+          ? `<div class="cashproj-tip">
+               <div class="cashproj-tip-head">Worth knowing</div>
+               <p class="cashproj-tip-body">${escapeHtml(tip.suggestion)}</p>
+               ${
+                 tip.bill
+                   ? `<div class="cashproj-tip-meta">${escapeHtml(tip.bill.party)} · ${money(tip.bill.amount)} · due ${escapeHtml(tip.bill.dueDate)}</div>`
+                   : ""
+               }
+             </div>`
+          : ""
+      }
+
+      <div class="cashproj-overdue">
+        <div class="cashproj-overdue-item">
+          <span>Already owed to you</span>
+          <strong class="pos-val">${money(overdue.customersOweYou)}</strong>
+          <span class="cashproj-overdue-meta">${Number(overdue.customerCount || 0)} overdue invoice${Number(overdue.customerCount) === 1 ? "" : "s"}</span>
+        </div>
+        <div class="cashproj-overdue-item">
+          <span>You already owe</span>
+          <strong class="neg-val">${money(overdue.youOweSuppliers)}</strong>
+          <span class="cashproj-overdue-meta">${Number(overdue.supplierCount || 0)} overdue bill${Number(overdue.supplierCount) === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+    `;
+
+    if (hasForwardMovement && window.NFK_Charts?.renderCashProjection) {
+      window.NFK_Charts.renderCashProjection("chart-cash-projection", projection);
+    }
   }
 
   async function setOverviewPeriod(period) {

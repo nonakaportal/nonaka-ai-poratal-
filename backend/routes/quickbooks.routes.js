@@ -13,6 +13,9 @@ const supabaseService =
 const { requireOrgAccess } =
     require('../middleware/auth.middleware');
 
+const cashProjectionService =
+    require('../services/quickbooks/cash-projection.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -267,6 +270,113 @@ router.delete('/disconnect', requireOrgAccess, async (req, res) => {
 
         res.status(500).json({
             error: 'Failed to disconnect QuickBooks'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/cash-projection
+//
+// Where the owner's cash is heading over the next N days, built from
+// today's bank balance plus the due dates on their unpaid invoices and
+// bills. The "safe floor" it warns against is derived from the
+// business's own recent outgoings rather than a number we picked.
+// ============================================================
+
+router.get('/cash-projection', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId,
+            days
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const horizon = Math.min(
+            Math.max(parseInt(days, 10) || 30, 7),
+            90
+        );
+
+        // The floor is "about a month of what you normally spend", so it
+        // needs a few months of actual outgoings behind it. Each month
+        // costs a P&L call, so this is deliberately just three — enough
+        // to smooth out one unusual month without making the request slow.
+        const accessToken =
+            await quickbooksService.getValidAccessToken(connection);
+
+        const monthlyOutflows = [];
+
+        const now = new Date();
+
+        for (let i = 3; i >= 1; i--) {
+            const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+            const iso = d => d.toISOString().slice(0, 10);
+
+            try {
+                const report = await quickbooksService.getProfitAndLoss(
+                    accessToken,
+                    connection.realmId,
+                    iso(start),
+                    iso(end)
+                );
+
+                const parsed = quickbooksService.parseProfitAndLoss(report);
+
+                const outgoings =
+                    Number(parsed?.costOfGoodsSold || 0) +
+                    Number(parsed?.expenses || 0);
+
+                if (outgoings > 0) {
+                    monthlyOutflows.push(outgoings);
+                }
+            } catch (monthError) {
+                // A month that won't load just doesn't contribute to the
+                // average — better a floor from two months than none.
+                console.error(
+                    'Cash projection: skipping a month of outgoings:',
+                    monthError.message
+                );
+            }
+        }
+
+        const projection = await cashProjectionService.buildCashProjection(
+            connection,
+            { days: horizon, monthlyOutflows }
+        );
+
+        return res.json(projection);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to build cash projection:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to work out your cash projection'
         });
     }
 });

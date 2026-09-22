@@ -994,6 +994,115 @@ function redrawAll() {
 }
 
 // ── PUBLIC API ──────────────────────────────────────────────
+// The projected bank balance day by day, with the owner's safe floor
+// drawn across it. The floor is the whole point of the chart — a
+// balance of "fine on average" still hurts if it dips under payroll
+// mid-month — so it's a dataset rather than decoration, and the days
+// that fall below it are marked.
+function renderCashProjection(canvasId, projection) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !projection?.timeline?.length) return;
+
+  destroyChart(canvasId);
+
+  const colors = getColors();
+  const timeline = projection.timeline;
+  const floor = Number.isFinite(projection.safeFloor) ? projection.safeFloor : null;
+
+  const labels = timeline.map(d => {
+    const [, m, day] = d.date.split("-");
+    return `${day}/${m}`;
+  });
+
+  const datasets = [
+    {
+      label: "Projected cash",
+      data: timeline.map(d => d.balance),
+      borderColor: colors.teal,
+      backgroundColor: "rgba(80,216,233,0.12)",
+      borderWidth: 2.5,
+      pointRadius: timeline.map(d => (d.moneyIn || d.moneyOut ? 3.5 : 0)),
+      pointBackgroundColor: colors.teal,
+      pointHoverRadius: 5,
+      fill: true,
+      tension: 0.25
+    }
+  ];
+
+  if (floor !== null) {
+    datasets.push({
+      label: "Safe floor",
+      data: timeline.map(() => floor),
+      borderColor: colors.danger,
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false,
+      tension: 0
+    });
+  }
+
+  return registerChart(
+    canvasId,
+    new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: colors.text, usePointStyle: true, boxWidth: 8, font: { size: 11 } }
+          },
+          tooltip: {
+            backgroundColor: colors.bg,
+            borderColor: colors.border,
+            borderWidth: 1,
+            titleColor: colors.textPrimary,
+            bodyColor: colors.text,
+            callbacks: {
+              // The balance alone doesn't explain itself; what moved
+              // that day is the part the owner can act on.
+              afterBody(items) {
+                const day = timeline[items[0].dataIndex];
+                if (!day?.items?.length) return "";
+
+                return day.items
+                  .slice(0, 4)
+                  .map(m =>
+                    `${m.kind === "in" ? "+" : "-"}${Math.round(m.amount)} ${m.party}`
+                  );
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: colors.text,
+              font: { size: 10 },
+              maxTicksLimit: 10,
+              autoSkip: true
+            }
+          },
+          y: {
+            grid: { color: colors.grid },
+            ticks: {
+              color: colors.text,
+              font: { size: 10 },
+              callback: v =>
+                Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+            }
+          }
+        }
+      }
+    })
+  );
+}
+
 window.NFK_Charts = {
   redrawAll,
   renderCashWaterfall,
@@ -1002,6 +1111,7 @@ window.NFK_Charts = {
   renderForecastChart,
   renderForecastTrend,
   renderPLWithProjection,
+  renderCashProjection,
   computeScenarioProjection,
 };
 

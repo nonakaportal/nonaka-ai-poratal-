@@ -643,7 +643,7 @@ async function sendReset() {
 // CHECK QUICKBOOKS CONNECTION STATUS
 // ------------------------------------------------------------
 
-async function checkQBStatus() {
+async function checkQBStatus(_isRetry = false) {
     const organizationId = getOrganizationId();
 
     if (!organizationId) {
@@ -651,13 +651,43 @@ async function checkQBStatus() {
     }
 
     try {
+        // /status is behind requireOrgAccess like every other data route,
+        // so it needs the session token. Without it the endpoint answers
+        // 401, which this function used to report as "not connected" —
+        // which meant anyone with a perfectly good QuickBooks connection
+        // was sent to the Connect screen on every single login.
+        const token = getAccessToken();
+
         const response = await fetch(
-            `${QB_API}/quickbooks/status?organizationId=${encodeURIComponent(organizationId)}`
+            `${QB_API}/quickbooks/status?organizationId=${encodeURIComponent(organizationId)}`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
 
-        return await response.json().catch(() => ({ connected: false }));
+        const data = await response.json().catch(() => ({}));
+
+        // An expired session is recoverable — refresh once and ask again,
+        // the same way the rest of the app handles it — rather than
+        // misreporting it as a missing QuickBooks connection.
+        if (
+            !response.ok &&
+            !_isRetry &&
+            (data.code === "AUTH_INVALID" || data.code === "AUTH_REQUIRED")
+        ) {
+            try {
+                await refreshSession();
+                return await checkQBStatus(true);
+            } catch {
+                return { connected: false };
+            }
+        }
+
+        if (!response.ok) {
+            return { connected: false };
+        }
+
+        return data;
     } catch (error) {
-        console.error("❌ QuickBooks status check failed:", error);
+        console.error("QuickBooks status check failed:", error);
 
         return { connected: false };
     }

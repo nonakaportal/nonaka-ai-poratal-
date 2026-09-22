@@ -1213,6 +1213,46 @@ class QuickBooksService {
         }
     }
     
+    // Unpaid supplier bills, with the due date each one carries. The
+    // aged-payables report already tells us how late things are; this is
+    // the forward-looking half — what is going to leave the account, and
+    // when — which is what the cash projection needs.
+    async getBills(
+        accessToken,
+        realmId
+    ) {
+        try {
+
+            const endpoint =
+                `query?query=` +
+                encodeURIComponent(
+                    `SELECT * FROM Bill MAXRESULTS 1000`
+                );
+
+            const response =
+                await this.makeApiRequest(
+                    accessToken,
+                    realmId,
+                    endpoint
+                );
+
+            return (
+                response?.QueryResponse?.Bill ||
+                []
+            );
+
+        } catch (error) {
+
+            console.error(
+                'Failed to fetch bills:',
+                error.response?.data ||
+                error.message
+            );
+
+            throw error;
+        }
+    }
+
     // ==========================================================
     // BALANCE SHEET
     // ==========================================================
