@@ -738,11 +738,17 @@ class QuickBooksService {
         // RECURSIVE QUICKBOOKS ROW PARSER
         // ======================================================
 
+        // Returns the total of every account line this call and its
+        // children recorded, which is what lets a parent account work
+        // out how much was posted straight to it. See the remainder
+        // handling further down.
         const processRows = (
             rows,
             currentSection = null,
             parentGroup = null
         ) => {
+
+            let captured = 0;
 
             for (
                 const row of rows || []
@@ -850,6 +856,8 @@ class QuickBooksService {
 
                         }
 
+                        captured += Number(account.amount) || 0;
+
                     }
 
                 }
@@ -888,15 +896,79 @@ class QuickBooksService {
                             ? headerName
                             : parentGroup;
 
-                    processRows(
+                    const childTotal = processRows(
                         row.Rows.Row,
                         section,
                         nextGroup
                     );
 
+                    captured += childTotal;
+
+                    // A parent account can be posted to directly as
+                    // well as having sub-accounts. QuickBooks never
+                    // states that amount: it only shows the parent's
+                    // total, which is its own postings plus its
+                    // children's. Reading the leaves alone therefore
+                    // loses it — $1,477.50 of revenue on the sandbox,
+                    // where "Landscaping Services" totals 6,513.97 but
+                    // its two sub-accounts come to 5,036.47.
+                    //
+                    // The difference is that account's own money, so
+                    // it is recorded as a line in its own right. Without
+                    // it the detail does not add up to the totals shown
+                    // above it.
+                    const groupTotal = Number(
+                        row?.Summary?.ColData?.[1]?.value
+                    );
+
+                    if (
+                        headerName &&
+                        !isTopLevelBlock &&
+                        Number.isFinite(groupTotal)
+                    ) {
+
+                        const direct =
+                            Math.round(
+                                (groupTotal - childTotal) * 100
+                            ) / 100;
+
+                        // Anything under a cent is rounding, not money.
+                        if (Math.abs(direct) >= 0.005) {
+
+                            const ownLine = {
+                                name: headerName,
+                                amount: direct,
+                                _group: parentGroup,
+                                // So the UI can say why a parent name
+                                // appears beside its own children.
+                                _isOwnPosting: true
+                            };
+
+                            const bucket =
+                                section === "income"
+                                    ? result.accounts.income
+                                    : section === "cogs"
+                                        ? result.accounts.cogs
+                                        : section === "expenses"
+                                            ? result.accounts.expenses
+                                            : section === "otherIncomeExpense"
+                                                ? result.accounts.otherIncomeExpense
+                                                : null;
+
+                            if (bucket) {
+                                bucket.push(ownLine);
+                                captured += direct;
+                            }
+
+                        }
+
+                    }
+
                 }
 
             }
+
+            return captured;
 
         };
 
