@@ -6167,6 +6167,182 @@ function renderCashFlow(data) {
   }
 
   // ------------------------------------------------------------
+  // WHO TO CHASE FIRST
+  //
+  // The aging bar below this card is the accountant's view of the same
+  // money: buckets of thirty days. This is the owner's view — what is
+  // at risk, what is merely late, and what isn't due yet. The banding
+  // and the arithmetic happen server-side.
+  // ------------------------------------------------------------
+
+  async function loadInvoiceUrgency() {
+    const body = document.getElementById("invoice-urgency-body");
+    if (!body) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    try {
+      const urgency = await apiGet(
+        `/quickbooks/invoice-urgency?organizationId=${encodeURIComponent(organizationId)}`
+      );
+
+      renderInvoiceUrgency(urgency);
+    } catch (error) {
+      console.error("Invoice urgency failed:", error);
+
+      body.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(
+            error?.code === "QB_REAUTH_REQUIRED"
+              ? "Reconnect QuickBooks to see who owes you."
+              : "Unable to load who owes you right now."
+          )}
+        </div>
+      `;
+    }
+  }
+
+  function renderInvoiceUrgency(urgency) {
+    const body = document.getElementById("invoice-urgency-body");
+    if (!body || !urgency) return;
+
+    const money = v => formatCurrency(Number(v || 0));
+
+    const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
+
+    const invoiceRow = invoice => `
+      <div class="billsched-row">
+        <div class="billsched-who">
+          <span class="billsched-vendor">${escapeHtml(invoice.customer || "Unknown customer")}</span>
+          ${invoice.docNumber
+            ? `<span class="billsched-ref">Invoice ${escapeHtml(String(invoice.docNumber))}</span>`
+            : ""}
+        </div>
+        <span class="billsched-when">${escapeHtml(invoice.timing || "")}</span>
+        <strong class="billsched-amount">${money(invoice.amount)}</strong>
+      </div>
+    `;
+
+    const group = (band, { title, note, tone = "", showWhenEmpty = false }) => {
+      const count = Number(band?.count || 0);
+
+      if (!count && !showWhenEmpty) return "";
+
+      return `
+        <div class="billsched-group ${count ? tone : ""}">
+          <div class="billsched-group-head">
+            <div>
+              <span class="billsched-group-title">${escapeHtml(title)}</span>
+              <span class="billsched-group-count">${plural(count, "invoice")}</span>
+            </div>
+            <strong>${money(band?.total)}</strong>
+          </div>
+          ${note ? `<div class="billsched-group-note">${escapeHtml(note)}</div>` : ""}
+          ${count
+            ? renderInvoiceRows(band.invoices || [])
+            : `<div class="billsched-none">Nothing here — good news.</div>`}
+        </div>
+      `;
+    };
+
+    // A band can run to twenty-odd rows. The first few are what gets
+    // acted on today; the rest stay one click away rather than being
+    // dropped, so the list still agrees with the total above it.
+    const VISIBLE = 8;
+
+    function renderInvoiceRows(invoices) {
+      const head = invoices.slice(0, VISIBLE);
+      const tail = invoices.slice(VISIBLE);
+
+      return `
+        <div class="billsched-rows">
+          ${head.map(invoiceRow).join("")}
+          ${tail.length
+            ? `<details class="urgency-more">
+                 <summary>Show the other ${tail.length} (${money(
+                   tail.reduce((sum, i) => sum + Number(i.amount || 0), 0)
+                 )})</summary>
+                 ${tail.map(invoiceRow).join("")}
+               </details>`
+            : ""}
+        </div>
+      `;
+    }
+
+    const owed = Number(urgency.totalOwed || 0);
+
+    if (!owed) {
+      body.innerHTML = `
+        <div class="billsched-head">
+          <span class="cashproj-eyebrow">Who to chase first</span>
+          <span class="cashproj-title">Nobody owes you anything</span>
+        </div>
+        <div class="cashproj-nodata">
+          QuickBooks shows no unpaid customer invoices on your books right now.
+        </div>
+      `;
+      return;
+    }
+
+    const share = Number(urgency.overdueShare || 0);
+    const oldest = urgency.oldest;
+
+    body.innerHTML = `
+      <div class="billsched-head">
+        <div>
+          <span class="cashproj-eyebrow">Who to chase first</span>
+          <span class="cashproj-title">${money(owed)} owed to you</span>
+        </div>
+        <span class="billsched-asof ${share > 0 ? "is-warn" : ""}">
+          ${share}% of it is already late
+        </span>
+      </div>
+
+      ${oldest
+        ? `<div class="urgency-call">
+             <span class="urgency-call-head">Start with ${escapeHtml(oldest.customer)}</span>
+             <span class="urgency-call-body">
+               ${money(oldest.amount)} has been unpaid for ${Number(oldest.daysLate)} days${
+                 oldest.docNumber ? ` on invoice ${escapeHtml(String(oldest.docNumber))}` : ""
+               } — the longest of anything you're owed.
+             </span>
+           </div>`
+        : ""}
+
+      ${group(urgency.atRisk, {
+        title: "At risk",
+        note: `More than ${Number(urgency.atRiskAfterDays)} days past due. The longer these sit, the harder they get to collect.`,
+        tone: "is-overdue",
+        showWhenEmpty: true
+      })}
+
+      ${group(urgency.late, {
+        title: "Late",
+        note: "Past the date you asked to be paid, but not yet a problem.",
+        tone: "is-soon",
+        showWhenEmpty: true
+      })}
+
+      ${group(urgency.dueThisWeek, {
+        title: "Due this week",
+        note: "Not late. Worth knowing what's about to land.",
+        showWhenEmpty: true
+      })}
+
+      ${group(urgency.dueLater, {
+        title: "Due later",
+        note: "Nothing to do yet."
+      })}
+
+      ${group(urgency.undated, {
+        title: "No due date recorded",
+        note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
+      })}
+    `;
+  }
+
+  // ------------------------------------------------------------
   // WHAT'S DUE, AND WHEN
   //
   // The Accounts Payable report below this card looks backwards — how
@@ -6655,6 +6831,10 @@ function renderCashFlow(data) {
               </div>
             </div>
 
+            <div class="card card-pad section-gap" id="invoice-urgency-body">
+              ${renderSkeletonCard(5)}
+            </div>
+
             <div class="card ar-summary-card">
 
               <div class="ar-summary-header">
@@ -6738,14 +6918,16 @@ function renderCashFlow(data) {
             </div>
           `;
         
+          loadInvoiceUrgency();
+
           loadAccountsReceivable()
             .then(data => {
-        
+
               console.log(
                 "✅ AR data:",
                 data
               );
-        
+
               const total =
                 Number(data?.total || 0);
         

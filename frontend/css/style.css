@@ -1489,6 +1489,30 @@ textarea.ai-chat-input { max-height: 140px; }
   font-variant-numeric: tabular-nums; text-align: right; min-width: 88px;
 }
 .billsched-none { font-size: 12.5px; color: var(--text-muted); margin-top: 10px; }
+.billsched-asof.is-warn { color: var(--warning); }
+
+/* The one call worth making today, on the Customers page */
+.urgency-call {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 13px 15px; margin-bottom: 18px;
+  border-radius: var(--radius-md); background: var(--bg-subtle);
+  border-left: 2px solid var(--accent);
+}
+.urgency-call-head {
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+}
+.urgency-call-body {
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.6;
+  text-wrap: pretty;
+}
+.urgency-more > summary {
+  font-size: 12px; color: var(--text-muted); cursor: pointer;
+  list-style: none; padding: 10px 0 2px;
+}
+.urgency-more > summary::-webkit-details-marker { display: none; }
+.urgency-more > summary::before { content: "▸ "; color: var(--text-faint); }
+.urgency-more[open] > summary::before { content: "▾ "; }
+.urgency-more > summary:hover { color: var(--text-secondary); }
 @media (max-width: 640px) {
   .billsched-head { flex-direction: column; gap: 6px; }
   .billsched-asof { padding-top: 0; }

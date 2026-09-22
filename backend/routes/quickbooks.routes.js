@@ -28,6 +28,9 @@ const cashCushionService =
 const debtDetailService =
     require('../services/quickbooks/debt-detail.service');
 
+const invoiceUrgencyService =
+    require('../services/quickbooks/invoice-urgency.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -624,6 +627,58 @@ router.get('/debt-detail', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to load your loans and cards'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/invoice-urgency
+//
+// Unpaid customer invoices grouped by how urgently they need chasing,
+// rather than by the accountant's 30-day aging buckets.
+// ============================================================
+
+router.get('/invoice-urgency', requireOrgAccess, async (req, res) => {
+    try {
+        const { organizationId } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const urgency =
+            await invoiceUrgencyService.getInvoiceUrgency(connection);
+
+        return res.json(urgency);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to load invoice urgency:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to load who owes you'
         });
     }
 });
