@@ -5100,6 +5100,103 @@ function renderCashFlow(data) {
     }
   }
 
+  // ------------------------------------------------------------
+  // THE RATIOS, AS THE QUESTIONS THEY ANSWER
+  //
+  // The cards below this define nine ratios correctly, which helps if
+  // you already know why you should care about them. These are the
+  // same figures asked as questions — including the comparison nobody
+  // runs for themselves, between how long customers take to pay and
+  // how long the business takes to pay its own bills.
+  // ------------------------------------------------------------
+
+  async function loadRatioQuestions() {
+    const body = document.getElementById("ratio-questions-body");
+    if (!body) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    const { startDate, endDate } = getPeriodRange("year");
+
+    try {
+      const data = await apiGet(
+        `/quickbooks/ratio-questions?organizationId=${encodeURIComponent(organizationId)}` +
+        `&startDate=${encodeURIComponent(startDate)}` +
+        `&endDate=${encodeURIComponent(endDate)}`
+      );
+
+      renderRatioQuestions(data);
+    } catch (error) {
+      console.error("Ratio questions failed:", error);
+
+      body.innerHTML = `
+        <div class="card card-pad">
+          <div class="empty-state">
+            ${escapeHtml(
+              error?.code === "QB_REAUTH_REQUIRED"
+                ? "Reconnect QuickBooks to see this."
+                : "Unable to work out your health checks right now."
+            )}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function renderRatioQuestions(data) {
+    const body = document.getElementById("ratio-questions-body");
+    if (!body || !data) return;
+
+    const questions = data.questions || [];
+
+    if (!questions.length) {
+      body.innerHTML = "";
+      return;
+    }
+
+    // The cash gap is the one worth leading with, so it gets the full
+    // width and the rest sit underneath it.
+    const lead = questions.find(q => q.key === "cash-gap");
+    const rest = questions.filter(q => q.key !== "cash-gap");
+
+    const factsHtml = facts => facts?.length
+      ? `<div class="rq-facts">
+           ${facts.map(f => `
+             <div class="rq-fact">
+               <span class="rq-fact-label">
+                 ${escapeHtml(f.label)}
+                 ${f.term ? `<span class="rq-fact-term">${escapeHtml(f.term)}</span>` : ""}
+               </span>
+               <strong>${escapeHtml(f.value)}</strong>
+             </div>
+           `).join("")}
+         </div>`
+      : "";
+
+    const card = (q, extraClass = "") => `
+      <div class="card card-pad rq-card tone-${escapeHtml(q.tone || "quiet")} ${extraClass}">
+        <span class="rq-question">${escapeHtml(q.question)}</span>
+        <span class="rq-headline">${escapeHtml(q.headline || "")}</span>
+        <span class="rq-detail">${escapeHtml(q.detail || "")}</span>
+        ${factsHtml(q.facts)}
+      </div>
+    `;
+
+    body.innerHTML = `
+      <div class="rq-head">
+        <span class="cashproj-eyebrow">The questions behind the numbers</span>
+        <span class="cashproj-title">Your last 12 months, in plain terms</span>
+      </div>
+
+      ${lead ? card(lead, "is-lead") : ""}
+
+      <div class="rq-grid">
+        ${rest.map(q => card(q)).join("")}
+      </div>
+    `;
+  }
+
   function renderKPIs({ pl, bs, ar, ap }) {
 
     const page =
@@ -5153,6 +5250,18 @@ function renderCashFlow(data) {
         </div>
       </div>
 
+      <div id="ratio-questions-body" class="section-gap">
+        ${renderSkeletonCard(5)}
+      </div>
+
+      <div class="ratios-detail-head section-gap">
+        <span class="ratios-detail-title">The ratios behind those answers</span>
+        <span class="ratios-detail-sub">
+          The same figures in their accounting form. Click any card for the
+          full calculation and its trend.
+        </span>
+      </div>
+
       <div class="grid-kpi section-gap">
         ${KPI_DEFS.slice(0, 4).map(kpiCardHtml).join("")}
       </div>
@@ -5165,6 +5274,8 @@ function renderCashFlow(data) {
         ${KPI_DEFS.slice(8).map(kpiCardHtml).join("")}
       </div>
     `;
+
+    loadRatioQuestions();
 
     // Historical trend loads separately so the cards with their
     // current values appear immediately; sparklines and the modal's

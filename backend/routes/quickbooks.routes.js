@@ -37,6 +37,9 @@ const plStoryService =
 const balanceQuestionsService =
     require('../services/quickbooks/balance-questions.service');
 
+const ratioQuestionsService =
+    require('../services/quickbooks/ratio-questions.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -803,6 +806,72 @@ router.get('/balance-questions', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to read your balance sheet'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/ratio-questions
+//
+// The ratios phrased as the questions they answer, including the one
+// comparison nobody runs for themselves: whether the business pays its
+// suppliers faster than its customers pay it.
+// ============================================================
+
+router.get('/ratio-questions', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId,
+            startDate,
+            endDate
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const questions =
+            await ratioQuestionsService.getRatioQuestions(connection, {
+                startDate,
+                endDate
+            });
+
+        return res.json(questions);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to build the ratio questions:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to work out your health checks'
         });
     }
 });
