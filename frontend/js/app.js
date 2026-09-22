@@ -5436,75 +5436,6 @@ function renderCashFlow(data) {
     renderOverviewAlerts();
   }
 
-  // ------------------------------------------------------------
-  // TAX SET-ASIDE ESTIMATOR
-  //
-  // Real tax rates vary too much (entity type, state, deductions) for
-  // this app to compute one accurately, so the owner sets their own
-  // rough rate. Deliberately kept in localStorage rather than the
-  // database — this is a per-user rule-of-thumb setting, not shared
-  // organization data, and it means zero backend changes for a small,
-  // low-stakes feature.
-  // ------------------------------------------------------------
-
-  const TAX_RATE_STORAGE_KEY = "nfk-tax-rate-pct";
-  const DEFAULT_TAX_RATE_PCT = 25;
-
-  function getTaxRatePct() {
-    const stored = Number(localStorage.getItem(TAX_RATE_STORAGE_KEY));
-    return Number.isFinite(stored) && stored >= 0 && stored <= 60
-      ? stored
-      : DEFAULT_TAX_RATE_PCT;
-  }
-
-  function taxSetAsideCardHtml(netIncome) {
-    const rate = getTaxRatePct();
-
-    const hasIncome = Number.isFinite(netIncome);
-    const suggested = hasIncome && netIncome > 0 ? netIncome * (rate / 100) : 0;
-
-    return `
-      <div class="stat-card" id="overview-tax-setaside">
-        <div class="stat-label">Tax Set-Aside</div>
-        <div class="stat-val">
-          ${hasIncome ? formatCurrency(suggested) : "—"}
-        </div>
-        <div class="stat-sub-quiet">
-          ${
-            hasIncome && netIncome <= 0
-              ? "No profit this period — nothing to set aside"
-              : `Suggested, at`
-          }
-          ${
-            hasIncome && netIncome > 0
-              ? `<input
-                  type="number"
-                  id="tax-rate-input"
-                  value="${rate}"
-                  min="0"
-                  max="60"
-                  style="width:40px;margin:0 3px;background:transparent;border:none;border-bottom:1px solid var(--border);color:inherit;font:inherit;text-align:center;"
-                  onchange="NFK_App.updateTaxRate(this.value)"
-                >% of profit`
-              : ""
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  // Called by the rate input's onchange — recalculates and re-renders
-  // just this one card, so editing the rate doesn't reload the page
-  // or lose scroll position.
-  function updateTaxRate(rawValue) {
-    const value = Math.min(60, Math.max(0, Number(rawValue) || 0));
-    localStorage.setItem(TAX_RATE_STORAGE_KEY, String(value));
-
-    const el = document.getElementById("overview-tax-setaside");
-    if (el && Number.isFinite(overviewState.netIncome)) {
-      el.outerHTML = taxSetAsideCardHtml(overviewState.netIncome);
-    }
-  }
 
   // The one-line answer to "how is my business doing", in the words an
   // owner would use. Built only from figures that actually loaded — each
@@ -5626,8 +5557,6 @@ function renderCashFlow(data) {
     // Stashed for renderCashRunway(), which runs later once
     // overviewState.history has loaded (see loadOverviewTrendChart).
     overviewState.cashBalance = cashBalance;
-    overviewState.netIncome = netIncome;
-
     const kpi = computeKPIValues({ pl, bs, ar, ap });
     const workingCapital = kpi?.workingCapital?.value ?? null;
 
@@ -5743,9 +5672,8 @@ function renderCashFlow(data) {
             <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
           </div>
         </div>
-
-        ${taxSetAsideCardHtml(netIncome)}
       </div>
+
 
       <div class="card card-pad section-gap" id="cash-projection-body">
         ${renderSkeletonCard(4)}
@@ -7840,8 +7768,6 @@ function renderCashFlow(data) {
     setOverviewChartType,
 
     dismissOverviewAlert,
-
-    updateTaxRate,
 
     _init: init,
 
