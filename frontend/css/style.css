@@ -1689,11 +1689,17 @@ textarea.ai-chat-input { max-height: 140px; }
 .billsched-asof {
   font-size: 11.5px; color: var(--text-faint); white-space: nowrap; padding-top: 3px;
 }
-.billsched-group {
-  border-top: 1px solid var(--border-light); padding: 16px 0;
-}
-.billsched-group:first-of-type { border-top: none; padding-top: 0; }
-.billsched-group:last-child { padding-bottom: 0; }
+/* Each band is its own box, edged and titled by how urgent it is —
+   the same reading the Profit & Loss uses. An empty band stays
+   neutral: "nothing at risk" is good news and must not show red. */
+.billsched-group { border-left: 3px solid var(--border); }
+.billsched-group.is-overdue { border-left-color: var(--negative); }
+.billsched-group.is-soon { border-left-color: var(--warning); }
+.billsched-group.is-upcoming { border-left-color: var(--info); }
+.billsched-group.is-upcoming .billsched-group-title { color: var(--info); }
+.billsched-group.is-soon .billsched-group-title { color: var(--warning); }
+.billsched-groups { display: flex; flex-direction: column; gap: 14px; }
+.billsched-summary { margin-bottom: 16px; }
 .billsched-group-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
 }

@@ -6304,7 +6304,7 @@ function renderCashFlow(data) {
       if (!count && !showWhenEmpty) return "";
 
       return `
-        <div class="billsched-group ${count ? tone : ""}">
+        <div class="card card-pad billsched-group ${count ? tone : ""}">
           <div class="billsched-group-head">
             <div>
               <span class="billsched-group-title">${escapeHtml(title)}</span>
@@ -6363,15 +6363,16 @@ function renderCashFlow(data) {
     const oldest = urgency.oldest;
 
     body.innerHTML = `
-      <div class="billsched-head">
-        <div>
-          <span class="cashproj-eyebrow">Who to chase first</span>
-          <span class="cashproj-title">${money(owed)} owed to you</span>
+      <div class="card card-pad billsched-summary">
+        <div class="billsched-head">
+          <div>
+            <span class="cashproj-eyebrow">Who to chase first</span>
+            <span class="cashproj-title">${money(owed)} owed to you</span>
+          </div>
+          <span class="billsched-asof ${share > 0 ? "is-warn" : ""}">
+            ${share}% of it is already late
+          </span>
         </div>
-        <span class="billsched-asof ${share > 0 ? "is-warn" : ""}">
-          ${share}% of it is already late
-        </span>
-      </div>
 
       ${oldest
         ? `<div class="urgency-call">
@@ -6383,7 +6384,9 @@ function renderCashFlow(data) {
              </span>
            </div>`
         : ""}
+      </div>
 
+      <div class="billsched-groups">
       ${group(urgency.atRisk, {
         title: "At risk",
         note: `More than ${Number(urgency.atRiskAfterDays)} days past due. The longer these sit, the harder they get to collect.`,
@@ -6401,6 +6404,7 @@ function renderCashFlow(data) {
       ${group(urgency.dueThisWeek, {
         title: "Due this week",
         note: "Not late. Worth knowing what's about to land.",
+        tone: "is-upcoming",
         showWhenEmpty: true
       })}
 
@@ -6413,6 +6417,7 @@ function renderCashFlow(data) {
         title: "No due date recorded",
         note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
       })}
+      </div>
     `;
   }
 
@@ -6486,7 +6491,7 @@ function renderCashFlow(data) {
       // An empty group is good news, so it keeps the neutral colour —
       // a red or amber $0.00 would read as a warning about nothing.
       return `
-        <div class="billsched-group ${count ? tone : ""}">
+        <div class="card card-pad billsched-group ${count ? tone : ""}">
           <div class="billsched-group-head">
             <div>
               <span class="billsched-group-title">${escapeHtml(title)}</span>
@@ -6528,14 +6533,17 @@ function renderCashFlow(data) {
     }
 
     body.innerHTML = `
-      <div class="billsched-head">
-        <div>
-          <span class="cashproj-eyebrow">What's due, and when</span>
-          <span class="cashproj-title">${money(total)} still to pay</span>
+      <div class="card card-pad billsched-summary">
+        <div class="billsched-head">
+          <div>
+            <span class="cashproj-eyebrow">What's due, and when</span>
+            <span class="cashproj-title">${money(total)} still to pay</span>
+          </div>
+          <span class="billsched-asof">Week runs to ${escapeHtml(dayMonth(schedule.weekEnds))}</span>
         </div>
-        <span class="billsched-asof">Week runs to ${escapeHtml(dayMonth(schedule.weekEnds))}</span>
       </div>
 
+      <div class="billsched-groups">
       ${group(schedule.overdue, {
         title: "Overdue",
         note: "Past the date agreed with your supplier. Worth dealing with first.",
@@ -6552,7 +6560,8 @@ function renderCashFlow(data) {
 
       ${group(schedule.laterThisMonth, {
         title: "Due later this month",
-        note: `Falls due before ${dayMonth(schedule.monthEnds)}.`
+        note: `Falls due before ${dayMonth(schedule.monthEnds)}.`,
+        tone: "is-upcoming"
       })}
 
       ${group(schedule.later, {
@@ -6564,6 +6573,7 @@ function renderCashFlow(data) {
         title: "No due date recorded",
         note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
       })}
+      </div>
     `;
   }
 
@@ -6905,7 +6915,7 @@ function renderCashFlow(data) {
               </div>
             </div>
 
-            <div class="card card-pad section-gap" id="invoice-urgency-body">
+            <div class="section-gap" id="invoice-urgency-body">
               ${renderSkeletonCard(5)}
             </div>
 
@@ -6930,7 +6940,7 @@ function renderCashFlow(data) {
               </div>
             </div>
 
-            <div class="card card-pad section-gap" id="bills-schedule-body">
+            <div class="section-gap" id="bills-schedule-body">
               ${renderSkeletonCard(5)}
             </div>
 
