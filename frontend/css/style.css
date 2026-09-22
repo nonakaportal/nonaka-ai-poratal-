@@ -1184,6 +1184,10 @@ textarea.ai-chat-input { max-height: 140px; }
 .cf-verdict.tone-warn { border-left-color: var(--warning); }
 .cf-verdict.tone-neg { border-left-color: var(--negative); }
 .cf-verdict.tone-quiet { border-left-color: var(--accent-quiet); }
+/* The P&L's 62ch reading measure is right for its paragraphs, but it
+   broke this one sentence across lines mid-phrase. The card is wide;
+   let the sentence use it, and still wrap sensibly on a phone. */
+.cf-verdict .plstory-sub { max-width: none; overflow-wrap: anywhere; }
 .cashproj-figures { display: flex; gap: 26px; flex-wrap: wrap; }
 .cashproj-figure { display: flex; flex-direction: column; gap: 3px; }
 .cashproj-figure-label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; }
