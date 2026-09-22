@@ -88,9 +88,36 @@ router.post("/signup", async (req, res) => {
             });
         }
 
+        // Supabase rejects an address it cannot deliver to, and a password
+        // below the project's minimum. Both are the person's input, not a
+        // server fault, so they get a 400 and a sentence they can act on
+        // rather than a 500 with the raw error quoted back at them.
+        if (error.code === "email_address_invalid") {
+            return res.status(400).json({
+                success: false,
+                field: "email",
+                error: "That email address doesn't look like one we can deliver to. Check it and try again."
+            });
+        }
+
+        if (error.code === "weak_password") {
+            return res.status(400).json({
+                success: false,
+                field: "password",
+                error: "That password is too weak. Try a longer one."
+            });
+        }
+
+        if (error.status === 400) {
+            return res.status(400).json({
+                success: false,
+                error: "We couldn't create your account with those details. Check them and try again."
+            });
+        }
+
         res.status(500).json({
             success: false,
-            error: error.message
+            error: "Something went wrong creating your account. Please try again."
         });
     }
 });

@@ -6299,10 +6299,17 @@ function renderCashFlow(data) {
           ? "Reconnect QuickBooks to see this."
           : "Unable to work out this breakdown right now.";
 
+      // The request outlives the page: changing the period or leaving
+      // the Overview replaces this markup, so by the time a failure
+      // comes back these elements may be gone.
       for (const id of ["money-in-body", "money-out-body"]) {
-        document.getElementById(id).innerHTML = `
-          <div class="empty-state">${escapeHtml(message)}</div>
-        `;
+        const el = document.getElementById(id);
+
+        if (el) {
+          el.innerHTML = `
+            <div class="empty-state">${escapeHtml(message)}</div>
+          `;
+        }
       }
     }
   }
