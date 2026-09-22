@@ -25,6 +25,9 @@ const moneyFlowService =
 const cashCushionService =
     require('../services/quickbooks/cash-cushion.service');
 
+const debtDetailService =
+    require('../services/quickbooks/debt-detail.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -568,6 +571,59 @@ router.get('/cash-cushion', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to estimate your bank balance'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/debt-detail
+//
+// Each loan and card with the history behind its balance: what has been
+// paid off, what the payments look like, and how long it would take to
+// clear at that rate.
+// ============================================================
+
+router.get('/debt-detail', requireOrgAccess, async (req, res) => {
+    try {
+        const { organizationId } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const detail =
+            await debtDetailService.getDebtDetail(connection);
+
+        return res.json(detail);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to load debt detail:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to load your loans and cards'
         });
     }
 });

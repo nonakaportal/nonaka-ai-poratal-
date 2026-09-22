@@ -3713,6 +3713,238 @@ function renderCashFlow(data) {
     }
 
     // ------------------------------------------------------------
+    // EACH LOAN AND CARD, WITH THE HISTORY BEHIND IT
+    //
+    // A balance on its own says what is owed but not whether it is
+    // going anywhere. This shows what has been paid off, what the
+    // payments look like, and how long the balance takes to clear at
+    // that rate. Interest rates and agreed repayment amounts are not
+    // fields QuickBooks holds, so the page says so rather than leaving
+    // blanks that look like a loading failure.
+    // ------------------------------------------------------------
+
+    async function loadDebtDetail() {
+      const body = document.getElementById("debt-detail-body");
+      if (!body) return;
+
+      const organizationId = getOrganizationId();
+      if (!organizationId) return;
+
+      try {
+        const detail = await apiGet(
+          `/quickbooks/debt-detail?organizationId=${encodeURIComponent(organizationId)}`
+        );
+
+        renderDebtDetail(detail);
+      } catch (error) {
+        console.error("Debt detail failed:", error);
+
+        body.innerHTML = `
+          <div class="card card-pad">
+            <div class="empty-state">
+              ${escapeHtml(
+                error?.code === "QB_REAUTH_REQUIRED"
+                  ? "Reconnect QuickBooks to see your loans and cards."
+                  : "Unable to load your loans and cards right now."
+              )}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function debtClearanceLine(account) {
+      const clearance = account.clearance;
+
+      if (!clearance) {
+        if (!(account.balance > 0)) {
+          return { tone: "good", text: "Nothing owed on this." };
+        }
+
+        return {
+          tone: "quiet",
+          text: "No payments recorded against this yet, so there's nothing to work out a payoff date from."
+        };
+      }
+
+      if (clearance.known) {
+        const when = new Date(`${clearance.clearsOn}-01T00:00:00Z`)
+          .toLocaleDateString(undefined, {
+            month: "long",
+            year: "numeric",
+            timeZone: "UTC"
+          });
+
+        return {
+          tone: "good",
+          text: `Clear in about ${clearance.months} ${
+            clearance.months === 1 ? "month" : "months"
+          } — around ${when}.`,
+          meta: clearance.basis
+        };
+      }
+
+      if (clearance.reason === "growing") {
+        return {
+          tone: "bad",
+          text: "This balance is higher than it was, so it isn't on track to be paid off."
+        };
+      }
+
+      if (clearance.reason === "flat") {
+        return {
+          tone: "warn",
+          text: "You're adding to this about as fast as you pay it down, so the balance is staying put."
+        };
+      }
+
+      return {
+        tone: "quiet",
+        text: "Only one payment so far — not enough to tell how long this will take."
+      };
+    }
+
+    function renderDebtDetail(detail) {
+      const body = document.getElementById("debt-detail-body");
+      if (!body || !detail) return;
+
+      const money = v => formatCurrency(Number(v || 0));
+      const accounts = detail.accounts || [];
+
+      const byCategory = category =>
+        accounts
+          .filter(a => a.category === category)
+          .reduce((sum, a) => sum + Number(a.balance || 0), 0);
+
+      const current = byCategory("Current Debt");
+      const longTerm = byCategory("Long-Term Debt");
+      const card = byCategory("Credit Card Debt");
+
+      const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = money(value);
+      };
+
+      setText("debt-total", current + longTerm + card);
+      setText("debt-current", current);
+      setText("debt-long-term", longTerm);
+      setText("debt-credit-card", card);
+
+      if (!accounts.length) {
+        body.innerHTML = `
+          <div class="card card-pad">
+            <div class="empty-state">
+              QuickBooks shows no loans or credit cards on your books.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const shortDate = iso => {
+        if (!iso) return "";
+        return new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC"
+        });
+      };
+
+      body.innerHTML = `
+        ${accounts.map(account => {
+          const verdict = debtClearanceLine(account);
+          const paidOff = Number(account.paidOff || 0);
+
+          return `
+            <div class="card card-pad loan-card">
+
+              <div class="loan-head">
+                <div>
+                  <span class="loan-name">${escapeHtml(account.name || "Unnamed")}</span>
+                  <span class="loan-kind">${escapeHtml(account.category || "")}</span>
+                </div>
+                <strong class="loan-balance">${money(account.balance)}</strong>
+              </div>
+
+              ${Number(account.clearedShare) > 0
+                ? `<div class="loan-progress">
+                     <div class="loan-progress-bar">
+                       <span style="width:${Number(account.clearedShare)}%"></span>
+                     </div>
+                     <span class="loan-progress-label">
+                       ${Number(account.clearedShare)}% of this has been paid off
+                     </span>
+                   </div>`
+                : ""}
+
+              <div class="loan-facts">
+                <div class="loan-fact">
+                  <span class="loan-fact-label">Paid off in the last 2 years</span>
+                  <strong class="${paidOff > 0 ? "pos-val" : ""}">${money(paidOff)}</strong>
+                </div>
+
+                <div class="loan-fact">
+                  <span class="loan-fact-label">Typical payment</span>
+                  <strong>${
+                    account.typicalPayment
+                      ? money(account.typicalPayment)
+                      : "<span class='loan-none'>None recorded</span>"
+                  }</strong>
+                </div>
+
+                <div class="loan-fact">
+                  <span class="loan-fact-label">Last payment</span>
+                  <strong>${
+                    account.lastPayment
+                      ? `${money(account.lastPayment.amount)}
+                         <span class="loan-fact-meta">${escapeHtml(shortDate(account.lastPayment.date))}</span>`
+                      : "<span class='loan-none'>None yet</span>"
+                  }</strong>
+                </div>
+              </div>
+
+              <div class="loan-verdict tone-${escapeHtml(verdict.tone)}">
+                ${escapeHtml(verdict.text)}
+                ${verdict.meta
+                  ? `<span class="loan-verdict-meta">${escapeHtml(verdict.meta)}</span>`
+                  : ""}
+              </div>
+
+              ${account.recent?.length
+                ? `<details class="loan-history">
+                     <summary>Recent movements (${account.recent.length})</summary>
+                     <div class="loan-history-rows">
+                       ${account.recent.map(row => `
+                         <div class="loan-history-row">
+                           <span class="loan-history-date">${escapeHtml(shortDate(row.date))}</span>
+                           <span class="loan-history-desc" title="${escapeHtml(row.description)}">
+                             ${escapeHtml(row.description)}
+                           </span>
+                           <strong class="${row.direction === "payment" ? "pos-val" : "neg-val"}">
+                             ${row.direction === "payment" ? "−" : "+"}${money(Math.abs(row.amount))}
+                           </strong>
+                           <span class="loan-history-bal">${money(row.balance)}</span>
+                         </div>
+                       `).join("")}
+                     </div>
+                   </details>`
+                : ""}
+
+            </div>
+          `;
+        }).join("")}
+
+        <div class="card card-pad loan-note">
+          ${escapeHtml(detail.notInQuickBooks || "")}
+          ${!detail.ledgerAvailable
+            ? " The transaction history behind these balances could not be read this time, so only the balances are shown."
+            : ""}
+        </div>
+      `;
+    }
+
+    // ------------------------------------------------------------
     // WHAT'S LEFT IN THE BANK
     //
     // The outcome cards above this one are all profit figures. This is
@@ -7161,280 +7393,53 @@ function renderCashFlow(data) {
         });
         } 
         if (pageId === "debt-register") {
-    
-        const page =
-            document.getElementById(
-                "page-debt-register"
-            );
-    
-        if (!page) return;
-    
-            page.innerHTML = `
-            
-                <div class="page-header">
-            
-                    <div>
-                        <h1>Loans &amp; cards <span class="page-title-term">Debt</span></h1>
-            
-                        <p>
-                            Read live from QuickBooks
-                        </p>
-                    </div>
-            
-                </div>
-            
-            
-                <div class="debt-summary-grid">
-            
-                    <div class="card debt-summary-card">
-            
-                        <span>Total Debt</span>
-            
-                        <strong id="debt-total">
-                            $0.00
-                        </strong>
-            
-                    </div>
-            
-            
-                    <div class="card debt-summary-card">
-            
-                        <span>Current Debt</span>
-            
-                        <strong id="debt-current">
-                            $0.00
-                        </strong>
-            
-                    </div>
-            
-            
-                    <div class="card debt-summary-card">
-            
-                        <span>Long-Term Debt</span>
-            
-                        <strong id="debt-long-term">
-                            $0.00
-                        </strong>
-            
-                    </div>
-            
-            
-                    <div class="card debt-summary-card">
-            
-                        <span>Credit Card Debt</span>
-            
-                        <strong id="debt-credit-card">
-                            $0.00
-                        </strong>
-            
-                    </div>
-            
-                </div>
-            
-            
-                <div class="card debt-register-card">
-            
-                    <div class="debt-table">
-            
-                        <div class="debt-table-header">
 
-                            <span>
-                                Lender
-                            </span>
+          const page =
+              document.getElementById("page-debt-register");
 
-                            <span>
-                                Type
-                            </span>
+          if (!page) return;
 
-                            <span>
-                                Balance
-                                <small class="field-badge qb">
-                                    QB SYNC
-                                </small>
-                            </span>
+          page.innerHTML = `
 
-                        </div>
-            
-            
-                        <div
-                            id="debt-list"
-                            class="debt-list"
-                        ></div>
-            
-                    </div>
-            
-                </div>
-            
-            `;
-                
-        console.log(
-            "💳 DEBT REGISTER OPENED"
-        );
-    
-        loadDebt()
-            .then(data => {
-    
-              const accounts =
-                  data?.accounts || [];
-              
-              const current =
-                  accounts
-                      .filter(account =>
-                          account.category === "Current Debt"
-                      )
-                      .reduce(
-                          (sum, account) =>
-                              sum + Number(account.balance || 0),
-                          0
-                      );
-              
-              const longTerm =
-                  accounts
-                      .filter(account =>
-                          account.category === "Long-Term Debt"
-                      )
-                      .reduce(
-                          (sum, account) =>
-                              sum + Number(account.balance || 0),
-                          0
-                      );
-              
-              const creditCard =
-                  accounts
-                      .filter(account =>
-                          account.category === "Credit Card Debt"
-                      )
-                      .reduce(
-                          (sum, account) =>
-                              sum + Number(account.balance || 0),
-                          0
-                      );
-              
-              const total =
-                  current +
-                  longTerm +
-                  creditCard;
-
-                document.getElementById(
-                    "debt-total"
-                ).textContent =
-                    formatCurrency(total);
-    
-    
-                document.getElementById(
-                    "debt-current"
-                ).textContent =
-                    formatCurrency(current);
-    
-    
-                document.getElementById(
-                    "debt-long-term"
-                ).textContent =
-                    formatCurrency(longTerm);
-    
-    
-                document.getElementById(
-                    "debt-credit-card"
-                ).textContent =
-                    formatCurrency(
-                        creditCard
-                    );
-    
-    
-                const list =
-                    document.getElementById(
-                        "debt-list"
-                    );
-    
-                if (!list) return;
-    
-    
-                if (!accounts.length) {
-    
-                    list.innerHTML = `
-                        <div class="empty-state">
-                            No debt accounts found.
-                        </div>
-                    `;
-    
-                    return;
-                }
-    
-    
-                list.innerHTML =
-                    accounts.map(account => {
-    
-                        const balance =
-                            Number(
-                                account.balance || 0
-                            );
-    
-                        const status =
-                            balance > 0
-                                ? "Active"
-                                : "Paid / Zero";
-    
-    
-                        const statusClass =
-                            balance > 0
-                                ? "active"
-                                : "zero";
-    
-    
-              return `
-              
-                  <div class="debt-row">
-              
-                      <span class="debt-lender">
-                          ${escapeHtml(
-                              account.name || "Unknown"
-                          )}
-                      </span>
-              
-              
-                      <span>
-                          ${escapeHtml(
-                              account.category || "Debt"
-                          )}
-                      </span>
-
-
-                      <strong class="debt-balance">
-                          ${formatCurrency(
-                              balance
-                          )}
-                      </strong>
-
+              <div class="page-header">
+                  <div>
+                      <h1>Loans &amp; cards <span class="page-title-term">Debt</span></h1>
+                      <p>Read live from QuickBooks</p>
                   </div>
-              
-              `;
-                    }).join("");
-    
-            })
-            .catch(error => {
-    
-                console.error(
-                    "❌ Debt register loading failed:",
-                    error
-                );
-    
-                const list =
-                    document.getElementById(
-                        "debt-list"
-                    );
-    
-                if (list) {
-    
-                    list.innerHTML = `
-                        <div class="empty-state">
-                            Failed to load debt data.
-                        </div>
-                    `;
-    
-                }
-    
-            });
+              </div>
+
+              <div class="debt-summary-grid">
+
+                  <div class="card debt-summary-card">
+                      <span>Total owed</span>
+                      <strong id="debt-total">$0.00</strong>
+                  </div>
+
+                  <div class="card debt-summary-card">
+                      <span>Due within a year</span>
+                      <strong id="debt-current">$0.00</strong>
+                  </div>
+
+                  <div class="card debt-summary-card">
+                      <span>Longer-term</span>
+                      <strong id="debt-long-term">$0.00</strong>
+                  </div>
+
+                  <div class="card debt-summary-card">
+                      <span>On cards</span>
+                      <strong id="debt-credit-card">$0.00</strong>
+                  </div>
+
+              </div>
+
+              <div id="debt-detail-body" class="section-gap">
+                  ${renderSkeletonCard(5)}
+              </div>
+          `;
+
+          loadDebtDetail();
         }
+
       
       if (pageId === "forecast") {
 
