@@ -1008,6 +1008,13 @@
                     : ""
             }
 
+            <!-- THE THREE QUESTIONS IT ANSWERS -->
+
+            <div id="balance-questions-body" class="section-gap">
+                ${renderSkeletonCard(5)}
+            </div>
+
+
             <!-- THREE COLUMNS -->
 
             <div class="bs-columns">
@@ -1340,7 +1347,108 @@
         .catch(error => {
             console.error("❌ Balance Sheet trend failed:", error);
         });
+
+    loadBalanceQuestions();
 }
+
+    // ------------------------------------------------------------
+    // THE THREE QUESTIONS A BALANCE SHEET ANSWERS
+    //
+    // The balance sheet is the report owners skip, because its three
+    // totals only mean something once you know what question each one
+    // answers. So the questions get asked out loud and the same figures
+    // answer them. The judgement of what each answer means is made
+    // server-side from the report itself.
+    // ------------------------------------------------------------
+
+    async function loadBalanceQuestions() {
+      const body = document.getElementById("balance-questions-body");
+      if (!body) return;
+
+      const organizationId = getOrganizationId();
+      if (!organizationId) return;
+
+      const asOf = getPeriodAsOfDate(state.bsPeriod || "month");
+
+      try {
+        const data = await apiGet(
+          `/quickbooks/balance-questions?organizationId=${encodeURIComponent(organizationId)}` +
+          `&asOf=${encodeURIComponent(asOf)}`
+        );
+
+        renderBalanceQuestions(data);
+      } catch (error) {
+        console.error("Balance questions failed:", error);
+
+        body.innerHTML = `
+          <div class="card card-pad">
+            <div class="empty-state">
+              ${escapeHtml(
+                error?.code === "QB_REAUTH_REQUIRED"
+                  ? "Reconnect QuickBooks to see this."
+                  : "Unable to read your balance sheet right now."
+              )}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function renderBalanceQuestions(data) {
+      const body = document.getElementById("balance-questions-body");
+      if (!body || !data) return;
+
+      const currency = data.currency || "USD";
+      const money = v => formatCurrency(Number(v || 0), currency);
+
+      if (!data.hasData) {
+        body.innerHTML = `
+          <div class="card card-pad">
+            <div class="empty-state">
+              QuickBooks has nothing on the books as of this date.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const questions = data.questions || [];
+
+      body.innerHTML = `
+        <div class="bsq-grid">
+          ${questions.map(q => `
+            <div class="card card-pad bsq-card tone-${escapeHtml(q.tone || "quiet")}">
+              <span class="bsq-question">${escapeHtml(q.question)}</span>
+              <span class="bsq-headline">${escapeHtml(q.headline || "")}</span>
+
+              ${q.parts?.length
+                ? `<div class="bsq-parts">
+                     ${q.parts.map(part => `
+                       <div class="bsq-part">
+                         <span>${escapeHtml(part.label)}</span>
+                         <strong class="${Number(part.amount) < 0 ? "neg-val" : ""}">
+                           ${Number(part.amount) < 0 ? "−" : ""}${money(Math.abs(part.amount))}
+                         </strong>
+                       </div>
+                     `).join("")}
+                   </div>`
+                : ""}
+
+              <span class="bsq-detail">${escapeHtml(q.detail || "")}</span>
+            </div>
+          `).join("")}
+        </div>
+
+        ${!data.balances
+          ? `<div class="card card-pad bsq-warn">
+               This balance sheet is out by ${money(Math.abs(data.drift))} — what the
+               business owns doesn't match what it owes plus what's yours.
+               That's a bookkeeping problem worth raising with whoever keeps
+               your books, and it means the answers above may be off.
+             </div>`
+          : ""}
+      `;
+    }
 
     async function setBSPeriod(period) {
       state.bsPeriod = period;

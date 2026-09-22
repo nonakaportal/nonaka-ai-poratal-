@@ -34,6 +34,9 @@ const invoiceUrgencyService =
 const plStoryService =
     require('../services/quickbooks/pl-story.service');
 
+const balanceQuestionsService =
+    require('../services/quickbooks/balance-questions.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -746,6 +749,60 @@ router.get('/pl-story', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to work out where your profit went'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/balance-questions
+//
+// The balance sheet turned into the three questions it actually
+// answers, rather than three totals the reader has to interpret.
+// ============================================================
+
+router.get('/balance-questions', requireOrgAccess, async (req, res) => {
+    try {
+        const { organizationId, asOf } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const questions =
+            await balanceQuestionsService.getBalanceQuestions(connection, {
+                asOf: asOf || new Date().toISOString().slice(0, 10)
+            });
+
+        return res.json(questions);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to build the balance sheet questions:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to read your balance sheet'
         });
     }
 });
