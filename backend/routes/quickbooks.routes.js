@@ -31,6 +31,9 @@ const debtDetailService =
 const invoiceUrgencyService =
     require('../services/quickbooks/invoice-urgency.service');
 
+const plStoryService =
+    require('../services/quickbooks/pl-story.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -679,6 +682,70 @@ router.get('/invoice-urgency', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to load who owes you'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/pl-story
+//
+// The Profit & Loss read as the sequence it describes: sold this much,
+// cost this to deliver, left this, running costs took this, kept this.
+// ============================================================
+
+router.get('/pl-story', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId,
+            startDate,
+            endDate
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const story = await plStoryService.getPLStory(connection, {
+            startDate,
+            endDate
+        });
+
+        return res.json(story);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to build the profit story:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to work out where your profit went'
         });
     }
 });

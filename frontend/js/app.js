@@ -1802,8 +1802,15 @@
                 </div>
     
     
+                <!-- THE SAME FIGURES, AS A SEQUENCE -->
+
+                <div class="card card-pad section-gap" id="pl-story-body">
+                    ${renderSkeletonCard(5)}
+                </div>
+
+
                 <!-- FINANCIAL STATEMENT -->
-    
+
                 <div class="pl-table-card">
     
                     <div class="pl-table-header">
@@ -2015,6 +2022,119 @@
             </div>
 
         `;
+
+        loadPLStory();
+    }
+
+    // ------------------------------------------------------------
+    // THE SAME FIGURES, READ AS A SEQUENCE
+    //
+    // A Profit & Loss is a list of totals that assumes you already know
+    // how they relate to each other. This walks the same figures in the
+    // order they actually happen, so an owner can see where the money
+    // went between what they sold and what they kept. Every number is
+    // the one QuickBooks reports, so the story can't disagree with the
+    // statement printed underneath it.
+    // ------------------------------------------------------------
+
+    async function loadPLStory() {
+      const body = document.getElementById("pl-story-body");
+      if (!body) return;
+
+      const organizationId = getOrganizationId();
+      if (!organizationId) return;
+
+      const { startDate, endDate } = getPeriodRange(state.plPeriod || "month");
+
+      try {
+        const story = await apiGet(
+          `/quickbooks/pl-story?organizationId=${encodeURIComponent(organizationId)}` +
+          `&startDate=${encodeURIComponent(startDate)}` +
+          `&endDate=${encodeURIComponent(endDate)}`
+        );
+
+        renderPLStory(story);
+      } catch (error) {
+        console.error("P&L story failed:", error);
+
+        body.innerHTML = `
+          <div class="empty-state">
+            ${escapeHtml(
+              error?.code === "QB_REAUTH_REQUIRED"
+                ? "Reconnect QuickBooks to see this."
+                : "Unable to work out where your profit went right now."
+            )}
+          </div>
+        `;
+      }
+    }
+
+    function renderPLStory(story) {
+      const body = document.getElementById("pl-story-body");
+      if (!body || !story) return;
+
+      const currency = story.currency || "USD";
+      const money = v => formatCurrency(Number(v || 0), currency);
+
+      const steps = story.steps || [];
+      const verdict = story.verdict || {};
+
+      // Bars are drawn against sales, so the shrinking left-hand edge
+      // is the point: each cost takes a bite out of what came in.
+      const sales = Math.abs(Number(steps[0]?.amount || 0));
+      const widthOf = amount =>
+        sales > 0
+          ? Math.max(Math.min((Math.abs(amount) / sales) * 100, 100), 0.8)
+          : 0;
+
+      body.innerHTML = `
+        <div class="plstory-head">
+          <span class="cashproj-eyebrow">Where the money went</span>
+          <span class="cashproj-title">${escapeHtml(verdict.headline || "")}</span>
+          <span class="plstory-sub">${escapeHtml(verdict.detail || "")}</span>
+        </div>
+
+        <div class="plstory-steps">
+          ${steps.map(step => `
+            <div class="plstory-step kind-${escapeHtml(step.kind)}">
+              <div class="plstory-step-top">
+                <span class="plstory-label">
+                  ${escapeHtml(step.label)}
+                  <span class="plstory-term">${escapeHtml(step.term)}</span>
+                </span>
+                <strong class="plstory-amount">
+                  ${step.kind === "out" ? "−" : ""}${money(Math.abs(step.amount))}
+                </strong>
+              </div>
+
+              <div class="plstory-bar">
+                <span
+                  class="plstory-bar-fill"
+                  style="width:${widthOf(step.amount)}%"
+                ></span>
+              </div>
+
+              <div class="plstory-step-foot">
+                <span class="plstory-explain">${escapeHtml(step.explain)}</span>
+                ${step.share !== null && step.share !== undefined
+                  ? `<span class="plstory-share">${Number(step.share)}% of sales</span>`
+                  : ""}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+
+        ${!story.reconciliation?.balances
+          ? `<div class="plstory-warn">
+               These steps come to ${money(
+                 Number(steps.at(-1)?.amount || 0) +
+                 Number(story.reconciliation?.difference || 0)
+               )}, which is ${money(Math.abs(story.reconciliation?.difference || 0))}
+               away from the total QuickBooks reports. The statement below is
+               the one to trust.
+             </div>`
+          : ""}
+      `;
     }
 
     async function setPLPeriod(period) {

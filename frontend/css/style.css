@@ -1221,6 +1221,69 @@ textarea.ai-chat-input { max-height: 140px; }
   .cashproj-overdue { grid-template-columns: 1fr; }
 }
 
+/* The P&L walked as a sequence */
+.plstory-head {
+  display: flex; flex-direction: column; gap: 5px; margin-bottom: 22px;
+}
+.plstory-sub {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  text-wrap: pretty; max-width: 62ch;
+}
+.plstory-steps { display: flex; flex-direction: column; gap: 18px; }
+.plstory-step-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin-bottom: 7px;
+}
+.plstory-label {
+  font-size: 13.5px; color: var(--text-primary);
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.plstory-term {
+  font-size: 10.5px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.plstory-amount {
+  font-size: 15px; font-weight: 600; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.plstory-bar {
+  height: 8px; border-radius: 4px; background: var(--bg-subtle); overflow: hidden;
+}
+.plstory-bar-fill { display: block; height: 100%; border-radius: 4px; }
+.plstory-step-foot {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin-top: 7px;
+}
+.plstory-explain {
+  font-size: 11.5px; color: var(--text-faint); line-height: 1.55;
+  text-wrap: pretty; max-width: 66ch;
+}
+.plstory-share {
+  font-size: 11px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* Money arriving, money leaving, and the totals that fall out of them
+   each read differently at a glance. */
+.plstory-step.kind-in .plstory-bar-fill { background: var(--info); }
+.plstory-step.kind-out .plstory-bar-fill { background: var(--warning); }
+.plstory-step.kind-out .plstory-amount { color: var(--text-secondary); }
+.plstory-step.kind-subtotal .plstory-bar-fill { background: var(--accent-quiet); }
+.plstory-step.kind-result .plstory-bar-fill { background: var(--accent); }
+.plstory-step.kind-subtotal, .plstory-step.kind-result {
+  padding-top: 16px; border-top: 1px solid var(--border-light);
+}
+.plstory-step.kind-result .plstory-label,
+.plstory-step.kind-result .plstory-amount { font-weight: 700; }
+.plstory-step.kind-result .plstory-amount { font-size: 19px; }
+.plstory-warn {
+  font-size: 12px; color: var(--warning); line-height: 1.6;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);
+  text-wrap: pretty;
+}
+@media (max-width: 640px) {
+  .plstory-step-foot { flex-direction: column; gap: 3px; }
+}
+
 /* Per-loan detail on the Debt page */
 .loan-card + .loan-card, .loan-card + .loan-note { margin-top: 14px; }
 .loan-head {
