@@ -5773,7 +5773,7 @@ function renderCashFlow(data) {
     // language headline — per the product plan's rule of leading with
     // owner language and keeping the accounting term as an optional
     // secondary label, not deleting it.
-    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel, sparklineId) {
+    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel, sparklineId, goTo) {
       const hasDelta =
         !isError &&
         Number.isFinite(value) &&
@@ -5786,8 +5786,16 @@ function renderCashFlow(data) {
 
       const up = hasDelta && pct >= 0;
 
+      // Each headline is a summary of a page. Clicking it opens that
+      // page, which is what someone reaching for a number on the
+      // Overview is about to do anyway.
+      const opens = goTo
+        ? ` data-goto="${escapeHtml(goTo)}" role="link" tabindex="0"` +
+          ` aria-label="${escapeHtml(label)} — open the full page"`
+        : "";
+
       return `
-        <div class="stat-card metric-card">
+        <div class="stat-card metric-card${goTo ? " is-linked" : ""}"${opens}>
 
           <div class="metric-glyph">${glyph}</div>
 
@@ -5845,12 +5853,14 @@ function renderCashFlow(data) {
       })()}
 
       <div class="stat-grid section-gap">
-        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income")}
-        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome")}
-        ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow())}
-        ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital")}
+        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income", "pl")}
+        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome", "pl")}
+        ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow")}
+        ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital", null, "balance-sheet")}
 
-        <div class="stat-card" id="overview-cash-runway">
+        <div class="stat-card is-linked" id="overview-cash-runway"
+             data-goto="forecast" role="link" tabindex="0"
+             aria-label="How long your cash lasts — open the forecast">
           <div class="stat-label">How long your cash lasts</div>
           <div class="stat-val">
             <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
@@ -5859,16 +5869,22 @@ function renderCashFlow(data) {
       </div>
 
 
-      <div class="card card-pad section-gap" id="cash-projection-body">
+      <div class="card card-pad section-gap is-linked" id="cash-projection-body"
+           data-goto="forecast" role="link" tabindex="0"
+           aria-label="Where your cash is heading — open the forecast">
         ${renderSkeletonCard(4)}
       </div>
 
       <div class="grid-2 section-gap">
-        <div class="card card-pad" id="money-in-body">
+        <div class="card card-pad is-linked" id="money-in-body"
+             data-goto="pl" role="link" tabindex="0"
+             aria-label="Where the money came from — open what you kept">
           ${renderSkeletonCard(5)}
         </div>
 
-        <div class="card card-pad" id="money-out-body">
+        <div class="card card-pad is-linked" id="money-out-body"
+             data-goto="pl" role="link" tabindex="0"
+             aria-label="Biggest things money went out on — open what you kept">
           ${renderSkeletonCard(5)}
         </div>
       </div>
@@ -5916,7 +5932,9 @@ function renderCashFlow(data) {
       </div>
 
       <div class="section-gap">
-        <div class="card card-pad">
+        <div class="card card-pad is-linked"
+             data-goto="debt-register" role="link" tabindex="0"
+             aria-label="Debt breakdown — open loans and cards">
           <div class="card-header">
             <div class="card-title">Debt Breakdown</div>
           </div>
@@ -6198,12 +6216,16 @@ function renderCashFlow(data) {
       }
 
       <div class="cashproj-overdue">
-        <div class="cashproj-overdue-item">
+        <div class="cashproj-overdue-item is-linked"
+             data-goto="working-capital" role="link" tabindex="0"
+             aria-label="Already owed to you — open money owed to you">
           <span>Already owed to you</span>
           <strong class="pos-val">${money(overdue.customersOweYou)}</strong>
           <span class="cashproj-overdue-meta">${Number(overdue.customerCount || 0)} overdue invoice${Number(overdue.customerCount) === 1 ? "" : "s"}</span>
         </div>
-        <div class="cashproj-overdue-item">
+        <div class="cashproj-overdue-item is-linked"
+             data-goto="ap-vendors" role="link" tabindex="0"
+             aria-label="You already owe — open bills to pay">
           <span>You already owe</span>
           <strong class="neg-val">${money(overdue.youOweSuppliers)}</strong>
           <span class="cashproj-overdue-meta">${Number(overdue.supplierCount || 0)} overdue bill${Number(overdue.supplierCount) === 1 ? "" : "s"}</span>
@@ -7905,6 +7927,40 @@ function renderCashFlow(data) {
   }
 
   function bindGlobalEvents() {
+    // Cards that summarise a page open it. One delegated listener
+    // rather than an onclick on every card, so cards rendered later
+    // work without being wired up individually.
+    //
+    // A card marks itself with data-goto="<page id>". Anything the
+    // reader might click for its own sake — a link, a button, a
+    // period toggle, an expandable row — is left alone, or opening
+    // one would jump the page out from under them.
+    document.addEventListener("click", e => {
+      const card = e.target.closest?.("[data-goto]");
+
+      if (!card) return;
+
+      if (e.target.closest("a, button, input, select, textarea, summary, details")) {
+        return;
+      }
+
+      navigate(card.dataset.goto);
+    });
+
+    // The same by keyboard. These are links in behaviour, so Enter
+    // opens them; Space too, since they are focusable cards rather
+    // than anchors.
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+
+      const card = e.target.closest?.("[data-goto]");
+
+      if (!card || card !== e.target) return;
+
+      e.preventDefault();
+      navigate(card.dataset.goto);
+    });
+
     document.addEventListener(
       "click",
       e => {

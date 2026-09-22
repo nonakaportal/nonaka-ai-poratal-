@@ -1188,6 +1188,21 @@ textarea.ai-chat-input { max-height: 140px; }
    broke this one sentence across lines mid-phrase. The card is wide;
    let the sentence use it, and still wrap sensibly on a phone. */
 .cf-verdict .plstory-sub { max-width: none; overflow-wrap: anywhere; }
+
+/* Overview cards that open the page they summarise. Kept quiet — a
+   whole card lighting up on hover is noisy when five of them sit in a
+   row — but it has to be visibly clickable, and reachable by keyboard
+   since these are links in everything but markup. */
+.is-linked { cursor: pointer; transition: border-color var(--transition), transform var(--transition); }
+.is-linked:hover { border-color: var(--accent-line); transform: translateY(-1px); }
+.is-linked:active { transform: translateY(0); }
+.is-linked:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.is-linked .stat-label, .is-linked .card-title { transition: color var(--transition); }
+.is-linked:hover .stat-label, .is-linked:hover .card-title { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-linked, .is-linked:hover, .is-linked:active { transform: none; transition: border-color var(--transition); }
+}
 .cashproj-figures { display: flex; gap: 26px; flex-wrap: wrap; }
 .cashproj-figure { display: flex; flex-direction: column; gap: 3px; }
 .cashproj-figure-label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; }
