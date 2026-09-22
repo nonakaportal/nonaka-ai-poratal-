@@ -1175,6 +1175,15 @@ textarea.ai-chat-input { max-height: 140px; }
   text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 5px;
 }
 .cashproj-title { font-size: 17px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.015em; }
+
+/* The one-line answer at the top of Money in & out. A coloured edge so
+   "your cash rose, but not from trading" reads differently at a glance
+   from "your cash rose because you traded well". */
+.cf-verdict { margin-bottom: 18px; border-left: 3px solid var(--border); }
+.cf-verdict.tone-pos { border-left-color: var(--positive); }
+.cf-verdict.tone-warn { border-left-color: var(--warning); }
+.cf-verdict.tone-neg { border-left-color: var(--negative); }
+.cf-verdict.tone-quiet { border-left-color: var(--accent-quiet); }
 .cashproj-figures { display: flex; gap: 26px; flex-wrap: wrap; }
 .cashproj-figure { display: flex; flex-direction: column; gap: 3px; }
 .cashproj-figure-label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; }

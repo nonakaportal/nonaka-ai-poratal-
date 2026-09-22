@@ -180,6 +180,29 @@
     }
   
   
+    // Same whole-number rounding as fmt(), but in the company's own
+    // currency. fmt() hardcodes a dollar sign, and this portal serves
+    // companies that don't keep their books in dollars.
+    function formatCurrencyRounded(amount, currency = "USD") {
+      const value = Number(amount || 0);
+
+      const options = {
+        style: "currency",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      };
+
+      try {
+        return new Intl.NumberFormat("en-US", { ...options, currency })
+          .format(value);
+      } catch {
+        // An unrecognised code must not blank the page.
+        return new Intl.NumberFormat("en-US", { ...options, currency: "USD" })
+          .format(value);
+      }
+    }
+
+
     function escapeHtml(value) {
       return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -2110,6 +2133,153 @@
     }
     
     
+// The page below is three columns of account movements and a waterfall.
+// This is the one-line answer they add up to: how much is in the bank,
+// whether that is more or less than the owner started with, and — the
+// part the columns don't say out loud — whether the change came from
+// trading or from somewhere else.
+//
+// Cash going up is not automatically good news. A business that covered
+// a trading loss by borrowing shows a rising balance, and that is worth
+// saying plainly rather than leaving someone to spot it in the numbers.
+function cashFlowVerdict({
+    openingCash,
+    closingCash,
+    netChange,
+    operatingTotal,
+    investingTotal,
+    financingTotal,
+    currency
+}) {
+    // Rounded to match every other figure on this page — a sentence
+    // reads better without cents, and the summary row below would
+    // otherwise disagree with the headline by a few pence.
+    const money = value =>
+        formatCurrencyRounded(Math.abs(Number(value || 0)), currency);
+
+    const change = Number(netChange || 0);
+    const trading = Number(operatingTotal || 0);
+
+    // Under a cent either way is rounding, not a movement.
+    const FLAT = 0.005;
+
+    const others = [
+        {
+            label: "money put in or borrowed",
+            outLabel: "loan repayments and money taken out",
+            amount: Number(financingTotal || 0)
+        },
+        {
+            label: "selling something the business owned",
+            outLabel: "buying things for the business",
+            amount: Number(investingTotal || 0)
+        }
+    ];
+
+    const biggestOther = others
+        .slice()
+        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0];
+
+    const headline = `You have ${money(closingCash)} in the bank`;
+
+    if (!Number.isFinite(closingCash)) {
+        return {
+            tone: "quiet",
+            headline: "Cash position unavailable",
+            detail: "QuickBooks did not return a closing balance for this period."
+        };
+    }
+
+    if (Math.abs(change) < FLAT) {
+        return {
+            tone: "quiet",
+            headline,
+            detail:
+                `That is where you started the period too — money came in ` +
+                `and went out, and it balanced out to the same place.`
+        };
+    }
+
+    const direction = change > 0 ? "more" : "less";
+    const movement =
+        `${money(change)} ${direction} than the ${money(openingCash)} ` +
+        `you started with.`;
+
+    if (change > 0) {
+        // Rising cash that trading did not pay for is the case worth
+        // flagging: it looks like success and often isn't.
+        if (trading <= 0 && biggestOther && biggestOther.amount > 0) {
+            return {
+                tone: "warn",
+                headline,
+                detail:
+                    `That is ${movement} But it did not come from trading — ` +
+                    `the business spent ${money(trading)} more than it took ` +
+                    `in day to day, and the balance went up because of ` +
+                    `${biggestOther.label}.`
+            };
+        }
+
+        // Trading being positive is not the same as trading having paid
+        // for the rise. Only say so when it actually covers it.
+        if (trading >= change) {
+            return {
+                tone: "pos",
+                headline,
+                detail:
+                    `That is ${movement} Day-to-day trading brought in ` +
+                    `${money(trading)}, which is what paid for it.`
+            };
+        }
+
+        const helper = biggestOther && biggestOther.amount > 0
+            ? ` The rest came from ${biggestOther.label}.`
+            : "";
+
+        return {
+            tone: "pos",
+            headline,
+            detail:
+                `That is ${movement} Day-to-day trading brought in ` +
+                `${money(trading)} of that.${helper}`
+        };
+    }
+
+    // Falling cash — say which half of the business it went out on.
+    if (trading > 0 && biggestOther && biggestOther.amount < 0) {
+        return {
+            tone: "warn",
+            headline,
+            detail:
+                `That is ${movement} Trading itself brought in ` +
+                `${money(trading)}; the balance still fell because of ` +
+                `${biggestOther.outLabel}.`
+        };
+    }
+
+    return {
+        tone: "neg",
+        headline,
+        detail:
+            `That is ${movement} The business paid out ${money(trading)} ` +
+            `more than it took in day to day.`
+    };
+}
+
+function cashFlowVerdictHtml(figures) {
+    const verdict = cashFlowVerdict(figures);
+
+    return `
+        <section class="card card-pad cf-verdict tone-${escapeHtml(verdict.tone)}">
+            <div class="plstory-head" style="margin-bottom:0;">
+                <span class="cashproj-eyebrow">What this comes to</span>
+                <span class="cashproj-title">${escapeHtml(verdict.headline)}</span>
+                <span class="plstory-sub">${escapeHtml(verdict.detail)}</span>
+            </div>
+        </section>
+    `;
+}
+
 function renderCashFlow(data) {
 
     const page =
@@ -2195,8 +2365,9 @@ function renderCashFlow(data) {
 
     function amount(value) {
 
-        return fmt(
-            Number(value || 0)
+        return formatCurrencyRounded(
+            Number(value || 0),
+            currency
         );
 
     }
@@ -2208,8 +2379,8 @@ function renderCashFlow(data) {
             Number(value || 0);
 
         return n < 0
-            ? `-${fmt(Math.abs(n))}`
-            : `+${fmt(n)}`;
+            ? `-${formatCurrencyRounded(Math.abs(n), currency)}`
+            : `+${formatCurrencyRounded(n, currency)}`;
 
     }
 
@@ -2375,6 +2546,19 @@ function renderCashFlow(data) {
                 </div>
 
             </div>
+
+
+            <!-- WHAT IT ALL COMES TO -->
+
+            ${cashFlowVerdictHtml({
+                openingCash,
+                closingCash,
+                netChange,
+                operatingTotal,
+                investingTotal,
+                financingTotal,
+                currency
+            })}
 
 
             <!-- WATERFALL -->
