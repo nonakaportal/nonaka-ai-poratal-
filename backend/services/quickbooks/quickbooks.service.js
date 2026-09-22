@@ -4,6 +4,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const supabaseService = require('../supabase/supabase.service');
+const requestGate = require('./request-gate');
 
 class QuickBooksService {
     constructor() {
@@ -324,6 +325,11 @@ class QuickBooksService {
     // QUICKBOOKS API
     // ==========================================================
 
+    // Every read of company data goes through here, and therefore
+    // through the request gate: a few calls at a time per company,
+    // one shared answer for repeated questions, and a short wait
+    // instead of a failure when QuickBooks says "not so fast".
+    // See request-gate.js for why.
     async makeApiRequest(
         accessToken,
         realmId,
@@ -331,42 +337,60 @@ class QuickBooksService {
         method = 'GET',
         data = null
     ) {
-        try {
-            const url =
-                `${this.baseUrl}/v3/company/${realmId}/${endpoint}`;
+        const verb = String(method || 'GET').toUpperCase();
 
-            const config = {
-                method,
-                url,
+        // Only a plain read can be shared or remembered.
+        const cacheable = verb === 'GET' && data === null;
 
-                headers: {
-                    Authorization:
-                        `Bearer ${accessToken}`,
+        return requestGate.run(
+            {
+                realmId,
+                key: `${realmId}|${verb}|${endpoint}`,
+                cacheable
+            },
+            async () => {
+                try {
+                    const url =
+                        `${this.baseUrl}/v3/company/${realmId}/${endpoint}`;
 
-                    Accept:
-                        'application/json',
+                    const config = {
+                        method: verb,
+                        url,
 
-                    'Content-Type':
-                        'application/json'
+                        headers: {
+                            Authorization:
+                                `Bearer ${accessToken}`,
+
+                            Accept:
+                                'application/json',
+
+                            'Content-Type':
+                                'application/json'
+                        }
+                    };
+
+                    if (data !== null) {
+                        config.data = data;
+                    }
+
+                    const response =
+                        await axios(config);
+
+                    return response.data;
+                } catch (error) {
+                    // A 429 is not a failure — the gate is about to
+                    // wait and ask again, so don't log it as one.
+                    if (error.response?.status !== 429) {
+                        console.error(
+                            'QuickBooks API request failed:',
+                            error.response?.data || error.message
+                        );
+                    }
+
+                    throw error;
                 }
-            };
-
-            if (data !== null) {
-                config.data = data;
             }
-
-            const response =
-                await axios(config);
-
-            return response.data;
-        } catch (error) {
-            console.error(
-                'QuickBooks API request failed:',
-                error.response?.data || error.message
-            );
-
-            throw error;
-        }
+        );
     }
 
     // ==========================================================
@@ -378,21 +402,14 @@ class QuickBooksService {
         realmId
     ) {
         try {
-            const url =
-                `${this.baseUrl}/v3/company/${realmId}/companyinfo/${realmId}`;
-
-            const response =
-                await axios.get(url, {
-                    headers: {
-                        Authorization:
-                            `Bearer ${accessToken}`,
-
-                        Accept:
-                            'application/json'
-                    }
-                });
-
-            return response.data;
+            // Through makeApiRequest rather than straight to axios, so
+            // the company name is queued and shared like every other
+            // read. The top bar asks for it on each page.
+            return await this.makeApiRequest(
+                accessToken,
+                realmId,
+                `companyinfo/${realmId}`
+            );
         } catch (error) {
             console.error(
                 'Failed to fetch CompanyInfo:',
