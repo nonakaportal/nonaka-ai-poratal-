@@ -16,6 +16,9 @@ const { requireOrgAccess } =
 const cashProjectionService =
     require('../services/quickbooks/cash-projection.service');
 
+const billsScheduleService =
+    require('../services/quickbooks/bills-schedule.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -377,6 +380,58 @@ router.get('/cash-projection', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to work out your cash projection'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/bills-schedule
+//
+// Unpaid supplier bills grouped by when they fall due, so the owner can
+// see what has to be paid this week separately from what can wait.
+// ============================================================
+
+router.get('/bills-schedule', requireOrgAccess, async (req, res) => {
+    try {
+        const { organizationId } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const schedule =
+            await billsScheduleService.getBillsSchedule(connection);
+
+        return res.json(schedule);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to load the bills schedule:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to load your upcoming bills'
         });
     }
 });

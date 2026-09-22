@@ -5614,6 +5614,157 @@ function renderCashFlow(data) {
     }
   }
 
+  // ------------------------------------------------------------
+  // WHAT'S DUE, AND WHEN
+  //
+  // The Accounts Payable report below this card looks backwards — how
+  // long a bill has been sitting unpaid. This looks forwards: what has
+  // to be paid this week, what can wait until later in the month. The
+  // grouping is done server-side from each bill's own due date.
+  // ------------------------------------------------------------
+
+  async function loadBillsSchedule() {
+    const body = document.getElementById("bills-schedule-body");
+    if (!body) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    try {
+      const schedule = await apiGet(
+        `/quickbooks/bills-schedule?organizationId=${encodeURIComponent(organizationId)}`
+      );
+
+      renderBillsSchedule(schedule);
+    } catch (error) {
+      console.error("Bills schedule failed:", error);
+
+      body.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(
+            error?.code === "QB_REAUTH_REQUIRED"
+              ? "Reconnect QuickBooks to see what's due."
+              : "Unable to load your upcoming bills right now."
+          )}
+        </div>
+      `;
+    }
+  }
+
+  function renderBillsSchedule(schedule) {
+    const body = document.getElementById("bills-schedule-body");
+    if (!body || !schedule) return;
+
+    const money = v => formatCurrency(Number(v || 0));
+
+    const plural = (n, word) =>
+      `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
+
+    const billRow = bill => `
+      <div class="billsched-row">
+        <div class="billsched-who">
+          <span class="billsched-vendor">${escapeHtml(bill.vendor || "Unknown supplier")}</span>
+          ${bill.docNumber
+            ? `<span class="billsched-ref">Bill ${escapeHtml(String(bill.docNumber))}</span>`
+            : ""}
+        </div>
+        <span class="billsched-when">${escapeHtml(bill.timing || "")}</span>
+        <strong class="billsched-amount">${money(bill.amount)}</strong>
+      </div>
+    `;
+
+    // A group with nothing in it is still worth showing when it is one
+    // the owner would look for — "Overdue: none" is reassuring, and its
+    // absence would leave them wondering whether it was checked.
+    const group = (bucket, { title, note, tone = "", showWhenEmpty = false }) => {
+      const count = Number(bucket?.count || 0);
+
+      if (!count && !showWhenEmpty) return "";
+
+      // An empty group is good news, so it keeps the neutral colour —
+      // a red or amber $0.00 would read as a warning about nothing.
+      return `
+        <div class="billsched-group ${count ? tone : ""}">
+          <div class="billsched-group-head">
+            <div>
+              <span class="billsched-group-title">${escapeHtml(title)}</span>
+              <span class="billsched-group-count">${plural(count, "bill")}</span>
+            </div>
+            <strong>${money(bucket?.total)}</strong>
+          </div>
+          ${note ? `<div class="billsched-group-note">${escapeHtml(note)}</div>` : ""}
+          ${count
+            ? `<div class="billsched-rows">${(bucket.bills || []).map(billRow).join("")}</div>`
+            : `<div class="billsched-none">Nothing here — you're up to date.</div>`}
+        </div>
+      `;
+    };
+
+    const dayMonth = iso => {
+      if (!iso) return "";
+      const d = new Date(`${iso}T00:00:00Z`);
+      return d.toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC"
+      });
+    };
+
+    const total = Number(schedule.totalOutstanding || 0);
+
+    if (!total) {
+      body.innerHTML = `
+        <div class="billsched-head">
+          <span class="cashproj-eyebrow">What's due, and when</span>
+          <span class="cashproj-title">Nothing outstanding</span>
+        </div>
+        <div class="cashproj-nodata">
+          QuickBooks has no unpaid supplier bills on your books right now.
+        </div>
+      `;
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="billsched-head">
+        <div>
+          <span class="cashproj-eyebrow">What's due, and when</span>
+          <span class="cashproj-title">${money(total)} still to pay</span>
+        </div>
+        <span class="billsched-asof">Week runs to ${escapeHtml(dayMonth(schedule.weekEnds))}</span>
+      </div>
+
+      ${group(schedule.overdue, {
+        title: "Overdue",
+        note: "Past the date agreed with your supplier. Worth dealing with first.",
+        tone: "is-overdue",
+        showWhenEmpty: true
+      })}
+
+      ${group(schedule.thisWeek, {
+        title: "Due this week",
+        note: `Everything due between today and ${dayMonth(schedule.weekEnds)}.`,
+        tone: "is-soon",
+        showWhenEmpty: true
+      })}
+
+      ${group(schedule.laterThisMonth, {
+        title: "Due later this month",
+        note: `Falls due before ${dayMonth(schedule.monthEnds)}.`
+      })}
+
+      ${group(schedule.later, {
+        title: "Due after this month",
+        note: "Not urgent, but already on your books."
+      })}
+
+      ${group(schedule.undated, {
+        title: "No due date recorded",
+        note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
+      })}
+    `;
+  }
+
   async function setOverviewPeriod(period) {
     state.overviewPeriod = period;
 
@@ -6212,6 +6363,10 @@ function renderCashFlow(data) {
               </div>
             </div>
 
+            <div class="card card-pad section-gap" id="bills-schedule-body">
+              ${renderSkeletonCard(5)}
+            </div>
+
             <div class="card ar-summary-card">
 
               <div class="ar-summary-header">
@@ -6294,9 +6449,8 @@ function renderCashFlow(data) {
         
             </div>
           `;
-          console.log(
-              " AP PAGE OPENED - calling loadAccountsPayable()"
-          )
+          loadBillsSchedule();
+
           loadAccountsPayable()
             .then(data => {
         
