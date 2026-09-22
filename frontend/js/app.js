@@ -1700,7 +1700,7 @@
                      accounts behind it, so there is no second copy
                      of the same figures further down the page. -->
 
-                <div class="card card-pad section-gap" id="pl-story-body">
+                <div class="section-gap" id="pl-story-body">
                     ${renderSkeletonCard(5)}
                 </div>
 
@@ -1836,7 +1836,7 @@
       }
 
       return `
-        <details class="plstory-step kind-${escapeHtml(step.kind)}">
+        <details class="card card-pad plstory-step kind-${escapeHtml(step.kind)}">
           <summary class="plstory-summary">
             <div class="plstory-step-top">
               <span class="plstory-label">
@@ -1892,10 +1892,12 @@
           : 0;
 
       body.innerHTML = `
-        <div class="plstory-head">
-          <span class="cashproj-eyebrow">Where the money went</span>
-          <span class="cashproj-title">${escapeHtml(verdict.headline || "")}</span>
-          <span class="plstory-sub">${escapeHtml(verdict.detail || "")}</span>
+        <div class="card card-pad plstory-verdict">
+          <div class="plstory-head">
+            <span class="cashproj-eyebrow">Where the money went</span>
+            <span class="cashproj-title">${escapeHtml(verdict.headline || "")}</span>
+            <span class="plstory-sub">${escapeHtml(verdict.detail || "")}</span>
+          </div>
         </div>
 
         <div class="plstory-steps">

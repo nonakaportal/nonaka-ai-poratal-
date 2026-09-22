@@ -1344,7 +1344,33 @@ textarea.ai-chat-input { max-height: 140px; }
   font-size: 13px; color: var(--text-secondary); line-height: 1.6;
   text-wrap: pretty; max-width: 62ch;
 }
-.plstory-steps { display: flex; flex-direction: column; gap: 18px; }
+.plstory-steps { display: flex; flex-direction: column; gap: 14px; }
+
+/* Each line of the statement is its own box, colour-coded by what it
+   is: money arriving, money leaving, a subtotal, or what was left.
+   The heading, the caret and the edge all take that one colour, so a
+   glance down the page reads as in / out / in / out before a single
+   figure is read. Matches the bar inside each box. */
+.plstory-step { border-left: 3px solid var(--border); }
+.plstory-step .plstory-name { color: var(--text-primary); }
+
+.plstory-step.kind-in { border-left-color: var(--info); }
+.plstory-step.kind-in .plstory-name,
+.plstory-step.kind-in .plstory-caret { color: var(--info); }
+
+.plstory-step.kind-out { border-left-color: var(--warning); }
+.plstory-step.kind-out .plstory-name,
+.plstory-step.kind-out .plstory-caret { color: var(--warning); }
+
+.plstory-step.kind-subtotal { border-left-color: var(--accent-quiet); }
+.plstory-step.kind-subtotal .plstory-name,
+.plstory-step.kind-subtotal .plstory-caret { color: var(--accent-quiet); }
+
+.plstory-step.kind-result { border-left-color: var(--accent); }
+.plstory-step.kind-result .plstory-name,
+.plstory-step.kind-result .plstory-caret { color: var(--accent); }
+
+.plstory-verdict { margin-bottom: 16px; }
 .plstory-step-top {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 14px; margin-bottom: 7px;
@@ -1384,9 +1410,6 @@ textarea.ai-chat-input { max-height: 140px; }
 .plstory-step.kind-out .plstory-amount { color: var(--text-secondary); }
 .plstory-step.kind-subtotal .plstory-bar-fill { background: var(--accent-quiet); }
 .plstory-step.kind-result .plstory-bar-fill { background: var(--accent); }
-.plstory-step.kind-subtotal, .plstory-step.kind-result {
-  padding-top: 16px; border-top: 1px solid var(--border-light);
-}
 .plstory-step.kind-result .plstory-label,
 .plstory-step.kind-result .plstory-amount { font-weight: 700; }
 .plstory-step.kind-result .plstory-amount { font-size: 19px; }
@@ -1400,13 +1423,13 @@ textarea.ai-chat-input { max-height: 140px; }
   width: 15px; height: 15px; flex-shrink: 0; color: var(--text-faint);
   transition: transform var(--transition), color var(--transition);
 }
-.plstory-step[open] .plstory-caret { transform: rotate(180deg); color: var(--accent); }
-.plstory-summary:hover .plstory-caret { color: var(--text-secondary); }
+.plstory-step[open] .plstory-caret { transform: rotate(180deg); }
+.plstory-summary:hover .plstory-caret { filter: brightness(1.15); }
 
 /* The heading of the row you opened, so it is obvious what the list belongs to. */
 .plstory-name { transition: color var(--transition); }
-.plstory-summary:hover .plstory-name { color: var(--text-primary); }
-.plstory-step[open] .plstory-name { color: var(--accent); font-weight: 600; }
+.plstory-summary:hover .plstory-name { filter: brightness(1.15); }
+.plstory-step[open] .plstory-name { font-weight: 600; }
 
 .plstory-detail {
   margin-top: 12px; padding: 4px 0 2px;
