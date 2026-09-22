@@ -9,6 +9,7 @@
 // invented: if a figure isn't in the books, it isn't in the projection.
 
 const quickbooksService = require('./quickbooks.service');
+const { money, longDate } = require('./format');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -117,7 +118,8 @@ function buildTimeline({ openingCash, upcoming, days, today }) {
 // smallest change that restores the buffer. This is advice only — the
 // app reads from QuickBooks and never writes to it, so nothing here
 // reschedules anything on the owner's behalf.
-function buildTimingTip({ timeline, floor }) {
+function buildTimingTip({ timeline, floor, currency = 'USD' }) {
+    const fmt = money(currency);
     if (!Number.isFinite(floor)) {
         return null;
     }
@@ -166,8 +168,8 @@ function buildTimingTip({ timeline, floor }) {
         },
         moveTo: recovery ? recovery.date : null,
         suggestion: recovery
-            ? `Paying ${culprit.party} (${culprit.amount}) on ${recovery.date} instead of ${culprit.date} keeps you above your usual buffer.`
-            : `${culprit.party} (${culprit.amount}) on ${culprit.date} is the largest payment before the dip.`
+            ? `Paying ${culprit.party} (${fmt(culprit.amount)}) on ${longDate(recovery.date)} instead of ${longDate(culprit.date)} keeps you above your usual buffer.`
+            : `${culprit.party} (${fmt(culprit.amount)}) on ${longDate(culprit.date)} is the largest payment before the dip.`
     };
 }
 
@@ -249,7 +251,11 @@ async function buildCashProjection(connection, { days = 30, monthlyOutflows = []
             bills: billSplit.upcoming.length
         },
 
-        timingTip: buildTimingTip({ timeline, floor })
+        timingTip: buildTimingTip({
+            timeline,
+            floor,
+            currency: cashOnHand?.currency || 'USD'
+        })
     };
 }
 

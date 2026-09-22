@@ -3,7 +3,7 @@
 // A Profit & Loss statement is a list of totals that assumes you
 // already know how they relate. This turns the same figures into the
 // sequence they actually describe: you sold this much, it cost this to
-// deliver, that left this, running the place took this, and this is
+// deliver, that left this, running the business took this, and this is
 // what you kept.
 //
 // Every figure is the one QuickBooks reports. Nothing is recalculated
@@ -11,6 +11,7 @@
 // statement printed underneath it.
 
 const quickbooksService = require('./quickbooks.service');
+const { money } = require('./format');
 
 function round2(n) {
     return Math.round(Number(n || 0) * 100) / 100;
@@ -51,9 +52,12 @@ function buildSteps(report) {
             term: 'Cost of goods sold',
             amount: cogs,
             share: shareOf(cogs, income),
+            // Deliberately not "materials and stock": this portal serves
+            // service businesses as well as ones that sell goods, and a
+            // consultancy has neither.
             explain:
-                'The costs that only happen because you made the sale — ' +
-                'materials, stock, the people doing the work.'
+                'The costs that only exist because you made the sale — ' +
+                'whatever you had to buy in, or pay someone, to deliver it.'
         },
         {
             key: 'gross',
@@ -69,7 +73,7 @@ function buildSteps(report) {
         {
             key: 'opex',
             kind: 'out',
-            label: 'What it costs to run the place',
+            label: 'What it costs to run the business',
             term: 'Operating expenses',
             amount: expenses,
             share: shareOf(expenses, income),
@@ -145,6 +149,8 @@ function reconcile(report, steps) {
 }
 
 function describeResult(report) {
+    // Not every company on this portal keeps its books in dollars.
+    const fmt = money(report?.currency || 'USD', { decimals: 0 });
     const income = round2(report?.income);
     const netIncome = round2(report?.netIncome);
     const grossProfit = round2(report?.grossProfit);
@@ -193,8 +199,8 @@ function describeResult(report) {
         tone: 'good',
         headline: `You kept ${margin}% of what you sold`,
         detail:
-            `Out of every $100 you sold, about $${Math.round(margin)} stayed ` +
-            `in the business after ${expenses > 0 ? 'costs' : 'everything'}.`
+            `Out of every ${fmt(100)} you sold, about ${fmt(Math.round(margin))} ` +
+            `stayed in the business after ${expenses > 0 ? 'costs' : 'everything'}.`
     };
 }
 
