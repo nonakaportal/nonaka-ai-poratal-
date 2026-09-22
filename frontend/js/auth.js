@@ -290,6 +290,16 @@ async function login(email, password) {
             );
         }
 
+        // Everything this person can see. Usually one company; an owner
+        // with two, or an advisor looking after several, gets a switcher
+        // in the top bar built from this list.
+        if (Array.isArray(data.organizations)) {
+            localStorage.setItem(
+                "nfk_organizations",
+                JSON.stringify(data.organizations)
+            );
+        }
+
         // ----------------------------------------------------
         // SAVE USER ORGANIZATION
         // ----------------------------------------------------
@@ -406,6 +416,65 @@ function getOrganizationId() {
     }
 
     return organization.id;
+}
+
+
+// ------------------------------------------------------------
+// EVERY COMPANY THIS PERSON CAN SEE
+// ------------------------------------------------------------
+
+function getOrganizations() {
+    try {
+        const list =
+            JSON.parse(
+                localStorage.getItem("nfk_organizations") || "null"
+            );
+
+        if (Array.isArray(list) && list.length) {
+            return list;
+        }
+    } catch {
+        // Fall through to the single active organization below.
+    }
+
+    // Sessions that predate the switcher only stored the active one.
+    const current = getCurrentOrganization();
+
+    return current ? [current] : [];
+}
+
+
+// Switches which company the portal is looking at.
+//
+// This reloads the page rather than re-rendering in place. Every page
+// holds its own fetched figures — the twelve-month history, the ratio
+// trends, the scenario baseline — and showing one company's numbers
+// under another company's name would be a serious thing to get wrong.
+// A reload guarantees nothing survives the switch.
+function setActiveOrganization(organizationId) {
+    const match =
+        getOrganizations().find(o => o.id === organizationId);
+
+    if (!match) {
+        console.error("Unknown organization:", organizationId);
+        return;
+    }
+
+    if (getOrganizationId() === match.id) {
+        return;
+    }
+
+    localStorage.setItem(
+        "nfk_organization",
+        JSON.stringify(match)
+    );
+
+    localStorage.setItem(
+        "nfk-organization-id",
+        match.id
+    );
+
+    window.location.reload();
 }
 
 
@@ -1030,6 +1099,8 @@ window.NFK_Auth = {
     showSentPane,
     getCurrentUser,
     getCurrentOrganization,
+    getOrganizations,
+    setActiveOrganization,
     getOrganizationId,
     getAccessToken,
     refreshSession,

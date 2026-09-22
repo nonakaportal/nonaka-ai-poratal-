@@ -156,18 +156,22 @@ router.post("/login", async (req, res) => {
                 user.id
             );
 
-        // 3. Get user's organization
-        const userOrganization =
-            await supabaseService.getUserOrganization(
+        // 3. Get every organization this user belongs to. Most people
+        // have one; an owner with two companies, or an advisor looking
+        // after several, has more, and the portal has to let them pick.
+        const memberships =
+            await supabaseService.getUserOrganizations(
                 user.id
             );
 
-        if (!userOrganization) {
+        if (!memberships.length) {
             return res.status(404).json({
                 success: false,
                 error: "No organization is associated with this user"
             });
         }
+
+        const userOrganization = memberships[0];
 
         res.json({
             success: true,
@@ -179,8 +183,15 @@ router.post("/login", async (req, res) => {
 
             profile,
 
+            // The one the portal opens on.
             organization:
                 userOrganization.organizations,
+
+            // All of them, so the top bar can offer a switch without
+            // another round trip. A single-company owner sees no
+            // difference.
+            organizations:
+                memberships.map(m => m.organizations),
 
             userOrganization,
 

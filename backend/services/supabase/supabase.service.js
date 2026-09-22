@@ -289,7 +289,13 @@ class SupabaseService {
         return data;
     }
 
-    async getUserOrganization(userId) {
+    // Every organization this user belongs to. Nothing stops a person
+    // being linked to more than one — an owner with two companies, or an
+    // advisor looking after several — so this must never assume one.
+    // The single-row version of this query answered a second membership
+    // with "JSON object requested, multiple (or no) rows returned",
+    // which locked those users out of the portal entirely.
+    async getUserOrganizations(userId) {
         const { data, error } = await this._buildClient()
             .from("user_organization")
             .select(`
@@ -302,13 +308,21 @@ class SupabaseService {
                 )
             `)
             .eq("user_id", userId)
-            .maybeSingle();
+            .order("id", { ascending: true });
 
         if (error) {
             throw error;
         }
 
-        return data;
+        // A membership row whose organization has since been deleted
+        // would otherwise become a null entry the caller has to guard.
+        return (data || []).filter(row => row.organizations);
+    }
+
+    async getUserOrganization(userId) {
+        const all = await this.getUserOrganizations(userId);
+
+        return all[0] || null;
     }
 
     // Used by the auth middleware to confirm a request's authenticated

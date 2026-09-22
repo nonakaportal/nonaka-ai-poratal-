@@ -8360,6 +8360,14 @@ function renderCashFlow(data) {
       organization?.name ||
       "No Company Selected";
 
+    // Most people belong to one company, and a switcher offering a
+    // single choice is just clutter. It only appears when there is
+    // somewhere to switch to.
+    const organizations =
+      window.NFK_Auth?.getOrganizations?.() || [];
+
+    const canSwitch = organizations.length > 1;
+
     // Initial top bar
     el.innerHTML = `
       <div
@@ -8368,8 +8376,15 @@ function renderCashFlow(data) {
       >
 
         <div
-          class="client-switcher"
+          class="client-switcher${canSwitch ? " can-switch" : ""}"
           id="client-switcher-btn"
+          ${canSwitch
+            ? `role="button" tabindex="0" aria-haspopup="listbox"
+               aria-expanded="false"
+               title="Switch company"
+               onclick="NFK_App.toggleClientDropdown()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();NFK_App.toggleClientDropdown();}"`
+            : ""}
         >
 
           <span class="client-dot"></span>
@@ -8378,7 +8393,37 @@ function renderCashFlow(data) {
             ${escapeHtml(companyName)}
           </span>
 
+          ${canSwitch
+            ? `<span class="client-switcher-caret" aria-hidden="true">▾</span>`
+            : ""}
+
         </div>
+
+        ${canSwitch
+          ? `<div class="client-dropdown" id="client-dropdown" role="listbox">
+               <div class="client-dropdown-head">
+                 Your companies
+               </div>
+               ${organizations.map(org => `
+                 <button
+                   class="client-dropdown-item${org.id === organization?.id ? " is-active" : ""}"
+                   role="option"
+                   aria-selected="${org.id === organization?.id}"
+                   onclick="NFK_App.switchClient('${escapeHtml(org.id)}')"
+                 >
+                   <span class="client-dropdown-label">
+                     <span>${escapeHtml(org.name || "Unnamed company")}</span>
+                     ${org.id === organization?.id
+                       ? `<span class="client-dropdown-sub" id="client-active-qb"></span>`
+                       : ""}
+                   </span>
+                   ${org.id === organization?.id
+                     ? `<span class="client-dropdown-tick">✓</span>`
+                     : ""}
+                 </button>
+               `).join("")}
+             </div>`
+          : ""}
 
       </div>
 
@@ -8424,6 +8469,17 @@ function renderCashFlow(data) {
 
       if (nameEl) {
         nameEl.textContent = status.companyName;
+      }
+
+      // For anyone with more than one company, the button then reads
+      // differently from the list below it — the button names the
+      // QuickBooks company, the list names the organizations they
+      // switch between. Naming the connection on the selected row is
+      // what ties the two together.
+      const activeQB = document.getElementById("client-active-qb");
+
+      if (activeQB) {
+        activeQB.textContent = `QuickBooks: ${status.companyName}`;
       }
     }
 
@@ -8622,6 +8678,25 @@ function renderCashFlow(data) {
   // GLOBAL EVENTS
   // ============================================================
 
+  function toggleClientDropdown() {
+    const dd = document.getElementById("client-dropdown");
+    const btn = document.getElementById("client-switcher-btn");
+
+    if (!dd) return;
+
+    const open = dd.classList.toggle("open");
+
+    if (btn) btn.setAttribute("aria-expanded", String(open));
+  }
+
+  function switchClient(organizationId) {
+    // Closing first means the dropdown isn't left hanging open behind
+    // the reload if the switch is to the company already selected.
+    document.getElementById("client-dropdown")?.classList.remove("open");
+
+    window.NFK_Auth?.setActiveOrganization?.(organizationId);
+  }
+
   function bindGlobalEvents() {
     document.addEventListener(
       "click",
@@ -8680,6 +8755,8 @@ function renderCashFlow(data) {
     checkQBConnection,
 
     buildTopBar,
+    toggleClientDropdown,
+    switchClient,
 
     openKPIDetail,
 
