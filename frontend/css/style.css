@@ -1221,6 +1221,47 @@ textarea.ai-chat-input { max-height: 140px; }
   .cashproj-overdue { grid-template-columns: 1fr; }
 }
 
+/* Ranked money in / money out */
+.moneyflow-head {
+  display: flex; flex-direction: column; gap: 3px; margin-bottom: 18px;
+}
+.moneyflow-sub { font-size: 11.5px; color: var(--text-faint); }
+.moneyflow-rows { display: flex; flex-direction: column; gap: 14px; }
+.moneyflow-row-top {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: baseline; gap: 10px; margin-bottom: 6px;
+}
+.moneyflow-name {
+  font-size: 13px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.moneyflow-share {
+  font-size: 11.5px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums; min-width: 38px; text-align: right;
+}
+.moneyflow-amount {
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; min-width: 82px; text-align: right;
+}
+.moneyflow-bar {
+  height: 6px; border-radius: 3px; background: var(--bg-subtle); overflow: hidden;
+}
+.moneyflow-bar-fill { display: block; height: 100%; border-radius: 3px; }
+.moneyflow-bar-fill.pos { background: var(--info); }
+.moneyflow-bar-fill.neg { background: var(--warning); }
+.moneyflow-row.is-rest .moneyflow-name,
+.moneyflow-row.is-rest .moneyflow-amount { color: var(--text-muted); }
+.moneyflow-row.is-rest .moneyflow-bar-fill { background: var(--border); }
+.moneyflow-parts {
+  font-size: 11px; color: var(--text-faint); margin-top: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.moneyflow-note {
+  font-size: 11.5px; color: var(--text-faint);
+  margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--border-light);
+  text-wrap: pretty;
+}
+
 /* Bills grouped by when they fall due */
 .billsched-head {
   display: flex; align-items: flex-start; justify-content: space-between;

@@ -5370,6 +5370,16 @@ function renderCashFlow(data) {
       </div>
 
       <div class="grid-2 section-gap">
+        <div class="card card-pad" id="money-in-body">
+          ${renderSkeletonCard(5)}
+        </div>
+
+        <div class="card card-pad" id="money-out-body">
+          ${renderSkeletonCard(5)}
+        </div>
+      </div>
+
+      <div class="grid-2 section-gap">
 
         <div class="card card-pad">
           <div class="card-header">
@@ -5490,6 +5500,145 @@ function renderCashFlow(data) {
     loadOverviewTrendChart();
     loadOverviewAlerts();
     loadCashProjection();
+    loadMoneyFlow();
+  }
+
+  // ------------------------------------------------------------
+  // WHERE THE MONEY CAME FROM, AND WHAT IT WENT ON
+  //
+  // The P&L page shows every line. These two cards answer the shorter
+  // question: which handful of things actually moved the needle this
+  // period. Ranking, sub-account roll-up and the share arithmetic are
+  // all done server-side.
+  // ------------------------------------------------------------
+
+  async function loadMoneyFlow() {
+    const inBody = document.getElementById("money-in-body");
+    const outBody = document.getElementById("money-out-body");
+
+    if (!inBody || !outBody) return;
+
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    const { startDate, endDate } = getPeriodRange(state.overviewPeriod || "month");
+
+    try {
+      const flow = await apiGet(
+        `/quickbooks/money-flow?organizationId=${encodeURIComponent(organizationId)}` +
+        `&startDate=${encodeURIComponent(startDate)}` +
+        `&endDate=${encodeURIComponent(endDate)}`
+      );
+
+      renderMoneyFlowCard("money-in-body", {
+        eyebrow: "Where the money came from",
+        emptyText: "QuickBooks recorded no income in this period.",
+        tone: "pos",
+        data: flow.moneyIn,
+        currency: flow.currency,
+        creditNote: n =>
+          `${n} refund or discount line${n === 1 ? "" : "s"} reduced this, shown on the P&L page.`
+      });
+
+      renderMoneyFlowCard("money-out-body", {
+        eyebrow: "Biggest things money went out on",
+        emptyText: "QuickBooks recorded no costs in this period.",
+        tone: "neg",
+        data: flow.moneyOut,
+        currency: flow.currency,
+        creditNote: n =>
+          `${n} credit line${n === 1 ? "" : "s"} reduced this, shown on the P&L page.`
+      });
+    } catch (error) {
+      console.error("Money flow failed:", error);
+
+      const message =
+        error?.code === "QB_REAUTH_REQUIRED"
+          ? "Reconnect QuickBooks to see this."
+          : "Unable to work out this breakdown right now.";
+
+      for (const id of ["money-in-body", "money-out-body"]) {
+        document.getElementById(id).innerHTML = `
+          <div class="empty-state">${escapeHtml(message)}</div>
+        `;
+      }
+    }
+  }
+
+  function renderMoneyFlowCard(
+    targetId,
+    { eyebrow, emptyText, tone, data, currency, creditNote }
+  ) {
+    const body = document.getElementById(targetId);
+    if (!body) return;
+
+    const money = v => formatCurrency(Number(v || 0), currency);
+    const rows = data?.rows || [];
+
+    if (!rows.length) {
+      body.innerHTML = `
+        <div class="moneyflow-head">
+          <span class="cashproj-eyebrow">${escapeHtml(eyebrow)}</span>
+          <span class="cashproj-title">Nothing recorded</span>
+        </div>
+        <div class="cashproj-nodata">${escapeHtml(emptyText)}</div>
+      `;
+      return;
+    }
+
+    const hidden = Math.max(
+      0,
+      Number(data.categoryCount || 0) - rows.filter(r => !r.isRemainder).length
+    );
+
+    body.innerHTML = `
+      <div class="moneyflow-head">
+        <span class="cashproj-eyebrow">${escapeHtml(eyebrow)}</span>
+        <span class="cashproj-title">${money(data.total)}</span>
+        <span class="moneyflow-sub">
+          across ${Number(data.categoryCount || 0)}
+          ${Number(data.categoryCount) === 1 ? "category" : "categories"}
+        </span>
+      </div>
+
+      <div class="moneyflow-rows">
+        ${rows.map(row => `
+          <div class="moneyflow-row${row.isRemainder ? " is-rest" : ""}">
+            <div class="moneyflow-row-top">
+              <span class="moneyflow-name" title="${escapeHtml(row.name)}">
+                ${escapeHtml(row.name)}
+              </span>
+              <span class="moneyflow-share">${Number(row.share || 0)}%</span>
+              <strong class="moneyflow-amount">${money(row.amount)}</strong>
+            </div>
+
+            <div class="moneyflow-bar">
+              <span
+                class="moneyflow-bar-fill ${tone}"
+                style="width:${Math.max(Number(row.share || 0), 0.6)}%"
+              ></span>
+            </div>
+
+            ${row.parts?.length
+              ? `<div class="moneyflow-parts">${
+                  row.parts
+                    .slice(0, 4)
+                    .map(p => `${escapeHtml(p.name)} ${money(p.amount)}`)
+                    .join(" · ")
+                }${row.parts.length > 4 ? ` · +${row.parts.length - 4} more` : ""}</div>`
+              : ""}
+          </div>
+        `).join("")}
+      </div>
+
+      ${data.credits
+        ? `<div class="moneyflow-note">${escapeHtml(creditNote(data.credits.count))}</div>`
+        : hidden > 0
+          ? `<div class="moneyflow-note">The ${hidden} smallest ${
+              hidden === 1 ? "category is" : "categories are"
+            } grouped into the last row.</div>`
+          : ""}
+    `;
   }
 
   // ------------------------------------------------------------

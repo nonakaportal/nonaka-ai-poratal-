@@ -19,6 +19,9 @@ const cashProjectionService =
 const billsScheduleService =
     require('../services/quickbooks/bills-schedule.service');
 
+const moneyFlowService =
+    require('../services/quickbooks/money-flow.service');
+
 // ============================================================
 // HELPER
 // ============================================================
@@ -432,6 +435,70 @@ router.get('/bills-schedule', requireOrgAccess, async (req, res) => {
 
         return res.status(500).json({
             error: 'Failed to load your upcoming bills'
+        });
+    }
+});
+
+// ============================================================
+// GET /api/quickbooks/money-flow
+//
+// Where the money came from and what it went on over a period, ranked
+// largest first with each line's share of the total.
+// ============================================================
+
+router.get('/money-flow', requireOrgAccess, async (req, res) => {
+    try {
+        const {
+            organizationId,
+            startDate,
+            endDate
+        } = req.query;
+
+        if (!organizationId) {
+            return res.status(400).json({
+                error: 'organizationId is required'
+            });
+        }
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                error: 'startDate and endDate are required'
+            });
+        }
+
+        const connection =
+            await getConnection(organizationId);
+
+        if (!connection) {
+            return res.status(400).json({
+                error: 'QuickBooks is not connected',
+                code: 'QB_NOT_CONNECTED'
+            });
+        }
+
+        const flow = await moneyFlowService.getMoneyFlow(connection, {
+            startDate,
+            endDate
+        });
+
+        return res.json(flow);
+
+    } catch (error) {
+        if (error.code === 'QB_REAUTH_REQUIRED') {
+            return res.status(400).json({
+                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
+                code: 'QB_REAUTH_REQUIRED'
+            });
+        }
+
+        console.error(
+            'Failed to build the money flow breakdown:',
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            error: 'Failed to work out where your money went'
         });
     }
 });
@@ -866,19 +933,11 @@ router.get(
                     endDate
                 );
 
-            console.log(
-                "RAW P&L REPORT:",
-                JSON.stringify(report, null, 2)
-            );
-
             const normalizedReport =
             quickbooksService.parseProfitAndLoss(
                 report
             );
-            console.log(
-                "NORMALIZED P&L:",
-                normalizedReport
-            );
+
             return res.json(normalizedReport);
 
         } catch (error) {
@@ -1134,11 +1193,6 @@ router.get(
                     connection.realmId,
                     startDate
                 );
-            console.log(
-                " RAW AR REPORT:",
-                JSON.stringify(report, null, 2)
-            );
-
             const normalizedReport =
                 quickbooksService.parseAccountsReceivable(
                     report
@@ -1250,14 +1304,6 @@ router.get(
                 );
 
 
-            console.log(
-                "RAW AP REPORT:",
-                JSON.stringify(
-                    report,
-                    null,
-                    2
-                )
-            );
 
 
             const normalizedReport =

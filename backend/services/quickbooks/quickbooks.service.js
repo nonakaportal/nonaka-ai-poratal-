@@ -921,10 +921,6 @@ class QuickBooksService {
         );
 
 
-        console.log(
-            "P&L ACCOUNT DETAILS:",
-            result.accounts
-        );
 
 
         return result;
