@@ -2447,7 +2447,8 @@ function renderCashFlow(data) {
         icon,
         accounts,
         total,
-        totalLabel
+        totalLabel,
+        note
     ) {
 
         return `
@@ -2476,6 +2477,9 @@ function renderCashFlow(data) {
 
                 </div>
 
+                ${note
+                    ? `<div class="cf-activity-note">${escapeHtml(note)}</div>`
+                    : ""}
 
                 <div class="cf-row-list">
 
@@ -2613,7 +2617,8 @@ function renderCashFlow(data) {
                     "🏢",
                     operating,
                     operatingTotal,
-                    "Total from trading"
+                    "Total from trading",
+                    "These aren't extra income or costs on top of what you kept — they show whether sales and bills already on your books have turned into real cash yet. A sale can count as income before the money arrives; that shows here as a negative line, not a loss."
                 )}
 
                 ${activityCard(
