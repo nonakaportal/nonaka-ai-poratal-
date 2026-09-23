@@ -8,7 +8,7 @@
  <!-- CSS Imports -->
  <link rel="stylesheet" href="css/tokens.css?v=34">
  <link rel="stylesheet" href="css/glassmorphism.css?v=33">
- <link rel="stylesheet" href="css/style.css?v=63">
+ <link rel="stylesheet" href="css/style.css?v=65">
 
  <!-- Google Fonts -->
  <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -203,7 +203,7 @@
  <div id="view-app" class="full-view">
  <div id="app">
  <!-- Sidebar -->
- <aside class="sidebar">
+ <aside class="sidebar" id="app-sidebar">
  <div class="sidebar-logo">
  <div class="sidebar-logo-img">
  <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
@@ -214,6 +214,7 @@
  <!-- Populated by app.js -->
  </nav>
  </aside>
+ <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="NFK_App.closeSidebar()"></div>
 
  <!-- Main Content Wrapper -->
  <div class="main-wrap">
@@ -321,7 +322,7 @@
  <script src="js/data.js?v=30"></script>
  <script src="js/charts.js?v=36"></script>
  <script src="js/auth.js?v=38"></script>
- <script src="js/app.js?v=74"></script>
+ <script src="js/app.js?v=75"></script>
 
 </body>
 </html>

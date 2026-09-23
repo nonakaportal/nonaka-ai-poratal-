@@ -6615,7 +6615,47 @@ function renderCashFlow(data) {
     renderOverview({ pl, bs, cf, ar, ap, debt });
   }
 
+  // ------------------------------------------------------------
+  // OFF-CANVAS SIDEBAR (narrow screens)
+  //
+  // Below the width set in the .sidebar-toggle-btn media rule, the
+  // sidebar is fixed off-screen and slides in over the content rather
+  // than sharing space with it — there isn't 244px to spare next to a
+  // phone-width page. navigate() closes it on every page change, so
+  // picking a page is also how you dismiss the menu.
+  // ------------------------------------------------------------
+
+  function toggleSidebar() {
+    const sidebar = document.getElementById("app-sidebar");
+
+    if (!sidebar) return;
+
+    setSidebarOpen(!sidebar.classList.contains("open"));
+  }
+
+  function closeSidebar() {
+    setSidebarOpen(false);
+  }
+
+  function setSidebarOpen(open) {
+    const sidebar = document.getElementById("app-sidebar");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    const toggleBtn = document.getElementById("sidebar-toggle-btn");
+    const scrollHost = document.getElementById("view-app");
+
+    if (sidebar) sidebar.classList.toggle("open", open);
+    if (backdrop) backdrop.classList.toggle("open", open);
+    if (toggleBtn) toggleBtn.setAttribute("aria-expanded", String(open));
+
+    // The sidebar sits over the page rather than pushing it, so the
+    // page underneath must stop scrolling while it's open or the
+    // menu and the content scroll together.
+    if (scrollHost) scrollHost.classList.toggle("scroll-locked", open);
+  }
+
   function navigate(pageId) {
+    closeSidebar();
+
     document
       .querySelectorAll(".page")
       .forEach(p =>
@@ -7614,6 +7654,18 @@ function renderCashFlow(data) {
 
     // Initial top bar
     el.innerHTML = `
+      <button
+        class="topbar-icon-btn sidebar-toggle-btn"
+        id="sidebar-toggle-btn"
+        onclick="NFK_App.toggleSidebar()"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="app-sidebar"
+        title="Menu"
+      >
+        ${icon_menu()}
+      </button>
+
       <div
         class="client-switcher-wrap"
         style="position:relative;"
@@ -7942,6 +7994,24 @@ function renderCashFlow(data) {
   }
 
   function bindGlobalEvents() {
+    // Escape closes the off-canvas sidebar, same as clicking the
+    // backdrop. 900px matches the .sidebar-toggle-btn media rule —
+    // the width below which the sidebar is off-canvas at all.
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+
+      const sidebar = document.getElementById("app-sidebar");
+
+      if (sidebar?.classList.contains("open")) closeSidebar();
+    });
+
+    // Resizing past the breakpoint (rotating a tablet, undocking a
+    // window) must not leave the menu stuck open and pinned over a
+    // now-wide page.
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 900) closeSidebar();
+    });
+
     // Cards that summarise a page open it. One delegated listener
     // rather than an onclick on every card, so cards rendered later
     // work without being wired up individually.
@@ -8019,6 +8089,10 @@ function renderCashFlow(data) {
 
   window.NFK_App = {
     nav: navigate,
+
+    toggleSidebar,
+
+    closeSidebar,
 
     setOverviewChartType,
 
@@ -8184,6 +8258,12 @@ function renderCashFlow(data) {
 
   function icon_ai() {
     return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>`;
+  }
+
+  // Shown only below the width where the sidebar goes off-canvas
+  // (see the @media rule for .sidebar-toggle-btn) — opens it.
+  function icon_menu() {
+    return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.5 5.5A.75.75 0 013.25 4.75h13.5a.75.75 0 010 1.5H3.25A.75.75 0 012.5 5.5zM2.5 10a.75.75 0 01.75-.75h13.5a.75.75 0 010 1.5H3.25A.75.75 0 012.5 10zM3.25 14.75a.75.75 0 000 1.5h13.5a.75.75 0 000-1.5H3.25z" clip-rule="evenodd"/></svg>`;
   }
 
   function icon_forecast() {

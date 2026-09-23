@@ -63,6 +63,14 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   content: ""; position: absolute; top: 0; right: 0; width: 1px; height: 100%;
   background: linear-gradient(to bottom, transparent, var(--border-hair) 48px, var(--border-hair) calc(100% - 48px), transparent);
 }
+
+/* Below 900px there isn't 244px to spare next to page content (this
+   is the gap the phone screenshot showed — content squeezed into a
+   sliver beside a sidebar that never moved). The toggle button and
+   the off-canvas behaviour live in the @media block further down;
+   these two are the resting, closed-by-default state. */
+.topbar-icon-btn.sidebar-toggle-btn { display: none; }
+.sidebar-backdrop { display: none; }
 .sidebar-logo {
   height: var(--topbar-height); display: flex; align-items: center; gap: 12px;
   padding: 0 20px; position: relative;
@@ -1045,6 +1053,36 @@ textarea.ai-chat-input { max-height: 140px; }
   .grid-kpi { grid-template-columns: 1fr 1fr; }
   .grid-3 { grid-template-columns: 1fr; }
 }
+
+/* The sidebar goes off-canvas: fixed at its full width but pushed out
+   of view, sliding in over the content on request instead of sharing
+   space with it. main-wrap drops its margin since nothing is sitting
+   beside it any more. */
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 300;
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.4);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main-wrap { margin-left: 0; }
+  .topbar-icon-btn.sidebar-toggle-btn { display: flex; }
+  .sidebar-backdrop.open {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(10, 11, 18, 0.6);
+    z-index: 250;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
+
+/* Applied to #view-app while the off-canvas sidebar is open — it sits
+   over the page rather than pushing it, so the page underneath must
+   stop scrolling or the menu and the content scroll together. */
+.full-view.scroll-locked { overflow: hidden; }
 @media (max-width: 700px) {
   .pl-page-header, .cf-header, .bs-header { flex-direction: column; align-items: flex-start; }
   .pl-header-actions { width: 100%; flex-wrap: wrap; }
