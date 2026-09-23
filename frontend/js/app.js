@@ -2618,7 +2618,7 @@ function renderCashFlow(data) {
                     operating,
                     operatingTotal,
                     "Total from trading",
-                    "These aren't extra income or costs on top of what you kept — they show whether sales and bills already on your books have turned into real cash yet. A sale can count as income before the money arrives; that shows here as a negative line, not a loss."
+                    "Green and red mean cash in vs. cash out here — not profit vs. expense. A sale you made shows red until the customer actually pays: real revenue, just not cash yet. A bill you're holding off on shows green because you're keeping that cash longer, not losing money."
                 )}
 
                 ${activityCard(

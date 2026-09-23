@@ -810,6 +810,8 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .invoice-row { min-height: 60px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: 13px; transition: background var(--transition); }
 .invoice-row:last-child { border-bottom: none; }
 .invoice-row:hover { background: color-mix(in srgb, var(--n-text) 3%, transparent); }
+.invoice-row > * { min-width: 0; }
+.invoice-number, .invoice-customer { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .invoice-number { font-weight: 400; color: var(--text-secondary); }
 .invoice-customer { font-weight: 400; }
 .invoice-amount { font-weight: 500; }
