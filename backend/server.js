@@ -19,9 +19,6 @@ const rateLimit = require('express-rate-limit');
 const supabaseService =
   require('./services/supabase/supabase.service');
 
-const quickbooksService =
-  require('./services/quickbooks/quickbooks.service');
-
 
 // ============================================================
 // IMPORT ROUTES
@@ -97,6 +94,17 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '1mb' }));
+
+// Cache static assets: versioned files (with ?v=N in query string) get long
+// cache (1 year), unversioned files get short cache (1 hour) so new deploys
+// update quickly. This reduces bandwidth and improves load times.
+app.use((req, res, next) => {
+  if (/\.(css|js|woff2?|ttf|eot|svg|png|jpg|jpeg|gif)(\?v=\d+)?$/i.test(req.path)) {
+    const isVersioned = /\?v=\d+$/.test(req.path);
+    res.set('Cache-Control', isVersioned ? 'public, max-age=31536000' : 'public, max-age=3600');
+  }
+  next();
+});
 
 // Serve the frontend from the same origin/port as the API. This is what
 // lets api.js/auth.js/app.js call relative paths ("/api/...") and avoids

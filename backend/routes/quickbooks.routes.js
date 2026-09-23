@@ -1,4 +1,25 @@
 // backend/routes/quickbooks.routes.js
+//
+// QuickBooks integration routes for pulling financial data and state.
+//
+// Endpoints:
+//   GET  /connect-url           — OAuth authorization URL for QB connection
+//   GET  /callback              — OAuth callback handler from Intuit
+//   DELETE /disconnect          — Remove QB connection for organization
+//   GET  /status                — QB connection status and metadata
+//   GET  /company               — Connected company name and info
+//   GET  /cash-projection       — 7-90 day cash runway forecast
+//   GET  /bills-schedule        — Unpaid bills grouped by due date
+//   GET  /money-flow            — Money in/out breakdown for period
+//   GET  /cash-cushion          — Bank balance projection under scenarios
+//   GET  /debt-detail           — Loans & credit cards with payment history
+//   GET  /invoice-urgency       — At-risk invoices (overdue, soon due)
+//   GET  /pl-story              — Profit & Loss narrative + metrics
+//   GET  /balance-questions     — Common balance sheet questions answered
+//   GET  /ratio-questions       — Financial ratio questions answered
+//   GET  /expenses              — Expense breakdown
+//   GET  /accounts-test         — Debug: list all accounts in realm
+//   GET  /debt                  — Liabilities overview (internal use)
 
 const express = require('express');
 
