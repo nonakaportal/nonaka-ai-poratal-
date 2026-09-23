@@ -2626,7 +2626,8 @@ function renderCashFlow(data) {
                     "📈",
                     investing,
                     investingTotal,
-                    "Total from assets"
+                    "Total from assets",
+                    "Positive indicates cash received from selling assets; negative indicates cash spent on buying assets."
                 )}
 
                 ${activityCard(
@@ -2634,7 +2635,8 @@ function renderCashFlow(data) {
                     "🏦",
                     financing,
                     financingTotal,
-                    "Total from loans and funding"
+                    "Total from loans and funding",
+                    "Positive indicates cash received from new loans or owner contributions; negative indicates repayments or withdrawals."
                 )}
 
             </div>
