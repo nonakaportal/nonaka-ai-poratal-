@@ -81,14 +81,14 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 /* Sidebar is warm dark in both themes, so this reads fine unconditionally. */
 .sidebar-brand-text {
-  font-size: 15px; font-weight: 700; color: var(--text-primary);
+  font-size: 16px; font-weight: 700; color: var(--text-primary);
   letter-spacing: -0.01em; white-space: nowrap;
 }
 
 .brand-logo img { display: none; width: auto; }
 .brand-logo .brand-logo-dark { display: block; }
 
-.sidebar-logo-img img { height: 34px; }
+.sidebar-logo-img img { height: 40px; }
 .auth-card-logo-img img { height: 38px; }
 /* The logo is a JPG with a baked-in navy ground and there is no
    transparent asset. Blending it away worked against the old warm
@@ -105,16 +105,19 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   background: var(--bg-subtle); box-shadow: 0 0 0 1px var(--border-hair);
 }
 
-.sidebar-nav { flex: 1; padding: 14px 10px 20px; overflow-y: auto; }
+.sidebar-nav { flex: 1; padding: 14px 10px 20px; overflow-y: auto; display: flex; flex-direction: column; }
+/* Settings and Log out are account actions, not places in the books —
+   pinned to the foot of the sidebar instead of trailing the last group. */
+.sidebar-nav .nav-divider:has(+ #g-workspace) { margin-top: auto; }
 .sidebar-nav::-webkit-scrollbar { width: 3px; }
 .sidebar-nav::-webkit-scrollbar-thumb { background: var(--n-neutral-800); border-radius: 4px; }
 
-.nav-group { margin-bottom: 2px; }
+.nav-group { margin: 10px 0 2px; }
 .nav-group-header {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 12px;
   background: transparent; border: none; cursor: pointer;
-  color: var(--n-neutral-600); font-size: 10.5px; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase; text-align: left;
+  color: var(--n-neutral-500); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.01em; text-align: left;
   border-radius: var(--radius-md); transition: color var(--transition);
   font-family: var(--font-sans);
 }
@@ -158,8 +161,6 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .nav-flat-item.active .nav-icon { opacity: 1; color: var(--accent); }
 .nav-group-items .nav-item:hover .nav-icon,
 .nav-flat-item:hover .nav-icon { opacity: 0.9; }
-.nav-group-items .nav-item .nav-dot,
-.nav-flat-item .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-left: auto; flex-shrink: 0; }
 .nav-flat-item .nav-label { flex: 1; }
 .nav-flat-group { display: flex; flex-direction: column; gap: 1px; }
 .nav-divider { height: 1px; margin: 8px 12px; background: linear-gradient(to right, var(--border-hair), transparent); }
@@ -189,7 +190,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .client-switcher {
   display: flex; align-items: center; gap: 9px; background: transparent;
   border: 1px solid var(--border); border-radius: var(--radius-btn);
-  padding: 6px 13px; font-size: 13px; font-weight: 500; white-space: nowrap;
+  height: 32px; padding: 0 13px; font-size: 13px; font-weight: 500; white-space: nowrap;
   cursor: pointer; transition: border-color var(--transition), background var(--transition);
 }
 .client-switcher:hover { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 6%, transparent); }
@@ -248,29 +249,25 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .dropdown-item.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 500; }
 .dropdown-industry { font-size: 11px; color: var(--text-muted); margin-left: auto; }
 
-.topbar-ai-btn {
-  display: flex; align-items: center; gap: 7px; padding: 7px 15px;
-  border-radius: var(--radius-btn); font-size: 12.5px; font-weight: 500;
-  background: transparent; border: 1px solid var(--accent-line); color: var(--accent);
-  margin-right: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  font-family: var(--font-sans);
-  transition: box-shadow var(--transition), border-color var(--transition), background var(--transition);
-}
-.topbar-ai-btn:hover {
-  border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-.topbar-ai-btn.active {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border-color: var(--accent);
-}
-.topbar-ai-btn svg { width: 14px; height: 14px; }
 .btn-nfk-ai { background: transparent; border: 1px solid var(--accent-line); color: var(--accent); font-weight: 500; }
 .btn-nfk-ai:hover { border-color: var(--accent); }
 .btn-nfk-ai.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
 
+/* Same label as the sidebar item, so it reads as a shortcut to one
+   feature rather than a second, different AI. */
+.topbar-ai-btn {
+  display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px;
+  border-radius: var(--radius-btn); font-size: 13px; font-weight: 500;
+  background: transparent; border: 1px solid var(--accent-line); color: var(--accent);
+  margin-right: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  font-family: var(--font-sans);
+  transition: border-color var(--transition), background var(--transition);
+}
+.topbar-ai-btn:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.topbar-ai-btn svg { width: 14px; height: 14px; }
 .qb-badge {
-  display: flex; align-items: center; gap: 6px; padding: 5px 11px;
-  border-radius: var(--radius-btn); font-size: 11.5px; font-weight: 500;
+  display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+  border-radius: var(--radius-btn); font-size: 12px; font-weight: 500;
   font-family: var(--font-sans);
   background: transparent; border: 1px solid var(--border);
   color: var(--text-secondary); margin-right: 14px; cursor: pointer;
@@ -294,7 +291,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border: 1px solid var(--accent-line); color: var(--accent);
   font-family: var(--font-sans);
-  font-size: 11.5px; font-weight: 500; display: flex; align-items: center;
+  font-size: 12px; font-weight: 500; display: flex; align-items: center;
   justify-content: center; margin-left: 12px; cursor: pointer;
 }
 
@@ -1084,7 +1081,7 @@ textarea.ai-chat-input { max-height: 140px; }
   .page-title { font-size: 22px; }
   .topbar { padding: 0 14px; }
   .topbar-ai-btn-label { display: none; }
-  .topbar-ai-btn { padding: 8px; margin-right: 8px; }
+  .topbar-ai-btn { padding: 0 9px; margin-right: 8px; }
   /* Phone widths can't fit the company name, both buttons and the
      account initials: the name truncates and the connection badge
      keeps only its coloured dot (the full text is its tooltip). */
