@@ -2087,7 +2087,7 @@ function renderCashFlow(data) {
                 </div>
 
                 ${note
-                    ? `<div class="cf-activity-note">${escapeHtml(note)}</div>`
+                    ? `<ul class="cf-activity-note">${note.map(n => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`
                     : ""}
 
                 <div class="cf-row-list">
@@ -2227,7 +2227,11 @@ function renderCashFlow(data) {
                     operating,
                     operatingTotal,
                     "Total from trading",
-                    "Green and red mean cash in vs. cash out here — not profit vs. expense. A sale you made shows red until the customer actually pays: real revenue, just not cash yet. A bill you're holding off on shows green because you're keeping that cash longer, not losing money."
+                    [
+                        "Green = cash in, red = cash out",
+                        "Unpaid sales show red until paid",
+                        "Unpaid bills show green (cash kept longer)"
+                    ]
                 )}
 
                 ${activityCard(
@@ -2236,7 +2240,10 @@ function renderCashFlow(data) {
                     investing,
                     investingTotal,
                     "Total from assets",
-                    "Positive indicates cash received from selling assets; negative indicates cash spent on buying assets."
+                    [
+                        "Green = cash from selling assets",
+                        "Red = cash spent buying assets"
+                    ]
                 )}
 
                 ${activityCard(
@@ -2245,7 +2252,10 @@ function renderCashFlow(data) {
                     financing,
                     financingTotal,
                     "Total from loans and funding",
-                    "Positive indicates cash received from new loans or owner contributions; negative indicates repayments or withdrawals."
+                    [
+                        "Green = new loans or owner money in",
+                        "Red = repayments or money taken out"
+                    ]
                 )}
 
             </div>
