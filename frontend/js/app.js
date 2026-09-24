@@ -3582,7 +3582,7 @@ function renderCashFlow(data) {
         <div class="cushion-head">
           <span class="cashproj-eyebrow">What's left in the bank</span>
           <span class="cashproj-title">
-            Estimated cushion in ${months} ${monthWord}
+            Projected bank balance in ${months} ${monthWord}
           </span>
         </div>
 

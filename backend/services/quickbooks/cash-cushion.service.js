@@ -159,7 +159,7 @@ function describeCushion(projection, baseline) {
     if (monthlyOutgoings > 0 && endBalance < monthlyOutgoings) {
         return {
             tone: 'warn',
-            headline: 'Your cushion gets thin',
+            headline: 'Your bank balance gets low',
             detail:
                 `In ${months} months you'd have less in the bank than one ` +
                 'month of your usual costs. That leaves no room for a late ' +
@@ -179,7 +179,7 @@ function describeCushion(projection, baseline) {
 
     return {
         tone: 'good',
-        headline: 'Your cushion grows',
+        headline: 'Your bank balance grows',
         detail:
             `On these assumptions you'd add money to the bank every month ` +
             `for the next ${months}.`
