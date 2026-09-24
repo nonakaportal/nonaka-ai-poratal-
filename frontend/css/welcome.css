@@ -82,7 +82,7 @@ a { color: inherit; }
   font-size: 15px;
   letter-spacing: -0.01em;
 }
-.intro-nav-brand img { height: 42px; width: auto; border-radius: 8px; }
+.intro-nav-brand img { height: 42px; width: auto; border-radius: var(--radius-md); }
 .intro-nav-actions { display: flex; align-items: center; gap: 20px; }
 .intro-nav-legal { display: flex; align-items: center; gap: 16px; padding-right: 4px; border-right: 1px solid var(--border-hair); }
 .intro-nav-legal a {
@@ -198,8 +198,7 @@ a { color: inherit; }
   display: inline-block;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--accent);
   background: var(--accent-subtle);
   padding: 6px 14px;
@@ -268,8 +267,8 @@ a { color: inherit; }
 .hero-hotspot {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: none;
   padding: 0;
@@ -313,6 +312,7 @@ a { color: inherit; }
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+.hero-hotspot:focus-visible { outline: 2px solid var(--accent); outline-offset: -8px; border-radius: 50%; }
 
 @media (hover: none) {
   .hero-hotspot-label { display: none; }
@@ -520,16 +520,21 @@ a { color: inherit; }
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 40px;
-  padding: 20px 32px 36px;
-  border-bottom: 1px solid var(--border-hair);
+  gap: 12px 32px;
+  width: fit-content;
+  max-width: calc(100% - 36px);
+  margin: 20px auto 0;
+  padding: 14px 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
 }
 .intro-trust-item {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13.5px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .intro-trust-item svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
@@ -644,13 +649,13 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 32px;
+  padding: 28px max(32px, calc((100% - 1120px) / 2));
   border-top: 1px solid var(--border-hair);
   font-size: 13px;
   color: var(--text-muted);
 }
 .intro-footer-brand { display: flex; align-items: center; gap: 8px; }
-.intro-footer-brand img { height: 30px; border-radius: 6px; }
+.intro-footer-brand img { height: 30px; border-radius: var(--radius-md); }
 .intro-footer a { color: var(--text-secondary); text-decoration: none; }
 .intro-footer a:hover { color: var(--text-primary); }
 
