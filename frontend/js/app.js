@@ -5241,7 +5241,7 @@ function renderCashFlow(data) {
         ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income", "pl")}
         ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome", "pl")}
         ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow")}
-        ${metricCard("Cushion after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital", null, "balance-sheet")}
+        ${metricCard("Left after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital", null, "balance-sheet")}
 
         <div class="stat-card is-linked" id="overview-cash-runway"
              data-goto="forecast" role="link" tabindex="0"
