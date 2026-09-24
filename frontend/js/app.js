@@ -2669,7 +2669,7 @@ function renderCashFlow(data) {
         <div class="card-title" style="margin-bottom:10px;">Contributing Factors</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
           ${health.factors.map(f => `
-            <div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;">
+            <div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;">
               <span style="color:${healthRatingColor(f.impact === "positive" ? "good" : f.impact === "negative" ? "critical" : "fair")};font-weight:700;">
                 ${healthImpactIcon(f.impact)}
               </span>
@@ -4508,7 +4508,7 @@ function renderCashFlow(data) {
             }
           </div>
           <div class="kpi-footer">
-            <span style="font-size:11px;color:var(--text-muted);">Click for details</span>
+            <span style="font-size:12px;color:var(--text-muted);">Click for details</span>
             <div class="sparkline-wrap">
               <canvas id="spark-${def.id}" width="100" height="36"></canvas>
             </div>
@@ -4626,7 +4626,7 @@ function renderCashFlow(data) {
 
       <div class="card card-pad" style="margin-bottom:20px;background:var(--bg-subtle);">
         <div class="card-title" style="margin-bottom:10px;">How this is calculated</div>
-        <p style="font-family:var(--font-mono);font-size:12.5px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
+        <p style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
           ${
             hasValue
               ? escapeHtml(entry.formula)
@@ -4640,7 +4640,7 @@ function renderCashFlow(data) {
       ${
         hasTrend
           ? `<div style="height:180px;"><canvas id="modal-kpi-chart"></canvas></div>`
-          : `<p style="font-size:12.5px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
+          : `<p style="font-size:13px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
       }
     `;
 
@@ -6715,7 +6715,7 @@ function renderCashFlow(data) {
           }"
           data-page="${item.id}"
           onclick="NFK_App.nav('${item.id}')"
-          role="button"
+          role="link"
           tabindex="0"
         >
           <span class="nav-icon">
@@ -7288,9 +7288,9 @@ function renderCashFlow(data) {
     document.addEventListener("keydown", e => {
       if (e.key !== "Enter" && e.key !== " ") return;
 
-      // Sidebar entries are focusable divs acting as buttons, so they need
-      // the keys a real button would respond to.
-      if (e.target.matches?.('div[role="button"][onclick]')) {
+      // Sidebar entries are focusable divs (links to pages, or the Log out
+      // button), so they need the keys a real control would respond to.
+      if (e.target.matches?.('div[role="button"][onclick], div[role="link"][onclick]')) {
         e.preventDefault();
         e.target.click();
         return;

@@ -74,9 +74,10 @@
   --text-primary:   var(--n-text);
   --text-secondary: var(--n-neutral-300);
   --text-muted:     var(--n-neutral-500);
-  /* Small (10-12px) label text — measured against --bg-card so it
-     stays above the 4.5:1 AA floor on cards, not just on the page. */
-  --text-faint:     #85848F;
+  /* Kept as an alias so older rules still resolve — the muted grey
+     already clears 4.5:1 on cards, so a second near-identical grey
+     only added a text colour. */
+  --text-faint:     var(--text-muted);
   --text-on-dark:   var(--n-neutral-100);
 
   --border:       #353438;
