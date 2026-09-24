@@ -3586,6 +3586,7 @@ function renderCashFlow(data) {
           </span>
         </div>
 
+        <div class="cushion-main">
         <div class="cushion-figures">
           <div class="cushion-figure">
             <span class="cashproj-figure-label">In the bank today</span>
@@ -3622,6 +3623,7 @@ function renderCashFlow(data) {
                  Lowest point is month ${dip.month}, at ${money(dip.balance)}.
                </span>`
             : ""}
+        </div>
         </div>
 
         <div class="cushion-basis">

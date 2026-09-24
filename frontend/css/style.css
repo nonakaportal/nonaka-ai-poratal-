@@ -1600,7 +1600,17 @@ textarea.ai-chat-input { max-height: 140px; }
 
 /* Estimated bank cushion on Scenarios */
 .cushion-head {
-  display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px;
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;
+}
+/* Figures and verdict share one row on wide screens so the card
+   doesn't leave most of its width empty. */
+.cushion-main {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center; gap: 20px 40px;
+}
+.cushion-main .cushion-figures { margin-bottom: 0; }
+@media (max-width: 1000px) {
+  .cushion-main { grid-template-columns: minmax(0, 1fr); }
 }
 /* One shared 3-row grid so the labels, the figures and the deltas each
    line up across all three columns, whether or not a column has a
