@@ -111,7 +111,11 @@ app.use((req, res, next) => {
 // CORS entirely in any environment where this server is the one hosting
 // the frontend — the FRONTEND_URL allowlist above only matters when the
 // frontend is served separately (e.g. local Live Server on :5500).
-app.use(express.static(path.join(__dirname, '../frontend')));
+// `index: 'welcome.html'` only changes what's served for a bare "/" —
+// index.html (the login/app SPA) is still served normally at its own
+// explicit path, so the OAuth/email-confirmation redirects elsewhere
+// that hardcode "/index.html" are unaffected.
+app.use(express.static(path.join(__dirname, '../frontend'), { index: 'welcome.html' }));
 
 // Login/signup are the only unauthenticated, credential-checking
 // routes in the app — the natural target for brute-force and

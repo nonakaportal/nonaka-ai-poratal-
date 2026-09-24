@@ -1,0 +1,82 @@
+/* ============================================================
+   NONAKA FINANCIAL PARTNERS — LEGAL PAGES (Privacy / Terms)
+   Shares tokens.css. Static, restrained motion — these are
+   reference documents, not the marketing page.
+============================================================ */
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.legal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 32px;
+  border-bottom: 1px solid var(--border-hair);
+}
+.legal-nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.legal-nav-brand img { height: 40px; width: auto; border-radius: 8px; }
+.legal-nav a.legal-back {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.legal-nav a.legal-back:hover { color: var(--text-primary); }
+
+.legal-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 32px 96px;
+}
+
+.legal-draft-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  color: var(--warning);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-bottom: 40px;
+}
+.legal-draft-notice svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.legal-draft-notice strong { color: var(--warning); }
+
+.legal-wrap h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.legal-updated { color: var(--text-muted); font-size: 13.5px; margin: 0 0 40px; }
+
+.legal-wrap h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 40px 0 12px;
+  letter-spacing: -0.01em;
+}
+.legal-wrap p, .legal-wrap li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.legal-wrap ul { padding-left: 20px; margin: 12px 0; }
+.legal-wrap li { margin-bottom: 6px; }
+.legal-wrap a { color: var(--accent); }
+
+.legal-footer {
+  border-top: 1px solid var(--border-hair);
+  padding: 24px 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}

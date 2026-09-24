@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy · Nonaka Financial Partners</title>
+
+  <link rel="stylesheet" href="css/tokens.css?v=34">
+  <link rel="stylesheet" href="css/legal.css?v=2">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="legal-nav">
+    <div class="legal-nav-brand">
+      <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
+    </div>
+    <a class="legal-back" href="welcome.html">← Back to home</a>
+  </nav>
+
+  <main class="legal-wrap">
+    <div class="legal-draft-notice">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.169 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+      <span><strong>Draft — pending legal review.</strong> This is a standard placeholder policy describing how the product actually works today. It has not been reviewed by a lawyer and should not be treated as final or legally binding until it is.</span>
+    </div>
+
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Last updated: September 23, 2026</p>
+
+    <p>This policy explains what information Nonaka Financial Partners ("NFP," "we," "us") collects when you use the NFP portal, how we use it, and the choices you have.</p>
+
+    <h2>1. Information we collect</h2>
+    <p>When you create an account, we collect your name, business name, email address, and password (stored securely via Supabase Auth — we never see or store your password in plain text).</p>
+    <p>When you connect QuickBooks, you authorize <strong>read-only</strong> access to your QuickBooks Online data through Intuit's official OAuth connection. We do not store your QuickBooks password, and we cannot make changes to your QuickBooks data — we only read it to display your reports (profit &amp; loss, balance sheet, cash flow, invoices, and related figures) inside the portal.</p>
+
+    <h2>2. How we use your information</h2>
+    <ul>
+      <li>To authenticate you and maintain your account and session.</li>
+      <li>To fetch and display your QuickBooks financial data inside the portal.</li>
+      <li>To power the "Ask NFP AI" feature, which sends the relevant financial context for your question to Anthropic's Claude API in order to generate a plain-language answer. We do not use your data to train any AI model.</li>
+      <li>To operate, maintain, and improve the product.</li>
+    </ul>
+
+    <h2>3. Who we share it with</h2>
+    <p>We share data only with the service providers needed to run NFP:</p>
+    <ul>
+      <li><strong>Supabase</strong> — authentication and database hosting.</li>
+      <li><strong>Intuit (QuickBooks)</strong> — the source of your financial data, accessed read-only via OAuth.</li>
+      <li><strong>Anthropic</strong> — processes your question and relevant financial context to generate AI answers.</li>
+    </ul>
+    <p>We do not sell your data, and we do not share it with advertisers.</p>
+
+    <h2>4. Data retention and deletion</h2>
+    <p>We retain your account and cached financial data for as long as your account is active. You can disconnect QuickBooks at any time from within the portal, and you can request deletion of your account and associated data by contacting us (see below).</p>
+
+    <h2>5. Security</h2>
+    <p>Passwords are hashed and managed by Supabase Auth, never stored by us in plain text. QuickBooks access uses read-only OAuth tokens rather than your QuickBooks password. All traffic to the portal is encrypted in transit.</p>
+
+    <h2>6. Your choices</h2>
+    <p>You can disconnect QuickBooks, update your account details, or request account deletion at any time. Contact us using the details below to exercise these choices.</p>
+
+    <h2>7. Changes to this policy</h2>
+    <p>We may update this policy as the product changes. We'll update the "Last updated" date above when we do.</p>
+
+    <h2>8. Contact</h2>
+    <p>Questions about this policy? Contact us at <a href="mailto:privacy@nonakafinancialpartners.example">privacy@nonakafinancialpartners.example</a> (placeholder — replace with a real contact address before publishing).</p>
+  </main>
+
+  <footer class="legal-footer">© 2026 Nonaka Financial Partners</footer>
+
+</body>
+</html>

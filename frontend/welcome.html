@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nonaka Financial Partners · See your business clearly</title>
+  <meta name="description" content="Connect the QuickBooks you already use and see your cash flow, profit, and forecast, clearly explained.">
+
+  <link rel="stylesheet" href="css/tokens.css?v=34">
+  <link rel="stylesheet" href="css/welcome.css?v=13">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════ NAV ═══════════════════════════════ -->
+  <nav class="intro-nav" id="intro-nav">
+    <div class="intro-nav-brand">
+      <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
+    </div>
+    <div class="intro-nav-actions">
+      <div class="intro-nav-legal">
+        <a href="privacy-policy.html">Privacy</a>
+        <a href="terms-of-service.html">Terms</a>
+      </div>
+      <a class="intro-nav-login" href="index.html">Log in</a>
+      <a class="btn btn-primary intro-nav-signup" href="index.html#signup">Sign up</a>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
+  <header class="intro-hero">
+    <div class="intro-hero-bg" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+
+    <div class="intro-hero-inner">
+      <div class="intro-hero-copy">
+        <span class="intro-eyebrow reveal">Financial clarity for small business</span>
+        <h1 class="intro-hero-title" id="hero-title">
+          <span class="hero-line-wrap"><span class="hero-line">Your business finances,</span></span>
+          <span class="hero-line-wrap"><span class="hero-line">clearly explained.</span></span>
+        </h1>
+        <p class="intro-hero-sub reveal reveal-delay-2">Connect the QuickBooks you already use. Get clear answers about cash flow, profit, and what's coming next — no accounting degree required.</p>
+        <div class="intro-hero-actions reveal reveal-delay-3">
+          <a href="index.html#signup" class="btn btn-primary">Get started</a>
+          <a href="#features" class="btn btn-secondary">See how it works</a>
+        </div>
+      </div>
+
+      <div class="hero-illustration-wrap reveal reveal-delay-2" id="hero-illustration-wrap">
+        <div class="hero-illustration-inner" id="hero-illustration-inner">
+          <img class="hero-illustration" src="assest/hero-illustration-cropped.png" alt="Illustration of a small business owner reviewing an upward cash flow trend on a laptop">
+          <div class="hero-spotlight" aria-hidden="true"></div>
+
+          <!-- Small ambient prop: a steaming coffee mug, shaded to match the illustration's light source -->
+          <svg class="hero-coffee" viewBox="0 0 60 60" aria-hidden="true" style="top: 72%; left: 77%;">
+            <ellipse cx="28" cy="47" rx="15" ry="3.5" fill="#000000" opacity="0.28"/>
+
+            <path class="hero-coffee-steam" d="M22 24c-3-4 3-6 0-10" />
+            <path class="hero-coffee-steam hero-coffee-steam-2" d="M30 24c-3-4 3-6 0-10" />
+
+            <!-- handle -->
+            <path d="M39 30h2.5a4.5 4.5 0 010 9H39" fill="none" stroke="#E8DFD1" stroke-width="2.4" stroke-linecap="round"/>
+
+            <!-- mug body: warm-lit left half, shaded right half -->
+            <path d="M16 27h24l-2.4 16.5a4.5 4.5 0 01-4.45 3.85H22.85a4.5 4.5 0 01-4.45-3.85L16 27z" fill="#FAF6F0"/>
+            <path d="M28 27h12l-2.4 16.5a4.5 4.5 0 01-4.45 3.85H28V27z" fill="#DCD2C0"/>
+
+            <!-- coffee surface -->
+            <ellipse cx="28" cy="27.5" rx="12" ry="2.6" fill="#4A2E1E"/>
+            <ellipse cx="25.5" cy="26.8" rx="4" ry="1.1" fill="#6B4226" opacity="0.8"/>
+          </svg>
+
+          <button type="button" class="hero-hotspot" style="top: 28%; left: 26%;" aria-label="Cash flow trending up">
+            <span class="hero-hotspot-dot"></span>
+            <span class="hero-hotspot-label">Cash flow trending up</span>
+          </button>
+          <button type="button" class="hero-hotspot" style="top: 70%; left: 50%;" aria-label="Invoices tracked automatically">
+            <span class="hero-hotspot-dot"></span>
+            <span class="hero-hotspot-label">Invoices tracked automatically</span>
+          </button>
+
+        </div>
+
+        <div class="hero-insight-toast" id="hero-insight-toast" role="status" aria-live="polite">
+          <svg class="hero-insight-toast-icon" id="hero-insight-toast-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+          <span class="hero-insight-toast-text" id="hero-insight-toast-text"></span>
+        </div>
+
+        <!-- Floating animated dashboard chip: a live-drawing trend chart plus
+             two progress rings, echoing a live analytics widget. -->
+        <div class="hero-chart-chip" aria-hidden="true">
+          <svg class="hero-chart-chip-svg" viewBox="0 0 200 168">
+            <defs>
+              <linearGradient id="chipAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" class="chip-grad-stop-a"/>
+                <stop offset="100%" class="chip-grad-stop-b"/>
+              </linearGradient>
+            </defs>
+
+            <circle cx="14" cy="14" r="3" class="chip-dot chip-dot-a"/>
+            <circle cx="25" cy="14" r="3" class="chip-dot chip-dot-b"/>
+            <circle cx="36" cy="14" r="3" class="chip-dot chip-dot-c"/>
+
+            <path class="chip-area" d="M10,92 C32,98 38,58 58,64 C78,70 82,36 104,42 C126,48 130,26 152,32 C168,37 178,46 190,42 L190,108 L10,108 Z"/>
+            <path class="chip-line" d="M10,92 C32,98 38,58 58,64 C78,70 82,36 104,42 C126,48 130,26 152,32 C168,37 178,46 190,42"/>
+
+            <g class="chip-ring" transform="translate(52,140)">
+              <circle r="16" class="chip-ring-track"/>
+              <circle r="16" class="chip-ring-fill chip-ring-fill-a"/>
+            </g>
+            <g class="chip-ring" transform="translate(140,140)">
+              <circle r="16" class="chip-ring-track"/>
+              <circle r="16" class="chip-ring-fill chip-ring-fill-b"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════ TRUST STRIP ═══════════════════════════════ -->
+  <section class="intro-trust reveal">
+    <div class="intro-trust-item">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+      Read-only access
+    </div>
+    <div class="intro-trust-item">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.661 2.237a.531.531 0 01.678 0 11.947 11.947 0 007.078 2.755.53.53 0 01.498.435c.553 3.076.55 6.936-2.518 10.941-1.593 2.075-3.66 3.505-5.146 4.351a.53.53 0 01-.502 0c-1.487-.846-3.553-2.276-5.146-4.351C1.535 12.363 1.532 8.503 2.085 5.427a.53.53 0 01.498-.435 11.947 11.947 0 007.078-2.755z" clip-rule="evenodd"/></svg>
+      No passwords stored
+    </div>
+    <div class="intro-trust-item">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd"/></svg>
+      Disconnect any time
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ FEATURES ═══════════════════════════════ -->
+  <section class="intro-section" id="features">
+    <div class="intro-section-head">
+      <div class="intro-section-eyebrow reveal">Why NFP</div>
+      <h2 class="intro-section-title reveal reveal-delay-1">Everything you need, nothing you don't</h2>
+      <p class="intro-section-sub reveal reveal-delay-2">Built for business owners, not accountants.</p>
+    </div>
+
+    <div class="intro-feature-grid">
+      <div class="intro-feature-card reveal">
+        <div class="intro-feature-icon">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6zM8 7a1 1 0 011-1h2a1 1 0 011 1v10a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 3a1 1 0 011-1h2a1 1 0 011 1v14a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z"/></svg>
+        </div>
+        <h3 class="intro-feature-title">Clear, jargon-free reports</h3>
+        <p class="intro-feature-desc">No jargon. Just clear answers about what you earned, what you owe, and what's coming in.</p>
+      </div>
+
+      <div class="intro-feature-card reveal reveal-delay-1">
+        <div class="intro-feature-icon">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
+        </div>
+        <h3 class="intro-feature-title">Connects to QuickBooks</h3>
+        <p class="intro-feature-desc">Read-only access to the QuickBooks you already use. Nothing to re-enter, nothing to keep updating.</p>
+      </div>
+
+      <div class="intro-feature-card reveal reveal-delay-2">
+        <div class="intro-feature-icon">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.412.993 2.67 2.43 2.902.848.137 1.705.248 2.57.331v3.443a.75.75 0 001.28.53l3.58-3.579a.78.78 0 01.527-.224 41.202 41.202 0 005.183-.5c1.437-.232 2.43-1.49 2.43-2.903V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2z" clip-rule="evenodd"/></svg>
+        </div>
+        <h3 class="intro-feature-title">Ask NFP AI</h3>
+        <p class="intro-feature-desc">Ask questions in natural language — "Why did cash drop this month?" — and get answers grounded in your real numbers.</p>
+      </div>
+
+      <div class="intro-feature-card reveal reveal-delay-3">
+        <div class="intro-feature-icon">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"/></svg>
+        </div>
+        <h3 class="intro-feature-title">Cash flow forecast</h3>
+        <p class="intro-feature-desc">See what's likely coming next, so surprises don't catch you off guard.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ HOW IT WORKS ═══════════════════════════════ -->
+  <section class="intro-section">
+    <div class="intro-section-head">
+      <div class="intro-section-eyebrow reveal">Getting started</div>
+      <h2 class="intro-section-title reveal reveal-delay-1">Set up in minutes</h2>
+    </div>
+
+    <div class="intro-steps-row">
+      <div class="intro-step reveal">
+        <div class="intro-step-num">1</div>
+        <div class="intro-step-line"></div>
+        <h3 class="intro-step-title">Sign up</h3>
+        <p class="intro-step-desc">Create your account with your name, business, and email.</p>
+      </div>
+      <div class="intro-step reveal reveal-delay-1">
+        <div class="intro-step-num">2</div>
+        <div class="intro-step-line"></div>
+        <h3 class="intro-step-title">Connect QuickBooks</h3>
+        <p class="intro-step-desc">Link the QuickBooks account you already use. Read-only, no passwords stored.</p>
+      </div>
+      <div class="intro-step reveal reveal-delay-2">
+        <div class="intro-step-num">3</div>
+        <div class="intro-step-line"></div>
+        <h3 class="intro-step-title">See your numbers</h3>
+        <p class="intro-step-desc">Your dashboard updates automatically, in language that makes sense.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ FINAL CTA ═══════════════════════════════ -->
+  <section class="intro-final-cta">
+    <div class="intro-final-cta-inner">
+      <h2 class="reveal">Ready to see your numbers clearly?</h2>
+      <a href="index.html#signup" class="btn btn-primary reveal reveal-delay-1">Create your account</a>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
+  <footer class="intro-footer">
+    <div class="intro-footer-brand">
+      <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
+      <span>© 2026 Nonaka Financial Partners</span>
+    </div>
+    <a href="index.html">Log in</a>
+  </footer>
+
+  <script src="js/welcome.js?v=9"></script>
+</body>
+</html>

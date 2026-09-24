@@ -1139,6 +1139,13 @@ function enterPortal() {
 async function bootstrapAuthView() {
     if (!isLoggedIn()) {
         showView("view-login");
+
+        // The intro page's "Sign up" link points here with #signup so it
+        // opens straight into the sign-up pane instead of sign-in.
+        if (window.location.hash === "#signup") {
+            showSignup();
+        }
+
         return;
     }
 
