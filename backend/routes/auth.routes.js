@@ -24,6 +24,17 @@ router.post("/signup", async (req, res) => {
             });
         }
 
+        if (
+            [email, password, fullName, organizationName].some(v => typeof v !== "string") ||
+            fullName.length > 120 ||
+            organizationName.length > 120
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: "Please keep your name and business name under 120 characters."
+            });
+        }
+
         // 1. Create Supabase Auth user (sends a real confirmation email —
         // see signUpUser's comment for why admin.createUser isn't used)
         const confirmRedirect =
@@ -208,11 +219,29 @@ router.post("/login", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Login failed:", error);
+        console.error("Login failed:", error.message);
 
-        res.status(401).json({
+        // Supabase's own wording ("Invalid login credentials") and any
+        // database error text were passed straight to the person signing
+        // in. The two cases they can act on get a sentence that says how;
+        // anything else is ours to fix, not theirs.
+        if (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message || "")) {
+            return res.status(401).json({
+                success: false,
+                error: "Please confirm your email address first — use the link we sent when you signed up."
+            });
+        }
+
+        if (error.code === "invalid_credentials" || /invalid login credentials/i.test(error.message || "")) {
+            return res.status(401).json({
+                success: false,
+                error: "That email and password don't match. Try again, or reset your password."
+            });
+        }
+
+        res.status(500).json({
             success: false,
-            error: error.message
+            error: "We couldn't sign you in right now. Please try again in a moment."
         });
     }
 });

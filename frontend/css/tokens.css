@@ -100,14 +100,4 @@
   --sidebar-width: 244px;
   --topbar-height: 62px;
   --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* legacy names still referenced by glassmorphism.css */
-  --glass-bg: rgba(28,28,30,0.55);
-  --glass-blur: blur(14px);
-  --glass-border: var(--border-hair);
-  --glass-shadow: var(--shadow-card);
-  --spacing-xs: 6px;
-  --spacing-sm: 10px;
-  --spacing-md: 16px;
-  --accent-primary: var(--accent);
 }

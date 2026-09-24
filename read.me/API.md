@@ -1,113 +1,93 @@
-# Backend API Architecture
+# Backend API
 
-## Routes
+Express server in `backend/server.js`. It serves the frontend from `frontend/`
+(`/` is the intro page, `/index.html` the portal) and the JSON API under `/api`.
 
-### Authentication (`/api/auth`)
-- `POST /signup` — Create account, profile, organization
-- `POST /login` — Authenticate; return session token + org list
-- `POST /refresh` — Refresh expired session token
-- `POST /forgot-password` — Send password reset email
-- `POST /reset-password` — Set new password from reset link
+## Authentication
 
-### QuickBooks (`/api/quickbooks`)
-- **OAuth Flow**
-  - `GET /connect-url` — Get Intuit authorization URL
-  - `GET /callback` — Handle Intuit OAuth callback
-  - `DELETE /disconnect` — Revoke QB connection
+Everything except the `/api/auth/*` routes and the QuickBooks OAuth callback
+needs `Authorization: Bearer <Supabase access token>` and an `organizationId`
+(query string, or JSON body for `POST`). `requireOrgAccess` checks both: the
+token must be valid and its user must belong to that organization.
+Successful checks are remembered for 30 seconds (never past the token's own
+expiry) so a page that fires many requests at once doesn't pay two Supabase
+round trips per request.
 
-- **Connection Status**
-  - `GET /status` — QB connection state for organization
-  - `GET /company` — Connected company name and metadata
+| Status | `code`            | Meaning                                   |
+|--------|-------------------|-------------------------------------------|
+| 401    | `AUTH_REQUIRED`   | No token sent                             |
+| 401    | `AUTH_INVALID`    | Token invalid or expired — refresh it     |
+| 403    | `ORG_FORBIDDEN`   | User is not in that organization          |
 
-- **Financial Data (all require QB connected)**
-  - `GET /cash-projection` — Forecast bank balance 7-90 days out
-  - `GET /bills-schedule` — Unpaid bills grouped by due date
-  - `GET /money-flow` — Money in/out breakdown (P&L derived)
-  - `GET /cash-cushion` — Bank balance projection under what-if scenarios
-  - `GET /debt-detail` — Loan/card details with payment history
-  - `GET /invoice-urgency` — At-risk invoices (overdue/soon due)
-  - `GET /pl-story` — P&L narrative and key ratios
-  - `GET /balance-questions` — Common balance sheet questions
-  - `GET /ratio-questions` — Financial ratio interpretations
+## `/api/auth`
 
-- **Debug/Internal**
-  - `GET /expenses` — Expense breakdown
-  - `GET /accounts-test` — List all GL accounts in realm
-  - `GET /debt` — Raw liabilities for internal use
+| Route                    | Purpose                                              |
+|--------------------------|------------------------------------------------------|
+| `POST /signup`           | Create user, profile, organization; sends confirmation email |
+| `POST /login`            | Returns session, profile and every organization the user belongs to |
+| `POST /refresh`          | Exchange a refresh token for a new session           |
+| `POST /forgot-password`  | Send a reset email (same answer whether or not the email exists) |
+| `POST /reset-password`   | Set a new password; only accepts a token from a recovery link |
 
-### AI (`/api/ai`)
-- `POST /ask` — Chat with Claude about organization's financial data
+## `/api/quickbooks`
 
-## Services
+All data routes are read-only. When QuickBooks can't answer, every route
+responds the same way:
 
-### Core Services
-- **`supabase.service.js`** — Database, auth, QB tokens
-- **`quickbooks.service.js`** — QB OAuth, API calls, token refresh, report parsing
-- **`ai.service.js`** — Claude integration, financial context building
+| Status | `code`               | Meaning                                         |
+|--------|----------------------|-------------------------------------------------|
+| 400    | `QB_NOT_CONNECTED`   | No QuickBooks company linked to the organization |
+| 400    | `QB_REAUTH_REQUIRED` | QuickBooks refused the refresh token — reconnect |
+| 400    | —                    | Missing or malformed `YYYY-MM-DD` date parameter |
+| 500    | —                    | Anything else (details are logged, not returned) |
 
-### QB Data Services (compose `quickbooks.service`)
-- **`cash-projection.service.js`** — Forecast logic (invoices + bills → runway)
-- **`bills-schedule.service.js`** — Unpaid bills by due date
-- **`money-flow.service.js`** — Cash flow statement visualization
-- **`cash-cushion.service.js`** — Scenario projections
-- **`debt-detail.service.js`** — Loan/card details
-- **`invoice-urgency.service.js`** — At-risk invoice detection
-- **`pl-story.service.js`** — P&L narrative + metrics
-- **`balance-questions.service.js`** — Balance sheet interpretations
-- **`ratio-questions.service.js`** — Financial ratios + explanations
-- **`format.js`** — Currency/date formatting helpers
-- **`request-gate.js`** — QB request deduplication + caching
+| Route                                  | Query                                  | Returns |
+|----------------------------------------|----------------------------------------|---------|
+| `GET /connect-url`                     |                                        | `{ authUrl }` to send the browser to Intuit |
+| `GET /callback`                        | `code, realmId, state` (from Intuit)   | Redirect to `/index.html?connected=true` or `?qb_error=1` |
+| `DELETE /disconnect`                   |                                        | `{ success: true }` |
+| `GET /status`                          |                                        | `{ connected, companyName, realmId, connectedAt }` or `{ connected: false, needsReconnect }` |
+| `GET /cash-projection`                 | `days` (7–90, default 30)              | Day-by-day bank balance from unpaid invoices and bills |
+| `GET /bills-schedule`                  |                                        | Unpaid bills grouped by due date |
+| `GET /invoice-urgency`                 |                                        | Unpaid invoices grouped by urgency |
+| `GET /money-flow`                      | `startDate, endDate`                   | Top income and spending categories |
+| `GET /pl-story`                        | `startDate, endDate`                   | P&L as ordered steps, with period and currency |
+| `GET /balance-questions`               | `asOf` (optional)                      | Balance sheet answered as three questions |
+| `GET /ratio-questions`                 | `startDate, endDate`                   | Ratios phrased as questions |
+| `GET /cash-cushion`                    | `months, revGrowth, cogsGrowth, opexGrowth, taxRate` | Bank balance under the Scenarios assumptions |
+| `GET /debt-detail`                     |                                        | Loans and cards with payment history |
+| `GET /debt`                            |                                        | Debt totals for the Overview card |
+| `GET /invoices`                        |                                        | Every invoice record |
+| `GET /reports/profit-and-loss`         | `startDate, endDate`                   | Parsed P&L |
+| `GET /reports/balance-sheet`           | `startDate` (the as-of date)           | Parsed Balance Sheet |
+| `GET /reports/cash-flow`               | `startDate, endDate`                   | Parsed Cash Flow with opening/closing cash |
+| `GET /reports/accounts-receivable`     | `startDate` (the as-of date)           | Parsed AR aging |
+| `GET /reports/accounts-payable`        | `startDate` (the as-of date)           | Parsed AP aging |
 
-### Utility Services
-- **`cache.service.js`** — In-memory request memoization (NEW)
-- **`response.service.js`** — Standardized response/error shapes (NEW)
+## `/api/ai`
 
-## Middleware
+Claude-backed features, grounded in the organization's QuickBooks data
+(`services/ai/financial-context.service.js`). Results are cached per
+organization for 5 minutes; the cache is cleared when the organization's
+QuickBooks company is connected or disconnected.
 
-### `auth.middleware.js`
-- **`requireOrgAccess`** — Verify session + organization membership
+| Route                 | Returns |
+|-----------------------|---------|
+| `GET /anomalies`      | `{ anomalies: [...] }` |
+| `GET /recommendations`| `{ recommendations: [...] }` |
+| `GET /health-score`   | `{ health: { score, rating, summary, factors } }` |
+| `POST /ask`           | Body `{ organizationId, question, history }` → `{ answer }`. `question` is capped at 2,000 characters; `history` is reduced to the last 20 plain user/assistant turns. |
 
-Applied to all QB and sensitive endpoints to ensure cross-org access is impossible.
+Extra error codes: `AI_KEY_NOT_CONFIGURED` (503), `AI_NO_CREDITS` (503).
 
-## Data Flow
+## Rate limits (per IP, 15-minute window)
 
-```
-Frontend (index.html + js/*.js)
-   ↓ (HTTP/JSON)
-Express Server (backend/server.js)
-   ↓ (rate limit, CORS, auth)
-Routes (auth/quickbooks/ai)
-   ↓ (orchestrate services)
-Services (supabase, QB, AI)
-   ↓ (API calls)
-External (Supabase, Intuit QB, Anthropic Claude)
-```
+- `/api/auth/*`: 20
+- `/api/ai/*`: 60
+- everything under `/api`: 600
 
-## Error Handling
+## QuickBooks request gate
 
-- **400** — Bad request (missing params, validation failed)
-- **401** — Unauthorized (missing/invalid token)
-- **403** — Forbidden (user not in organization)
-- **500** — Server error (log server-side, don't leak details to client)
-
-Common error codes:
-- `QB_NOT_CONNECTED` — Organization has no active QB connection
-- `QB_REAUTH_REQUIRED` — QB tokens expired; user must reconnect
-- `AI_KEY_NOT_CONFIGURED` — Missing Claude API key in .env
-- `AUTH_INVALID` — Session token is invalid or expired
-
-## Performance Notes
-
-- **QB API Rate Limits**: 500 req/min per app, shared across all organizations
-- **Request Gate** (`request-gate.js`) handles deduplication + cache (CACHE_MS = 5000)
-- **Cache Service** provides additional memoization for high-volume endpoints
-- **Static Assets** served with Cache-Control headers (1 year for versioned, 1 hour for unversioned)
-
-## Security
-
-- All routes except `/auth/signup`, `/auth/login`, `/auth/forgot-password` require valid session
-- Organization access verified on every request (session user must belong to org)
-- Secrets (.env) never logged or exposed to client
-- CORS restricted to configured FRONTEND_URL origins
-- Rate limiting: 20/15m auth, 60/15m AI, 600/15m general API
-- CSP allows only `'self'` + specific CDNs for Chart.js, Google Fonts
+`services/quickbooks/request-gate.js` sits in front of every QuickBooks read:
+at most 3 calls in flight per company, identical reads within 60 seconds share
+one answer, and a 429/503 from Intuit is retried with backoff instead of failing.

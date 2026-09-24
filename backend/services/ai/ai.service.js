@@ -1,7 +1,7 @@
 // backend/services/ai/ai.service.js
 //
-// Wraps the Anthropic SDK for Nonaka AI's four features: forecasts,
-// anomaly detection, recommendations, and chat. Every call is grounded
+// Wraps the Anthropic SDK for Nonaka AI's features: anomaly detection,
+// recommendations, the health score, and chat. Every call is grounded
 // in the real QuickBooks data assembled by financial-context.service.js
 // — the system prompt explicitly forbids inventing figures.
 
@@ -10,7 +10,7 @@ const { z } = require('zod');
 const { zodOutputFormat } = require('@anthropic-ai/sdk/helpers/zod');
 
 // Chat is free-form conversation where reasoning quality matters most, so
-// it stays on Opus with default (high) thinking effort. The other four
+// it stays on Opus with default (high) thinking effort. The other three
 // calls all fill in a fixed schema from data that's already been
 // summarized for them — a much more bounded task — so they run on Sonnet
 // with thinking effort capped to "low". Thinking is on by default on both
@@ -22,6 +22,8 @@ const { zodOutputFormat } = require('@anthropic-ai/sdk/helpers/zod');
 // even with no explicit thinking budget requested).
 const MODEL = 'claude-opus-5';
 const FAST_MODEL = 'claude-sonnet-5';
+
+let client = null;
 
 function getClient() {
     const apiKey = process.env.CLAUDE_API_KEY;
@@ -36,7 +38,11 @@ function getClient() {
         throw error;
     }
 
-    return new Anthropic({ apiKey });
+    if (!client) {
+        client = new Anthropic({ apiKey });
+    }
+
+    return client;
 }
 
 const SYSTEM_PROMPT =
@@ -54,25 +60,6 @@ const SYSTEM_PROMPT =
 // ============================================================
 // SCHEMAS
 // ============================================================
-
-const ForecastSchema = z.object({
-    narrative: z
-        .string()
-        .describe('2-4 sentence plain-language summary of the projection and why'),
-    monthlyProjection: z
-        .array(
-            z.object({
-                label: z.string().describe('Month label, e.g. "Nov 26"'),
-                projectedRevenue: z.number(),
-                projectedNetIncome: z.number()
-            })
-        )
-        .describe('Projected figures for the next periods, in chronological order'),
-    confidence: z.enum(['low', 'medium', 'high']),
-    keyAssumptions: z
-        .array(z.string())
-        .describe('Short bullet points on what the projection assumes')
-});
 
 const AnomalySchema = z.object({
     anomalies: z.array(
@@ -142,36 +129,6 @@ const RecommendationSchema = z.object({
 // ============================================================
 // FEATURES
 // ============================================================
-
-async function generateForecast(snapshot, trend) {
-    const client = getClient();
-
-    const response = await client.messages.parse({
-        model: FAST_MODEL,
-        max_tokens: 4096,
-        thinking: { type: 'adaptive' },
-        system: SYSTEM_PROMPT,
-        messages: [
-            {
-                role: 'user',
-                content:
-                    'Here is this company\'s real monthly financial trend ' +
-                    '(oldest to newest) and current snapshot, as JSON. ' +
-                    'Project the next 3 months of revenue and net income ' +
-                    'based on the actual trend shown — do not assume growth ' +
-                    'that is not supported by the data.\n\n' +
-                    `Monthly trend:\n${JSON.stringify(trend)}\n\n` +
-                    `Current snapshot:\n${JSON.stringify(snapshot)}`
-            }
-        ],
-        output_config: {
-            effort: 'low',
-            format: zodOutputFormat(ForecastSchema)
-        }
-    });
-
-    return response.parsed_output;
-}
 
 async function detectAnomalies(snapshot, trend) {
     const client = getClient();
@@ -275,9 +232,13 @@ async function chat(question, snapshot, history = []) {
         '\n\nCurrent financial snapshot for this company (JSON):\n' +
         JSON.stringify(snapshot);
 
+    // Adaptive thinking spends from the same max_tokens budget as the
+    // answer. At 2048 a question that needed some thought could use it all
+    // up and come back truncated or empty, so leave room for both. Only the
+    // tokens actually generated are billed.
     const response = await client.messages.create({
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: 8192,
         thinking: { type: 'adaptive' },
         system: contextualSystem,
         messages: [
@@ -292,7 +253,6 @@ async function chat(question, snapshot, history = []) {
 }
 
 module.exports = {
-    generateForecast,
     detectAnomalies,
     generateRecommendations,
     generateHealthScore,

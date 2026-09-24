@@ -268,13 +268,15 @@ async function getCashCushion(connection, params = {}) {
     };
 }
 
-function clearBaselineCache() {
-    baselineCache.clear();
+// Called when an organization's QuickBooks company is connected or
+// removed, so the baseline isn't the previous company's trading.
+function forgetOrganization(organizationId) {
+    baselineCache.delete(organizationId);
 }
 
 module.exports = {
     getCashCushion,
-    clearBaselineCache,
+    forgetOrganization,
     _internals: {
         projectCushion,
         describeCushion,

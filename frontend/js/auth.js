@@ -3,8 +3,6 @@
 // Supabase Auth + Backend Session
 // ============================================================
 
-console.log("🔐 Auth module loaded");
-
 const API_BASE = window.NFK_CONFIG?.API_BASE || "/api";
 const AUTH_API = `${API_BASE}/auth`;
 const QB_API = API_BASE;
@@ -28,7 +26,7 @@ async function signup(email, password, fullName, organizationName) {
             })
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
             throw new Error(
@@ -36,35 +34,13 @@ async function signup(email, password, fullName, organizationName) {
             );
         }
 
-        // Save user information locally
-        localStorage.setItem(
-            "nfk_user",
-            JSON.stringify(data.user)
-        );
-
-        localStorage.setItem(
-            "nfk_profile",
-            JSON.stringify(data.profile)
-        );
-
-        localStorage.setItem(
-            "nfk_organization",
-            JSON.stringify(data.organization)
-        );
-
-        localStorage.setItem(
-            "nfk_user_organization",
-            JSON.stringify(data.userOrganization)
-        );
-
-        console.log("✅ Signup successful");
-        console.log("👤 User:", data.user);
-        console.log("🏢 Organization:", data.organization);
-
+        // Nothing is stored: signing up creates no session, so a saved user
+        // here would look logged in on the next page load with no way to
+        // make an authenticated call. login() stores what the portal needs.
         return data;
 
     } catch (error) {
-        console.error("❌ Signup error:", error);
+        console.error("Signup error:", error);
         throw error;
     }
 }
@@ -163,8 +139,6 @@ async function handleSignup() {
 
     try {
 
-        console.log("Creating account...");
-
         const data =
             await signup(
                 email,
@@ -172,8 +146,6 @@ async function handleSignup() {
                 fullName,
                 organizationName
             );
-
-        console.log("Account created:", data);
 
         // Supabase blocks sign-in until the emailed link is clicked, so
         // dropping the user back on the form would only earn them a
@@ -236,16 +208,11 @@ async function login(email, password) {
             })
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
             throw new Error(data.error || "Login failed");
         }
-
-        console.log("✅ Login successful");
-        console.log("👤 User:", data.user);
-        console.log("🏢 Organization:", data.organization);
-        console.log("🔗 User Organization:", data.userOrganization);
 
         // ----------------------------------------------------
         // SAVE USER
@@ -283,11 +250,6 @@ async function login(email, password) {
                 "nfk-organization-id",
                 data.organization.id
             );
-
-            console.log(
-                "🏢 Organization ID saved:",
-                data.organization.id
-            );
         }
 
         // Everything this person can see. Usually one company; an owner
@@ -297,17 +259,6 @@ async function login(email, password) {
             localStorage.setItem(
                 "nfk_organizations",
                 JSON.stringify(data.organizations)
-            );
-        }
-
-        // ----------------------------------------------------
-        // SAVE USER ORGANIZATION
-        // ----------------------------------------------------
-
-        if (data.userOrganization) {
-            localStorage.setItem(
-                "nfk_user_organization",
-                JSON.stringify(data.userOrganization)
             );
         }
 
@@ -331,7 +282,7 @@ async function login(email, password) {
         return data;
 
     } catch (error) {
-        console.error("❌ Login failed:", error);
+        console.error("Login failed:", error.message);
         throw error;
     }
 }
@@ -552,40 +503,22 @@ async function refreshSession() {
 
 
 // ------------------------------------------------------------
-// GET USER ORGANIZATION
-// ------------------------------------------------------------
-
-function getUserOrganization() {
-
-    const data =
-        localStorage.getItem("nfk_user_organization");
-
-    if (!data) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(data);
-    } catch {
-        return null;
-    }
-}
-
-
-// ------------------------------------------------------------
 // LOGOUT
 // ------------------------------------------------------------
 
 function logout() {
 
-    localStorage.removeItem("nfk_user");
-    localStorage.removeItem("nfk_profile");
-    localStorage.removeItem("nfk_organization");
-    localStorage.removeItem("nfk_user_organization");
-    localStorage.removeItem("nfk_session");
-    localStorage.removeItem("nfk-organization-id");
-
-    console.log("Logged out");
+    // Every key this app writes — including the company list, so the next
+    // person on a shared computer doesn't inherit the previous one's.
+    [
+        "nfk_user",
+        "nfk_profile",
+        "nfk_organization",
+        "nfk_organizations",
+        "nfk_user_organization",
+        "nfk_session",
+        "nfk-organization-id"
+    ].forEach(key => localStorage.removeItem(key));
 
     // replace() (not href =) drops the dashboard from browser history,
     // so the back button can't return to a stale authenticated page.
@@ -597,8 +530,10 @@ function logout() {
 // AUTH STATE
 // ------------------------------------------------------------
 
+// A saved user without a session can't make a single authenticated call,
+// so it counts as logged out rather than sending them into the portal.
 function isLoggedIn() {
-    return getCurrentUser() !== null;
+    return getCurrentUser() !== null && getAccessToken() !== null;
 }
 // The card shows one of three panes - sign in, sign up, or the
 // post-signup "check your email" confirmation. Which one is visible is
@@ -697,7 +632,7 @@ async function sendReset() {
             body: JSON.stringify({ email })
         });
     } catch (error) {
-        console.error("❌ Forgot password request failed:", error);
+        console.error("Forgot password request failed:", error);
     }
 
     // Shown regardless of outcome, on purpose — matches the backend
@@ -778,7 +713,7 @@ async function routeAfterLogin() {
     const status = await checkQBStatus();
 
     if (status.connected) {
-        enterPortal();
+        enterPortal(status);
         return;
     }
 
@@ -1113,16 +1048,14 @@ async function runQBConnectAnimation() {
 // ENTER PORTAL (after QuickBooks connect, or already connected)
 // ------------------------------------------------------------
 
-function enterPortal() {
+// knownStatus is the /status answer the caller already has, if any, so
+// the top bar doesn't ask QuickBooks the same question again.
+function enterPortal(knownStatus = null) {
     showView("view-app");
 
     if (window.NFK_App) {
-        // Refreshes the topbar badge, which app.js rendered once
-        // at initial page load — before login — using whatever
-        // (usually empty) organization/connection state existed
-        // then. Without this it stays stuck on "Not Connected".
         if (typeof window.NFK_App.buildTopBar === "function") {
-            window.NFK_App.buildTopBar();
+            window.NFK_App.buildTopBar(knownStatus);
         }
 
         if (typeof window.NFK_App.nav === "function") {
@@ -1137,6 +1070,8 @@ function enterPortal() {
 // ------------------------------------------------------------
 
 async function bootstrapAuthView() {
+    const params = new URLSearchParams(window.location.search);
+
     if (!isLoggedIn()) {
         showView("view-login");
 
@@ -1146,10 +1081,18 @@ async function bootstrapAuthView() {
             showSignup();
         }
 
+        // Arriving from the confirmation email. Say it worked, and drop
+        // the query string and the session tokens Supabase appends to
+        // the link's hash, so neither lingers in the address bar or history.
+        if (params.get("confirmed") === "true") {
+            const sub = document.querySelector("#login-pane .auth-card-sub");
+            if (sub) sub.textContent = "Your email is confirmed. Sign in to get started.";
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         return;
     }
-
-    const params = new URLSearchParams(window.location.search);
 
     if (params.get("connected") === "true") {
         window.history.replaceState(
@@ -1209,7 +1152,6 @@ window.NFK_Auth = {
     getOrganizationId,
     getAccessToken,
     refreshSession,
-    getUserOrganization,
     logout,
     isLoggedIn,
     showView,
@@ -1220,5 +1162,3 @@ window.NFK_Auth = {
     disconnectQB,
     enterPortal
 };
-
-console.log(" Auth system ready");

@@ -3,7 +3,6 @@ const { createClient } = require("@supabase/supabase-js");
 class SupabaseService {
     constructor() {
         this.url = process.env.SUPABASE_URL;
-        this.anonKey = process.env.SUPABASE_ANON_KEY;
         this.serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!this.url) {
@@ -224,20 +223,6 @@ class SupabaseService {
     }
     
     
-    async getUser(userId) {
-        const {
-            data,
-            error
-        } = await this._buildClient().auth.admin.getUserById(userId);
-    
-        if (error) {
-            throw error;
-        }
-    
-        return data.user;
-    }
-    
-    
     async getProfile(userId) {
         const { data, error } = await this._buildClient()
             .from("profiles")
@@ -317,12 +302,6 @@ class SupabaseService {
         // A membership row whose organization has since been deleted
         // would otherwise become a null entry the caller has to guard.
         return (data || []).filter(row => row.organizations);
-    }
-
-    async getUserOrganization(userId) {
-        const all = await this.getUserOrganizations(userId);
-
-        return all[0] || null;
     }
 
     // Used by the auth middleware to confirm a request's authenticated
@@ -433,11 +412,6 @@ class SupabaseService {
     }
 
     async getQuickBooksTokens(organizationId) {
-        console.log(
-            "Looking up QuickBooks connection:",
-            organizationId
-        );
-
         return this._withRetry(
             async () => {
                 const { data, error } = await this._buildClient()
@@ -449,23 +423,11 @@ class SupabaseService {
                 if (error) {
                     console.error(
                         "Supabase QuickBooks lookup failed:",
-                        error
+                        error.message
                     );
 
                     throw error;
                 }
-
-                console.log(
-                    "QuickBooks connection found:",
-                    data
-                        ? {
-                            id: data.id,
-                            organization_id: data.organization_id,
-                            realm_id: data.realm_id,
-                            connection_status: data.connection_status
-                        }
-                        : null
-                );
 
                 return data;
             },

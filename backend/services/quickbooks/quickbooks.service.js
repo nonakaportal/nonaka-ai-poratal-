@@ -982,36 +982,6 @@ class QuickBooksService {
         );
 
 
-        // ======================================================
-        // DEBUG
-        // ======================================================
-
-        console.log(
-            "P&L ACCOUNT COUNTS:",
-            {
-
-                income:
-                    result.accounts
-                        .income.length,
-
-                cogs:
-                    result.accounts
-                        .cogs.length,
-
-                expenses:
-                    result.accounts
-                        .expenses.length,
-
-                otherIncomeExpense:
-                    result.accounts
-                        .otherIncomeExpense.length
-
-            }
-        );
-
-
-
-
         return result;
 
 
@@ -1268,36 +1238,6 @@ class QuickBooksService {
                 };
             });
     }
-    async getExpenseTransactions(
-        accessToken,
-        realmId
-    ) {
-        try {
-    
-            const endpoint =
-                `query?query=` +
-                encodeURIComponent(
-                    `SELECT * FROM Purchase MAXRESULTS 1000`
-                );
-    
-            return await this.makeApiRequest(
-                accessToken,
-                realmId,
-                endpoint
-            );
-    
-        } catch (error) {
-    
-            console.error(
-                'Failed to fetch expense transactions:',
-                error.response?.data ||
-                error.message
-            );
-    
-            throw error;
-        }
-    }
-    
     // Unpaid supplier bills, with the due date each one carries. The
     // aged-payables report already tells us how late things are; this is
     // the forward-looking half — what is going to leave the account, and
@@ -1396,12 +1336,7 @@ class QuickBooksService {
     
             const previousDate =
                 date.toISOString().slice(0, 10);
-    
-            console.log(
-                "Fetching opening cash as of:",
-                previousDate
-            );
-    
+
             // Get Balance Sheet for previous day
             const report =
                 await this.getBalanceSheet(
@@ -1502,17 +1437,13 @@ class QuickBooksService {
     
     
             findCashAccounts(assets);
-    
-    
-            console.log(
-                "Opening Cash:",
-                openingCash
-            );
-    
-    
+
+            // Callers that phrase this as money need the company's own
+            // currency, not an assumed dollar.
             return {
                 date: previousDate,
-                amount: openingCash
+                amount: openingCash,
+                currency: balanceSheet?.currency || null
             };
     
         } catch (error) {
@@ -1846,48 +1777,6 @@ class QuickBooksService {
 
     result.closingCash =
         result.endingCash;
-
-
-
-    // ==========================================================
-    // DEBUG
-    // ==========================================================
-
-    console.log(
-        "Cash Flow parsed:",
-        {
-            operating:
-                result.operatingActivities,
-
-            investing:
-                result.investingActivities,
-
-            financing:
-                result.financingActivities,
-
-            cashIncrease:
-                result.cashIncrease,
-
-            openingCash:
-                result.openingCash,
-
-            closingCash:
-                result.closingCash,
-
-            operatingAccounts:
-                result.details
-                    .operatingActivities.length,
-
-            investingAccounts:
-                result.details
-                    .investingActivities.length,
-
-            financingAccounts:
-                result.details
-                    .financingActivities.length
-        }
-    );
-
 
     return result;
 
@@ -2394,93 +2283,20 @@ class QuickBooksService {
     result.isBalanced =
         Math.abs(result.balanceDifference) < 0.01;
 
+    // Only the size of the gap is logged — never the balances themselves,
+    // which are one company's private figures.
     if (!result.isBalanced) {
-
         console.error(
-            'Balance Sheet does not balance:',
-            {
-                totalAssets:
-                    result.totalAssets,
-
-                totalLiabilitiesAndEquity:
-                    result.totalLiabilitiesAndEquity,
-
-                difference:
-                    result.balanceDifference
-            }
+            'Balance Sheet does not balance; difference:',
+            result.balanceDifference
         );
     }
-
-
-    // ============================================================
-    // Final diagnostic
-    // ============================================================
-
-    console.log(
-        'Balance Sheet parsed:',
-        {
-            totalAssets:
-                result.totalAssets,
-
-            totalLiabilities:
-                result.totalLiabilities,
-
-            totalEquity:
-                result.totalEquity,
-
-            totalLiabilitiesAndEquity:
-                result.totalLiabilitiesAndEquity,
-
-            assetSections:
-                result.details.assets
-                    .map(section => ({
-                        name:
-                            section.name,
-
-                        amount:
-                            section.amount,
-
-                        accounts:
-                            section.children
-                                ?.length || 0
-                    })),
-
-            liabilitySections:
-                result.details.liabilities
-                    .map(section => ({
-                        name:
-                            section.name,
-
-                        amount:
-                            section.amount,
-
-                        accounts:
-                            section.children
-                                ?.length || 0
-                    })),
-
-            equitySections:
-                result.details.equity
-                    .map(section => ({
-                        name:
-                            section.name,
-
-                        amount:
-                            section.amount,
-
-                        accounts:
-                            section.children
-                                ?.length || 0
-                    }))
-        }
-    );
-
 
     return result;
 }
 
     // ==========================================================
-    // PARSE PROFIT & LOSS
+    // PARSE ACCOUNTS RECEIVABLE
     // ==========================================================
 
 parseAccountsReceivable(report) {
@@ -2784,24 +2600,11 @@ parseAccountsPayable(report) {
             aging.over90;
 
 
-        const result = {
-
+        return {
             total,
-
             aging,
-
             vendors
-
         };
-
-
-        console.log(
-            "AP NORMALIZED DATA:",
-            result
-        );
-
-
-        return result;
 
 
     } catch (error) {

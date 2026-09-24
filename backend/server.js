@@ -1,23 +1,17 @@
 // backend/server.js
 
+const path = require('path');
+
+// Resolved from this file, not the working directory, so the server finds
+// the repo-root .env whether it is started from backend/ or from the root.
 require('dotenv').config({
-  path: '../.env'
+  path: path.join(__dirname, '../.env')
 });
 
-const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-
-
-
-// ============================================================
-// IMPORT SERVICES
-// ============================================================
-
-const supabaseService =
-  require('./services/supabase/supabase.service');
 
 
 // ============================================================
@@ -34,6 +28,11 @@ const aiRoutes = require("./routes/ai");
 // ============================================================
 
 const app = express();
+
+// Render puts exactly one proxy in front of the app. Without this, req.ip is
+// that proxy's address for every visitor, so the rate limits below would
+// throttle all customers as if they were a single client.
+app.set('trust proxy', 1);
 
 const PORT =
   process.env.PORT || 3000;
@@ -95,13 +94,12 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
-// Cache static assets: versioned files (with ?v=N in query string) get long
-// cache (1 year), unversioned files get short cache (1 hour) so new deploys
-// update quickly. This reduces bandwidth and improves load times.
+// Static assets are cached for an hour so a deploy reaches everyone within
+// that window. HTML is left uncached, and bumping a page's ?v=N on a
+// stylesheet or script makes browsers fetch the new file straight away.
 app.use((req, res, next) => {
-  if (/\.(css|js|woff2?|ttf|eot|svg|png|jpg|jpeg|gif)(\?v=\d+)?$/i.test(req.path)) {
-    const isVersioned = /\?v=\d+$/.test(req.path);
-    res.set('Cache-Control', isVersioned ? 'public, max-age=31536000' : 'public, max-age=3600');
+  if (/\.(css|js|woff2?|ttf|eot|svg|png|jpg|jpeg|gif)$/i.test(req.path)) {
+    res.set('Cache-Control', 'public, max-age=3600');
   }
   next();
 });
@@ -161,18 +159,8 @@ app.use("/api/ai", aiRoutes);
 // ============================================================
 
 app.get('/api/health', (req, res) => {
-
-  res.json({
-
-    status: 'success',
-
-    message: 'API is running'
-
-  });
-
+  res.json({ status: 'success', message: 'API is running' });
 });
-
-
 
 
 // ============================================================
@@ -216,17 +204,5 @@ app.use((err, req, res, next) => {
 // ============================================================
 
 app.listen(PORT, () => {
-
-  console.log(
-    `Server running on http://localhost:${PORT}`
-  );
-
-  console.log(
-    `Health check: http://localhost:${PORT}/api/health`
-  );
-
-  console.log(
-    `QB Status check: http://localhost:${PORT}/api/quickbooks/status`
-  );
-
+  console.log(`Server running on http://localhost:${PORT}`);
 });

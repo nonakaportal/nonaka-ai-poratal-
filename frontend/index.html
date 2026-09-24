@@ -4,11 +4,11 @@
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <title>Nonaka Financial Partners · AI Portal</title>
+ <link rel="icon" href="assest/logo-dark-lockup.jpg">
 
  <!-- CSS Imports -->
- <link rel="stylesheet" href="css/tokens.css?v=34">
- <link rel="stylesheet" href="css/glassmorphism.css?v=33">
- <link rel="stylesheet" href="css/style.css?v=66">
+ <link rel="stylesheet" href="css/tokens.css?v=35">
+ <link rel="stylesheet" href="css/style.css?v=67">
 
  <!-- Google Fonts -->
  <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -60,7 +60,6 @@
     </div>
 
     <div class="auth-row">
-     <label class="auth-remember"><input type="checkbox" id="remember-me"> Remember me</label>
      <a href="#" class="auth-link" onclick="event.preventDefault(); NFK_Auth.forgotPassword();">Forgot password?</a>
     </div>
 
@@ -258,58 +257,21 @@
  <div class="modal" id="modal-content" onclick="event.stopPropagation()"></div>
  </div>
 
- <div class="modal-overlay" id="forgot-overlay">
- <div class="modal">
+ <div class="modal-overlay" id="forgot-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+ <div class="modal" role="dialog" aria-modal="true" aria-labelledby="forgot-title">
  <div class="modal-header">
- <div class="modal-title">Reset Password</div>
- <button class="modal-close" onclick="document.getElementById('forgot-overlay').classList.remove('open')">×</button>
+ <div class="modal-title" id="forgot-title">Reset Password</div>
+ <button class="modal-close" aria-label="Close" onclick="document.getElementById('forgot-overlay').classList.remove('open')">×</button>
+ </div>
+ <form onsubmit="event.preventDefault(); NFK_Auth.sendReset();">
  <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">Enter your email address and we'll send you a reset link.</p>
  <div class="form-group">
- <label class="form-label">Email address</label>
- <input class="form-control" id="forgot-email" type="email">
+ <label class="form-label" for="forgot-email">Email address</label>
+ <input class="form-control" id="forgot-email" type="email" autocomplete="email">
  </div>
- <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="NFK_Auth.sendReset()">Send Reset Link</button>
- <div id="forgot-success" style="display:none;margin-top:12px;padding:10px;background:var(--positive-bg);color:var(--positive);border-radius:8px;font-size:13px;text-align:center;">✓ Reset link sent! Check your inbox.</div>
- </div>
- </div>
- </div>
-
- <!-- AI Floating Panel (Global) -->
- <div class="ai-float-backdrop" id="ai-float-backdrop" onclick="NFK_App.toggleAIPanel()"></div>
- <div class="ai-float-panel" id="ai-float-panel">
- <div class="ai-float-header">
- <div style="display:flex;align-items:center;gap:12px;">
- <div class="ai-fp-avatar">✦</div>
- <div>
- <div class="ai-chat-title">Ask NFP AI</div>
- <div class="ai-chat-subtitle">Powered by live financial data</div>
- </div>
- </div>
- <div style="display:flex;align-items:center;gap:8px;">
- <button style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:rgba(255,255,255,0.55);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:inherit;" onclick="NFK_App.clearFloatChat()">Clear</button>
- <button onclick="NFK_App.toggleAIPanel()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);font-size:22px;line-height:1;padding:2px 8px;" aria-label="Close chat">×</button>
- </div>
- </div>
- <div class="ai-fp-messages" id="ai-fp-messages">
- <div class="ai-msg">
- <div class="ai-msg-avatar">✦</div>
- <div class="ai-msg-bubble">
- <p>Hi! I'm NFP AI, your financial analyst. I have full access to P&L, Balance Sheet, Cash Flow, KPIs, and more.</p>
- <p style="margin-top:6px;">What would you like to explore?</p>
- </div>
- </div>
- </div>
- <div class="ai-fp-suggestions" id="ai-fp-suggestions">
- <button class="ai-suggestion-pill" onclick="NFK_App.sendFPMessage('What is our Q4 revenue forecast?')">What is our Q4 revenue forecast?</button>
- <button class="ai-suggestion-pill" onclick="NFK_App.sendFPMessage('Why did cash decrease this month?')">Why did cash decrease this month?</button>
- <button class="ai-suggestion-pill" onclick="NFK_App.sendFPMessage('Which invoices are most at risk?')">Which invoices are most at risk?</button>
- <button class="ai-suggestion-pill" onclick="NFK_App.sendFPMessage('Summarise our overall financial health')">Summarise our overall financial health</button>
- </div>
- <div class="ai-chat-input-row">
- <textarea id="ai-fp-input" class="ai-chat-input" rows="1" placeholder="Ask about revenue, cash flow, margins..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();NFK_App.sendFPMessage();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px';" autocomplete="off"></textarea>
- <button class="ai-send-btn" onclick="NFK_App.sendFPMessage()" aria-label="Send message">
- <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
- </button>
+ <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;">Send Reset Link</button>
+ </form>
+ <div id="forgot-success" role="status" style="display:none;margin-top:12px;padding:10px;background:var(--positive-bg);color:var(--positive);border-radius:8px;font-size:13px;text-align:center;">✓ If that email has an account, a reset link is on its way. Check your inbox.</div>
  </div>
  </div>
 
@@ -319,10 +281,10 @@
  <!-- ═══════════════════════════════════════════════════════ -->
  <!-- SCRIPTS (Load Order Matters) -->
  <!-- ═══════════════════════════════════════════════════════ -->
- <script src="js/data.js?v=30"></script>
- <script src="js/charts.js?v=36"></script>
- <script src="js/auth.js?v=38"></script>
- <script src="js/app.js?v=76"></script>
+ <script src="js/data.js?v=31"></script>
+ <script src="js/charts.js?v=37"></script>
+ <script src="js/auth.js?v=39"></script>
+ <script src="js/app.js?v=77"></script>
 
 </body>
 </html>

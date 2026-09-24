@@ -36,6 +36,13 @@ function handleAIError(error, res, label) {
         });
     }
 
+    if (error.code === "QB_REAUTH_REQUIRED") {
+        return res.status(400).json({
+            error: "Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.",
+            code: "QB_REAUTH_REQUIRED"
+        });
+    }
+
     // An exhausted Anthropic balance used to fall through to the generic
     // 500 below, so every AI panel just said "unable to load" — which
     // reads as a bug in the app and sends the owner looking for a fault
@@ -61,11 +68,11 @@ function handleAIError(error, res, label) {
 // ============================================================
 // RESULT CACHE
 //
-// Forecast/anomalies/recommendations/health-score each cost a real
-// Claude call. QuickBooks data doesn't change second-to-second, so
-// there's no reason to regenerate on every page visit — cache the
-// finished response for a few minutes, shared across everyone hitting
-// the same organization (including concurrent in-flight requests).
+// Anomalies/recommendations/health-score each cost a real Claude call.
+// QuickBooks data doesn't change second-to-second, so there's no reason
+// to regenerate on every page visit — cache the finished response for a
+// few minutes, shared across everyone hitting the same organization
+// (including concurrent in-flight requests).
 // ============================================================
 
 const RESULT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -88,31 +95,14 @@ function withResultCache(key, factory) {
     return promise;
 }
 
-// ============================================================
-// FORECAST
-// ============================================================
-
-router.get("/forecast", async (req, res) => {
-    const { organizationId } = req.query;
-
-    if (!organizationId) {
-        return res.status(400).json({ error: "organizationId is required" });
-    }
-
-    try {
-        const result = await withResultCache(`forecast:${organizationId}`, async () => {
-            const snapshot = await financialContext.buildFinancialSnapshot(organizationId);
-            const trend = await financialContext.buildMonthlyTrend(organizationId, 6);
-            const forecast = await aiService.generateForecast(snapshot, trend);
-
-            return { forecast, trend };
-        });
-
-        return res.json(result);
-    } catch (error) {
-        return handleAIError(error, res, "generate forecast");
-    }
-});
+// Snapshot and trend are independent QuickBooks reads, so they load
+// together rather than one after the other.
+function loadContext(organizationId) {
+    return Promise.all([
+        financialContext.buildFinancialSnapshot(organizationId),
+        financialContext.buildMonthlyTrend(organizationId, 6)
+    ]);
+}
 
 // ============================================================
 // ANOMALIES
@@ -121,14 +111,9 @@ router.get("/forecast", async (req, res) => {
 router.get("/anomalies", async (req, res) => {
     const { organizationId } = req.query;
 
-    if (!organizationId) {
-        return res.status(400).json({ error: "organizationId is required" });
-    }
-
     try {
         const result = await withResultCache(`anomalies:${organizationId}`, async () => {
-            const snapshot = await financialContext.buildFinancialSnapshot(organizationId);
-            const trend = await financialContext.buildMonthlyTrend(organizationId, 6);
+            const [snapshot, trend] = await loadContext(organizationId);
 
             return aiService.detectAnomalies(snapshot, trend);
         });
@@ -146,14 +131,9 @@ router.get("/anomalies", async (req, res) => {
 router.get("/recommendations", async (req, res) => {
     const { organizationId } = req.query;
 
-    if (!organizationId) {
-        return res.status(400).json({ error: "organizationId is required" });
-    }
-
     try {
         const result = await withResultCache(`recommendations:${organizationId}`, async () => {
-            const snapshot = await financialContext.buildFinancialSnapshot(organizationId);
-            const trend = await financialContext.buildMonthlyTrend(organizationId, 6);
+            const [snapshot, trend] = await loadContext(organizationId);
 
             return aiService.generateRecommendations(snapshot, trend);
         });
@@ -171,14 +151,9 @@ router.get("/recommendations", async (req, res) => {
 router.get("/health-score", async (req, res) => {
     const { organizationId } = req.query;
 
-    if (!organizationId) {
-        return res.status(400).json({ error: "organizationId is required" });
-    }
-
     try {
         const result = await withResultCache(`health-score:${organizationId}`, async () => {
-            const snapshot = await financialContext.buildFinancialSnapshot(organizationId);
-            const trend = await financialContext.buildMonthlyTrend(organizationId, 6);
+            const [snapshot, trend] = await loadContext(organizationId);
             const health = await aiService.generateHealthScore(snapshot, trend);
 
             return { health };
@@ -192,33 +167,62 @@ router.get("/health-score", async (req, res) => {
 
 // ============================================================
 // CHAT
+//
+// The conversation history comes from the browser, so it is untrusted:
+// only plain user/assistant text turns are passed on, and both their
+// number and their length are capped. Anything else — system-role
+// turns, tool or document blocks, an unbounded transcript — would let a
+// request steer the model or run up the Claude bill.
 // ============================================================
 
+const MAX_QUESTION_CHARS = 2000;
+const MAX_HISTORY_TURNS = 20;
+const MAX_TURN_CHARS = 8000;
+
+function cleanHistory(history) {
+    if (!Array.isArray(history)) return [];
+
+    const turns = history
+        .filter(turn =>
+            turn &&
+            (turn.role === "user" || turn.role === "assistant") &&
+            typeof turn.content === "string" &&
+            turn.content.trim()
+        )
+        .slice(-MAX_HISTORY_TURNS)
+        .map(turn => ({
+            role: turn.role,
+            content: turn.content.slice(0, MAX_TURN_CHARS)
+        }));
+
+    // A conversation has to open with the user.
+    while (turns.length && turns[0].role !== "user") {
+        turns.shift();
+    }
+
+    return turns;
+}
+
 router.post("/ask", async (req, res) => {
+    const { organizationId, question, history } = req.body;
+
+    if (typeof question !== "string" || !question.trim()) {
+        return res.status(400).json({ error: "question is required" });
+    }
+
+    if (question.length > MAX_QUESTION_CHARS) {
+        return res.status(400).json({
+            error: `Please keep questions under ${MAX_QUESTION_CHARS} characters.`
+        });
+    }
+
     try {
-        const { organizationId, question, history } = req.body;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: "organizationId is required"
-            });
-        }
-
-        if (!question) {
-            return res.status(400).json({
-                error: "question is required"
-            });
-        }
-
-        console.log("Nonaka AI question:", question);
-
-        const snapshot =
-            await financialContext.buildFinancialSnapshot(organizationId);
+        const snapshot = await financialContext.buildFinancialSnapshot(organizationId);
 
         const answer = await aiService.chat(
-            question,
+            question.trim(),
             snapshot,
-            Array.isArray(history) ? history : []
+            cleanHistory(history)
         );
 
         return res.json({ answer });
@@ -227,4 +231,14 @@ router.post("/ask", async (req, res) => {
     }
 });
 
+function forgetOrganization(organizationId) {
+    for (const key of resultCache.keys()) {
+        if (key.endsWith(`:${organizationId}`)) {
+            resultCache.delete(key);
+        }
+    }
+}
+
 module.exports = router;
+module.exports.forgetOrganization = forgetOrganization;
+module.exports._internals = { cleanHistory };

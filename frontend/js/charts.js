@@ -9,10 +9,6 @@
 const CHART_REGISTRY = {};
 
 // ── THEME & COLOR HELPERS ──────────────────────────────────
-function getVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
 function getColors() {
   // Dark only — mirrors tokens.css, which no longer has a light theme.
   return {
@@ -186,7 +182,7 @@ const cashFlowLabelsPlugin = {
 
             if (!Number.isFinite(value)) return;
 
-            ctx.font = "700 14px Inter, sans-serif";
+            ctx.font = "700 14px Outfit, system-ui, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillStyle = value < 0 ? "#e08a8f" : "#e9e9ed";
@@ -510,130 +506,6 @@ function renderKPIDetailChart(canvasId, labels = [], values = []) {
           grid: { color: colors.grid },
           ticks: { color: colors.text, callback: v => fmtShort(v) }
         }
-      }
-    }
-  }));
-}
-
-// ── AI FORECAST (AI Insights) ──────────────────────────────
-// trend: real monthly actuals from financial-context.service.js
-// [{label, revenue, netIncome, ...}]
-// projection: Claude's projection [{label, projectedRevenue, projectedNetIncome}]
-function renderForecastChart(canvasId, trend = [], projection = []) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  destroyChart(canvasId);
-
-  const colors = getColors();
-
-  const historyLabels = trend.map(t => t.label);
-  const projectionLabels = projection.map(p => p.label);
-  const labels = [...historyLabels, ...projectionLabels];
-
-  // Actual series: real values for history, null past that point.
-  const actualRevenue = [
-    ...trend.map(t => t.revenue),
-    ...projection.map(() => null)
-  ];
-  const actualNet = [
-    ...trend.map(t => t.netIncome),
-    ...projection.map(() => null)
-  ];
-
-  // Projected series: null everywhere except the bridge point (the
-  // last real month, so the dashed line visually connects to the
-  // solid one instead of floating) and each real projected month.
-  const projRevenue = new Array(labels.length).fill(null);
-  const projNet = new Array(labels.length).fill(null);
-
-  if (trend.length > 0) {
-    projRevenue[trend.length - 1] = trend[trend.length - 1].revenue;
-    projNet[trend.length - 1] = trend[trend.length - 1].netIncome;
-  }
-
-  projection.forEach((p, i) => {
-    projRevenue[trend.length + i] = p.projectedRevenue;
-    projNet[trend.length + i] = p.projectedNetIncome;
-  });
-
-  registerChart(canvasId, new Chart(canvas.getContext("2d"), {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Revenue (actual)",
-          data: actualRevenue,
-          borderColor: colors.primary,
-          backgroundColor: "transparent",
-          borderWidth: 2.5,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: colors.primary,
-          spanGaps: false,
-        },
-        {
-          label: "Net Income (actual)",
-          data: actualNet,
-          borderColor: colors.success,
-          backgroundColor: "transparent",
-          borderWidth: 2.5,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: colors.success,
-          spanGaps: false,
-        },
-        {
-          label: "Revenue (projected)",
-          data: projRevenue,
-          borderColor: colors.primary,
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          borderDash: [5, 5],
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: colors.primary,
-          spanGaps: true,
-        },
-        {
-          label: "Net Income (projected)",
-          data: projNet,
-          borderColor: colors.success,
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          borderDash: [5, 5],
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: colors.success,
-          spanGaps: true,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: {
-          position: "top",
-          labels: { boxWidth: 10, boxHeight: 10, color: colors.text, padding: 12, font: { size: 11 } }
-        },
-        tooltip: {
-          backgroundColor: colors.bg,
-          titleColor: colors.textPrimary,
-          bodyColor: colors.textPrimary,
-          borderColor: colors.border,
-          borderWidth: 1,
-          padding: 10,
-          callbacks: {
-            label: ctx => ctx.raw === null ? undefined : ` ${ctx.dataset.label}: ${fmtShort(ctx.raw)}`
-          }
-        }
-      },
-      scales: {
-        x: { grid: { color: colors.grid }, ticks: { color: colors.text } },
-        y: { grid: { color: colors.grid }, ticks: { color: colors.text, callback: v => fmtShort(v) } }
       }
     }
   }));
@@ -979,20 +851,6 @@ function renderPLWithProjection(scenario = null, actualData = null) {
   }));
 }
 
-// ── REDRAW ALL (theme change) ──────────────────────────────
-// Every real chart on this page reads its colors fresh from getColors()
-// each time it's rendered, so the fix for "chart colors don't match the
-// new theme" is just re-rendering whatever chart(s) the active page
-// owns. Each page's own load function (loadKPITrends, renderForecastPage,
-// updateScenarioChart, etc.) already knows its own data and calls the
-// matching render*() function directly — this only needs to ask app.js
-// to replay that for the page the user is currently on.
-function redrawAll() {
-  if (window.NFK_App?.redrawCurrentPageCharts) {
-    window.NFK_App.redrawCurrentPageCharts();
-  }
-}
-
 // ── PUBLIC API ──────────────────────────────────────────────
 // The projected bank balance day by day, with the owner's safe floor
 // drawn across it. The floor is the whole point of the chart — a
@@ -1104,11 +962,9 @@ function renderCashProjection(canvasId, projection) {
 }
 
 window.NFK_Charts = {
-  redrawAll,
   renderCashWaterfall,
   renderKPISparklines,
   renderKPIDetailChart,
-  renderForecastChart,
   renderForecastTrend,
   renderPLWithProjection,
   renderCashProjection,

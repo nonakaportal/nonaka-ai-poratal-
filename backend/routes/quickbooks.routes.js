@@ -1,1818 +1,539 @@
 // backend/routes/quickbooks.routes.js
 //
-// QuickBooks integration routes for pulling financial data and state.
+// QuickBooks integration routes. Every data route is read-only and scoped
+// to one organization by requireOrgAccess.
 //
-// Endpoints:
-//   GET  /connect-url           — OAuth authorization URL for QB connection
-//   GET  /callback              — OAuth callback handler from Intuit
-//   DELETE /disconnect          — Remove QB connection for organization
-//   GET  /status                — QB connection status and metadata
-//   GET  /company               — Connected company name and info
-//   GET  /cash-projection       — 7-90 day cash runway forecast
-//   GET  /bills-schedule        — Unpaid bills grouped by due date
-//   GET  /money-flow            — Money in/out breakdown for period
-//   GET  /cash-cushion          — Bank balance projection under scenarios
-//   GET  /debt-detail           — Loans & credit cards with payment history
-//   GET  /invoice-urgency       — At-risk invoices (overdue, soon due)
-//   GET  /pl-story              — Profit & Loss narrative + metrics
-//   GET  /balance-questions     — Common balance sheet questions answered
-//   GET  /ratio-questions       — Financial ratio questions answered
-//   GET  /expenses              — Expense breakdown
-//   GET  /accounts-test         — Debug: list all accounts in realm
-//   GET  /debt                  — Liabilities overview (internal use)
+//   GET    /connect-url                   OAuth authorization URL
+//   GET    /callback                      OAuth callback from Intuit
+//   DELETE /disconnect                    Unlink the connected company
+//   GET    /status                        Connection state + company name
+//   GET    /cash-projection               Bank balance over the next 7-90 days
+//   GET    /bills-schedule                Unpaid bills grouped by due date
+//   GET    /money-flow                    Where money came from / went
+//   GET    /cash-cushion                  Bank balance under Scenarios assumptions
+//   GET    /debt-detail                   Loans and cards with payment history
+//   GET    /invoice-urgency               Unpaid invoices by how urgent they are
+//   GET    /pl-story                      Profit & Loss as a sequence of steps
+//   GET    /balance-questions             Balance sheet as three questions
+//   GET    /ratio-questions               Ratios as the questions they answer
+//   GET    /debt                          Debt totals for the Overview card
+//   GET    /invoices                      Every invoice, for the Invoices page
+//   GET    /reports/profit-and-loss       Parsed P&L
+//   GET    /reports/balance-sheet         Parsed Balance Sheet
+//   GET    /reports/cash-flow             Parsed Cash Flow
+//   GET    /reports/accounts-receivable   Parsed AR aging
+//   GET    /reports/accounts-payable      Parsed AP aging
 
 const express = require('express');
 
 const router = express.Router();
 
-const quickbooksService =
-    require('../services/quickbooks/quickbooks.service');
+const quickbooksService = require('../services/quickbooks/quickbooks.service');
+const supabaseService = require('../services/supabase/supabase.service');
+const { requireOrgAccess } = require('../middleware/auth.middleware');
 
-const supabaseService =
-    require('../services/supabase/supabase.service');
+const cashProjectionService = require('../services/quickbooks/cash-projection.service');
+const billsScheduleService = require('../services/quickbooks/bills-schedule.service');
+const moneyFlowService = require('../services/quickbooks/money-flow.service');
+const cashCushionService = require('../services/quickbooks/cash-cushion.service');
+const debtDetailService = require('../services/quickbooks/debt-detail.service');
+const invoiceUrgencyService = require('../services/quickbooks/invoice-urgency.service');
+const plStoryService = require('../services/quickbooks/pl-story.service');
+const balanceQuestionsService = require('../services/quickbooks/balance-questions.service');
+const ratioQuestionsService = require('../services/quickbooks/ratio-questions.service');
+const financialContext = require('../services/ai/financial-context.service');
+const aiRoutes = require('./ai');
 
-const { requireOrgAccess } =
-    require('../middleware/auth.middleware');
+const REAUTH_MESSAGE =
+    'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.';
 
-const cashProjectionService =
-    require('../services/quickbooks/cash-projection.service');
-
-const billsScheduleService =
-    require('../services/quickbooks/bills-schedule.service');
-
-const moneyFlowService =
-    require('../services/quickbooks/money-flow.service');
-
-const cashCushionService =
-    require('../services/quickbooks/cash-cushion.service');
-
-const debtDetailService =
-    require('../services/quickbooks/debt-detail.service');
-
-const invoiceUrgencyService =
-    require('../services/quickbooks/invoice-urgency.service');
-
-const plStoryService =
-    require('../services/quickbooks/pl-story.service');
-
-const balanceQuestionsService =
-    require('../services/quickbooks/balance-questions.service');
-
-const ratioQuestionsService =
-    require('../services/quickbooks/ratio-questions.service');
-
-// ============================================================
-// HELPER
-// ============================================================
+function frontendUrl() {
+    return process.env.FRONTEND_URL || 'http://127.0.0.1:5500';
+}
 
 async function getConnection(organizationId) {
-    if (!organizationId) {
-        return null;
-    }
-
-    const connection =
-        await supabaseService.getQuickBooksTokens(
-            organizationId
-        );
+    const connection = await supabaseService.getQuickBooksTokens(organizationId);
 
     if (!connection) {
         return null;
     }
 
     return {
-        organizationId:
-            connection.organization_id,
+        organizationId: connection.organization_id,
+        realmId: connection.realm_id,
+        accessToken: connection.access_token,
+        refreshToken: connection.refresh_token,
+        expiresAt: connection.token_expires_at
+            ? new Date(connection.token_expires_at).getTime()
+            : 0,
+        connectedAt: connection.created_at
+    };
+}
 
-        realmId:
-            connection.realm_id,
+// Answers cached per organization would otherwise keep describing the
+// previous QuickBooks company for a few minutes after it is swapped for
+// another — the exact situation the disconnect button exists to fix.
+function forgetOrganizationCaches(organizationId) {
+    aiRoutes.forgetOrganization(organizationId);
+    financialContext.forgetOrganization(organizationId);
+    cashCushionService.forgetOrganization(organizationId);
+}
 
-        accessToken:
-            connection.access_token,
+// Rejects a request missing any of the named YYYY-MM-DD query parameters
+// before it costs a QuickBooks call.
+function requireDates(...names) {
+    return (req, res, next) => {
+        const missing = names.filter(name => !req.query[name]);
 
-        refreshToken:
-            connection.refresh_token,
+        if (missing.length) {
+            return res.status(400).json({
+                error: `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} required`
+            });
+        }
 
-        expiresAt:
-            connection.token_expires_at
-                ? new Date(
-                    connection.token_expires_at
-                ).getTime()
-                : 0,
+        const malformed = names.filter(
+            name => !/^\d{4}-\d{2}-\d{2}$/.test(String(req.query[name]))
+        );
 
-        expiresIn: null,
+        if (malformed.length) {
+            return res.status(400).json({
+                error: `${malformed.join(' and ')} must be a date in YYYY-MM-DD format`
+            });
+        }
 
-        connectedAt:
-            connection.created_at,
+        next();
+    };
+}
 
-        updatedAt:
-            connection.updated_at
+// Every data route has the same edges: no connection saved, a connection
+// QuickBooks will no longer refresh, and an unexpected failure that must
+// not leak internals. `load` only has to produce the response body.
+function qbRoute(failMessage, load) {
+    return async (req, res) => {
+        try {
+            const connection = await getConnection(req.query.organizationId);
+
+            if (!connection) {
+                return res.status(400).json({
+                    error: 'QuickBooks is not connected',
+                    code: 'QB_NOT_CONNECTED'
+                });
+            }
+
+            return res.json(await load(connection, req.query));
+        } catch (error) {
+            if (error.code === 'QB_REAUTH_REQUIRED') {
+                return res.status(400).json({
+                    error: REAUTH_MESSAGE,
+                    code: 'QB_REAUTH_REQUIRED'
+                });
+            }
+
+            console.error(`${failMessage}:`, error.response?.data || error.message);
+
+            return res.status(500).json({ error: failMessage });
+        }
     };
 }
 
 // ============================================================
-// GET /api/quickbooks/connect-url
+// OAUTH
 //
-// Returns the QuickBooks authorization URL as JSON instead of
-// redirecting directly, because a plain top-level navigation (the
-// previous /connect behavior) can't carry an Authorization header —
-// there would be no way to verify who's actually asking to connect an
-// organization's QuickBooks. The frontend fetches this URL first (with
-// its session token), then navigates the browser to the returned
-// authUrl for the actual OAuth handoff to Intuit.
+// /connect-url returns the authorization URL as JSON instead of
+// redirecting, because a top-level navigation can't carry the
+// Authorization header needed to verify who is connecting. The frontend
+// fetches this with its session, then navigates to the returned URL.
 // ============================================================
 
 router.get('/connect-url', requireOrgAccess, (req, res) => {
     try {
-        const {
-            organizationId
-        } = req.query;
-
-        const authUrl =
-            quickbooksService.getAuthorizationUrl(
-                organizationId
-            );
-
-        console.log(
-            'Issuing QuickBooks authorization URL...'
-        );
+        const authUrl = quickbooksService.getAuthorizationUrl(req.query.organizationId);
 
         res.json({ authUrl });
     } catch (error) {
-        console.error(
-            'Error generating QB auth URL:',
-            error
-        );
+        console.error('Error generating QB auth URL:', error.message);
 
         res.status(500).json({
-            error:
-                'Failed to generate QuickBooks connection URL'
+            error: 'Failed to generate QuickBooks connection URL'
         });
     }
 });
 
-// ============================================================
-// GET /api/quickbooks/callback
-// ============================================================
-
 router.get('/callback', async (req, res) => {
-    const {
-        code,
-        realmId,
-        state
-    } = req.query;
+    const { code, realmId, state } = req.query;
 
     if (!code) {
-        return res.status(400).json({
-            error:
-                'Authorization code missing'
-        });
+        return res.status(400).json({ error: 'Authorization code missing' });
     }
 
     if (!realmId) {
-        return res.status(400).json({
-            error:
-                'QuickBooks Realm ID missing'
-        });
+        return res.status(400).json({ error: 'QuickBooks Realm ID missing' });
     }
 
     if (!state) {
-        return res.status(400).json({
-            error:
-                'OAuth state missing'
-        });
+        return res.status(400).json({ error: 'OAuth state missing' });
     }
 
     try {
-        // --------------------------------------------------------
-        // Verify OAuth state
-        // --------------------------------------------------------
+        const { organizationId } = quickbooksService.verifyOAuthState(state);
 
-        const stateData =
-            quickbooksService.verifyOAuthState(
-                state
-            );
+        const tokens = await quickbooksService.exchangeCodeForTokens(code);
 
-        const organizationId =
-            stateData.organizationId;
-
-        console.log(
-            'Organization:',
-            organizationId
-        );
-
-        // --------------------------------------------------------
-        // Exchange authorization code
-        // --------------------------------------------------------
-
-        console.log(
-            'Exchanging QuickBooks authorization code...'
-        );
-
-        const tokens =
-            await quickbooksService.exchangeCodeForTokens(
-                code
-            );
-
-        if (
-            !tokens ||
-            !tokens.access_token
-        ) {
+        if (!tokens?.access_token) {
             return res.status(500).json({
-                error:
-                    'QuickBooks access token was not received'
+                error: 'QuickBooks access token was not received'
             });
         }
 
-        // --------------------------------------------------------
-        // Save connection to Supabase
-        // --------------------------------------------------------
+        await supabaseService.saveQuickBooksTokens(organizationId, {
+            realm_id: realmId,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_in: tokens.expires_in
+        });
 
-        const savedConnection =
-            await supabaseService.saveQuickBooksTokens(
-                organizationId,
-                {
-                    realm_id:
-                        realmId,
+        forgetOrganizationCaches(organizationId);
 
-                    access_token:
-                        tokens.access_token,
-
-                    refresh_token:
-                        tokens.refresh_token,
-
-                    expires_in:
-                        tokens.expires_in
-                }
-            );
-
-        console.log(
-            'QuickBooks connection saved to Supabase'
-        );
-
-        console.log(
-            'Realm ID:',
-            realmId
-        );
-
-        // --------------------------------------------------------
-        // Redirect back to frontend
-        // --------------------------------------------------------
-        const frontendUrl =
-            process.env.FRONTEND_URL ||
-            'http://127.0.0.1:5500';
-        res.redirect(
-            `${frontendUrl}/index.html?connected=true`
-        );
+        res.redirect(`${frontendUrl()}/index.html?connected=true`);
     } catch (error) {
-        console.error(
-            'OAuth callback failed:',
-            error.response?.data ||
-            error.message
-        );
+        console.error('OAuth callback failed:', error.response?.data || error.message);
 
-        const frontendUrl =
-            process.env.FRONTEND_URL ||
-            'http://127.0.0.1:5500';
-
-        res.redirect(
-            `${frontendUrl}/index.html?qb_error=1`
-        );
+        res.redirect(`${frontendUrl()}/index.html?qb_error=1`);
     }
 });
 
-// ============================================================
-// DELETE /api/quickbooks/disconnect
-//
-// Unlinks whatever QuickBooks company is currently connected to this
-// organization. Needed because OAuth can silently connect the wrong
-// company — Intuit auto-authorizes using whatever account is already
-// logged into the browser, with no confirmation step — so users need
-// a way to undo that and reconnect with the right account.
-// ============================================================
-
+// Intuit can silently authorize whatever company is already signed in to
+// the browser, so the owner needs a way to undo a wrong connection.
 router.delete('/disconnect', requireOrgAccess, async (req, res) => {
     try {
-        const {
-            organizationId
-        } = req.query;
+        await supabaseService.deleteQuickBooksTokens(req.query.organizationId);
 
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        await supabaseService.deleteQuickBooksTokens(
-            organizationId
-        );
+        forgetOrganizationCaches(req.query.organizationId);
 
         res.json({ success: true });
     } catch (error) {
-        console.error(
-            'Failed to disconnect QuickBooks:',
-            error
-        );
+        console.error('Failed to disconnect QuickBooks:', error.message);
 
-        res.status(500).json({
-            error: 'Failed to disconnect QuickBooks'
-        });
+        res.status(500).json({ error: 'Failed to disconnect QuickBooks' });
     }
 });
 
 // ============================================================
-// GET /api/quickbooks/cash-projection
+// GET /status
 //
-// Where the owner's cash is heading over the next N days, built from
-// today's bank balance plus the due dates on their unpaid invoices and
-// bills. The "safe floor" it warns against is derived from the
-// business's own recent outgoings rather than a number we picked.
-// ============================================================
-
-router.get('/cash-projection', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId,
-            days
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const horizon = Math.min(
-            Math.max(parseInt(days, 10) || 30, 7),
-            90
-        );
-
-        // The floor is "about a month of what you normally spend", so it
-        // needs a few months of actual outgoings behind it. Each month
-        // costs a P&L call, so this is deliberately just three — enough
-        // to smooth out one unusual month without making the request slow.
-        const accessToken =
-            await quickbooksService.getValidAccessToken(connection);
-
-        const monthlyOutflows = [];
-
-        const now = new Date();
-
-        for (let i = 3; i >= 1; i--) {
-            const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-            const iso = d => d.toISOString().slice(0, 10);
-
-            try {
-                const report = await quickbooksService.getProfitAndLoss(
-                    accessToken,
-                    connection.realmId,
-                    iso(start),
-                    iso(end)
-                );
-
-                const parsed = quickbooksService.parseProfitAndLoss(report);
-
-                const outgoings =
-                    Number(parsed?.costOfGoodsSold || 0) +
-                    Number(parsed?.expenses || 0);
-
-                if (outgoings > 0) {
-                    monthlyOutflows.push(outgoings);
-                }
-            } catch (monthError) {
-                // A month that won't load just doesn't contribute to the
-                // average — better a floor from two months than none.
-                console.error(
-                    'Cash projection: skipping a month of outgoings:',
-                    monthError.message
-                );
-            }
-        }
-
-        const projection = await cashProjectionService.buildCashProjection(
-            connection,
-            { days: horizon, monthlyOutflows }
-        );
-
-        return res.json(projection);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to build cash projection:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to work out your cash projection'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/bills-schedule
-//
-// Unpaid supplier bills grouped by when they fall due, so the owner can
-// see what has to be paid this week separately from what can wait.
-// ============================================================
-
-router.get('/bills-schedule', requireOrgAccess, async (req, res) => {
-    try {
-        const { organizationId } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const schedule =
-            await billsScheduleService.getBillsSchedule(connection);
-
-        return res.json(schedule);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to load the bills schedule:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to load your upcoming bills'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/money-flow
-//
-// Where the money came from and what it went on over a period, ranked
-// largest first with each line's share of the total.
-// ============================================================
-
-router.get('/money-flow', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId,
-            startDate,
-            endDate
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        if (!startDate || !endDate) {
-            return res.status(400).json({
-                error: 'startDate and endDate are required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const flow = await moneyFlowService.getMoneyFlow(connection, {
-            startDate,
-            endDate
-        });
-
-        return res.json(flow);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to build the money flow breakdown:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to work out where your money went'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/cash-cushion
-//
-// What the bank balance looks like at the end of a scenario's horizon,
-// starting from today's real balance and the business's own recent
-// monthly trading. Called as the Scenarios sliders move, so the
-// baseline behind it is cached per organization for a few minutes.
-// ============================================================
-
-router.get('/cash-cushion', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId,
-            months,
-            revGrowth,
-            cogsGrowth,
-            opexGrowth,
-            taxRate
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const cushion = await cashCushionService.getCashCushion(connection, {
-            months: Number(months),
-            revGrowth: Number(revGrowth),
-            cogsGrowth: Number(cogsGrowth),
-            opexGrowth: Number(opexGrowth),
-            taxRate: Number(taxRate)
-        });
-
-        return res.json(cushion);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to estimate the cash cushion:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to estimate your bank balance'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/debt-detail
-//
-// Each loan and card with the history behind its balance: what has been
-// paid off, what the payments look like, and how long it would take to
-// clear at that rate.
-// ============================================================
-
-router.get('/debt-detail', requireOrgAccess, async (req, res) => {
-    try {
-        const { organizationId } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const detail =
-            await debtDetailService.getDebtDetail(connection);
-
-        return res.json(detail);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to load debt detail:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to load your loans and cards'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/invoice-urgency
-//
-// Unpaid customer invoices grouped by how urgently they need chasing,
-// rather than by the accountant's 30-day aging buckets.
-// ============================================================
-
-router.get('/invoice-urgency', requireOrgAccess, async (req, res) => {
-    try {
-        const { organizationId } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const urgency =
-            await invoiceUrgencyService.getInvoiceUrgency(connection);
-
-        return res.json(urgency);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to load invoice urgency:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to load who owes you'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/pl-story
-//
-// The Profit & Loss read as the sequence it describes: sold this much,
-// cost this to deliver, left this, running costs took this, kept this.
-// ============================================================
-
-router.get('/pl-story', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId,
-            startDate,
-            endDate
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        if (!startDate || !endDate) {
-            return res.status(400).json({
-                error: 'startDate and endDate are required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const story = await plStoryService.getPLStory(connection, {
-            startDate,
-            endDate
-        });
-
-        return res.json(story);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to build the profit story:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to work out where your profit went'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/balance-questions
-//
-// The balance sheet turned into the three questions it actually
-// answers, rather than three totals the reader has to interpret.
-// ============================================================
-
-router.get('/balance-questions', requireOrgAccess, async (req, res) => {
-    try {
-        const { organizationId, asOf } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const questions =
-            await balanceQuestionsService.getBalanceQuestions(connection, {
-                asOf: asOf || new Date().toISOString().slice(0, 10)
-            });
-
-        return res.json(questions);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to build the balance sheet questions:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to read your balance sheet'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/ratio-questions
-//
-// The ratios phrased as the questions they answer, including the one
-// comparison nobody runs for themselves: whether the business pays its
-// suppliers faster than its customers pay it.
-// ============================================================
-
-router.get('/ratio-questions', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId,
-            startDate,
-            endDate
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        if (!startDate || !endDate) {
-            return res.status(400).json({
-                error: 'startDate and endDate are required'
-            });
-        }
-
-        const connection =
-            await getConnection(organizationId);
-
-        if (!connection) {
-            return res.status(400).json({
-                error: 'QuickBooks is not connected',
-                code: 'QB_NOT_CONNECTED'
-            });
-        }
-
-        const questions =
-            await ratioQuestionsService.getRatioQuestions(connection, {
-                startDate,
-                endDate
-            });
-
-        return res.json(questions);
-
-    } catch (error) {
-        if (error.code === 'QB_REAUTH_REQUIRED') {
-            return res.status(400).json({
-                error: 'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.',
-                code: 'QB_REAUTH_REQUIRED'
-            });
-        }
-
-        console.error(
-            'Failed to build the ratio questions:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error: 'Failed to work out your health checks'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/status
+// A saved row is not the same thing as a working connection, so the token
+// is exercised here. A terminal auth failure is reported as needing
+// reconnection; anything transient (a network blip, an Intuit outage)
+// still reports connected, so the owner isn't sent through a reconnect
+// they don't need.
 // ============================================================
 
 router.get('/status', requireOrgAccess, async (req, res) => {
     try {
-        const {
-            organizationId
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error:
-                    'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(
-                organizationId
-            );
+        const connection = await getConnection(req.query.organizationId);
 
         if (!connection) {
             return res.json({
                 connected: false,
-                message:
-                    'QuickBooks is not connected'
+                message: 'QuickBooks is not connected'
             });
         }
 
-        // A saved row is not the same thing as a working connection.
-        // Reporting "connected" purely because a row exists meant an
-        // organization whose refresh token had been revoked still saw a
-        // green badge while every data call failed, with nothing telling
-        // the owner to reconnect. So the token is exercised here, and a
-        // terminal auth failure is reported as needing reconnection.
         let companyName = null;
 
         try {
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
+            const accessToken = await quickbooksService.getValidAccessToken(connection);
+            const companyInfo = await quickbooksService.getCompanyInfo(accessToken, connection.realmId);
 
-            const companyInfo =
-                await quickbooksService.getCompanyInfo(
-                    accessToken,
-                    connection.realmId
-                );
-
-            companyName =
-                companyInfo?.CompanyInfo?.CompanyName || null;
+            companyName = companyInfo?.CompanyInfo?.CompanyName || null;
         } catch (companyError) {
-            console.error(
-                'Failed to verify QuickBooks connection for status:',
-                companyError.response?.data ||
-                companyError.message
-            );
-
             if (companyError.code === 'QB_REAUTH_REQUIRED') {
                 return res.json({
                     connected: false,
                     needsReconnect: true,
                     realmId: connection.realmId,
                     connectedAt: connection.connectedAt,
-                    message:
-                        'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.'
+                    message: REAUTH_MESSAGE
                 });
             }
 
-            // Anything else (a network blip, an Intuit outage) is
-            // transient — the connection itself is still good, so don't
-            // push the owner through a reconnect they don't need.
+            console.error(
+                'Failed to verify QuickBooks connection for status:',
+                companyError.response?.data || companyError.message
+            );
         }
 
         return res.json({
             connected: true,
-
-            realmId:
-                connection.realmId,
-
-            connectedAt:
-                connection.connectedAt,
-
+            realmId: connection.realmId,
+            connectedAt: connection.connectedAt,
             companyName
         });
     } catch (error) {
-        console.error(
-            'Failed to check QuickBooks status:',
-            error
-        );
+        console.error('Failed to check QuickBooks status:', error.message);
 
-        res.status(500).json({
-            error:
-                'Failed to check connection status'
-        });
-    }
-});
-router.get('/expenses', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error: 'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(
-                organizationId
-            );
-
-        if (!connection) {
-            return res.status(404).json({
-                error:
-                    'QuickBooks is not connected'
-            });
-        }
-
-        const expenses =
-            await quickbooksService.getExpenseTransactions(
-                connection.accessToken,
-                connection.realmId
-            );
-
-        return res.json({
-            expenses
-        });
-
-    } catch (error) {
-
-        console.error(
-            'Failed to fetch QuickBooks expenses:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error:
-                'Failed to fetch QuickBooks expenses'
-        });
-    }
-});
-
-router.get('/accounts-test', requireOrgAccess, async (req, res) => {
-    try {
-
-        const {
-            organizationId
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error:
-                    'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(
-                organizationId
-            );
-
-        if (!connection) {
-            return res.status(401).json({
-                error:
-                    'QuickBooks is not connected'
-            });
-        }
-
-        const accessToken =
-            await quickbooksService.getValidAccessToken(
-                connection
-            );
-
-        const data =
-            await quickbooksService.makeApiRequest(
-                accessToken,
-                connection.realmId,
-                `query?query=${encodeURIComponent(
-                    "SELECT * FROM Account MAXRESULTS 1000"
-                )}`
-            );
-
-        console.log(
-            "QUICKBOOKS ACCOUNTS:",
-            JSON.stringify(
-                data,
-                null,
-                2
-            )
-        );
-
-        return res.json({
-            accounts:
-                data?.QueryResponse?.Account ||
-                []
-        });
-
-    } catch (error) {
-
-        console.error(
-            'Failed to fetch QuickBooks accounts:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error:
-                'Failed to fetch QuickBooks accounts'
-        });
-    }
-});
-router.get('/debt', requireOrgAccess, async (req, res) => {
-    try {
-
-        const {
-            organizationId
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error:
-                    'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(
-                organizationId
-            );
-
-        if (!connection) {
-            return res.status(401).json({
-                error:
-                    'QuickBooks is not connected'
-            });
-        }
-
-        const accessToken =
-            await quickbooksService.getValidAccessToken(
-                connection
-            );
-
-        const accounts =
-            await quickbooksService.getAccounts(
-                accessToken,
-                connection.realmId
-            );
-
-        const debtAccounts =
-            quickbooksService.getDebtAccounts(
-                accounts
-            );
-
-        const currentDebt =
-            debtAccounts
-                .filter(account =>
-                    account.category ===
-                    "Current Debt" ||
-                    account.category ===
-                    "Credit Card Debt"
-                )
-                .reduce(
-                    (total, account) =>
-                        total +
-                        account.balance,
-                    0
-                );
-
-        const longTermDebt =
-            debtAccounts
-                .filter(account =>
-                    account.category ===
-                    "Long-Term Debt"
-                )
-                .reduce(
-                    (total, account) =>
-                        total +
-                        account.balance,
-                    0
-                );
-
-        const totalDebt =
-            currentDebt +
-            longTermDebt;
-
-        return res.json({
-
-            currentDebt,
-
-            longTermDebt,
-
-            totalDebt,
-
-            accounts:
-                debtAccounts
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            'Failed to fetch debt:',
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            error:
-                'Failed to fetch debt data'
-        });
+        res.status(500).json({ error: 'Failed to check connection status' });
     }
 });
 
 // ============================================================
-// GET /api/quickbooks/company
+// OWNER-FACING VIEWS
 // ============================================================
 
-router.get('/company', requireOrgAccess, async (req, res) => {
-    try {
-        const {
-            organizationId
-        } = req.query;
-
-        if (!organizationId) {
-            return res.status(400).json({
-                error:
-                    'organizationId is required'
-            });
-        }
-
-        const connection =
-            await getConnection(
-                organizationId
-            );
-
-        if (!connection) {
-            return res.status(401).json({
-                error:
-                    'QuickBooks is not connected'
-            });
-        }
-
-        const accessToken =
-            await quickbooksService.getValidAccessToken(
-                connection
-            );
-
-        const companyInfo =
-            await quickbooksService.getCompanyInfo(
-                accessToken,
-                connection.realmId
-            );
-
-        console.log(
-            'CompanyInfo received from QuickBooks'
-        );
-
-        res.json(companyInfo);
-    } catch (error) {
-        console.error(
-            'Failed to fetch company information:',
-            error.response?.data ||
-            error.message
-        );
-
-        res.status(500).json({
-            error:
-                'Failed to fetch company information'
-        });
-    }
-});
-
-// ============================================================
-// GET /api/quickbooks/reports/profit-and-loss
-// ============================================================
+// Where the cash is heading over the next N days. The "safe floor" it
+// warns against is about a month of the business's own recent outgoings,
+// so it needs a few months of P&L behind it — three is enough to smooth
+// out one unusual month without making the request slow.
 router.get(
-    '/reports/profit-and-loss',
+    '/cash-projection',
     requireOrgAccess,
-    async (req, res) => {
-        try {
-            const {
-                organizationId,
-                startDate,
-                endDate
-            } = req.query;
+    qbRoute('Failed to work out your cash projection', async (connection, query) => {
+        const days = Math.min(Math.max(parseInt(query.days, 10) || 30, 7), 90);
 
-            if (!organizationId) {
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-            }
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
 
-            if (!startDate || !endDate) {
-                return res.status(400).json({
-                    error:
-                        'startDate and endDate are required'
-                });
-            }
+        const now = new Date();
+        const iso = d => d.toISOString().slice(0, 10);
 
-            const connection =
-                await getConnection(
-                    organizationId
-                );
+        const outgoings = await Promise.all(
+            [3, 2, 1].map(async i => {
+                const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
 
-            if (!connection) {
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-            }
+                try {
+                    const parsed = quickbooksService.parseProfitAndLoss(
+                        await quickbooksService.getProfitAndLoss(
+                            accessToken,
+                            connection.realmId,
+                            iso(start),
+                            iso(end)
+                        )
+                    );
 
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
+                    return Number(parsed?.costOfGoodsSold || 0) + Number(parsed?.expenses || 0);
+                } catch (monthError) {
+                    // A month that won't load just doesn't contribute to
+                    // the average — better a floor from two months than none.
+                    console.error(
+                        'Cash projection: skipping a month of outgoings:',
+                        monthError.message
+                    );
 
-            const report =
-                await quickbooksService.getProfitAndLoss(
-                    accessToken,
-                    connection.realmId,
-                    startDate,
-                    endDate
-                );
+                    return 0;
+                }
+            })
+        );
 
-            const normalizedReport =
-            quickbooksService.parseProfitAndLoss(
-                report
-            );
+        return cashProjectionService.buildCashProjection(connection, {
+            days,
+            monthlyOutflows: outgoings.filter(v => v > 0)
+        });
+    })
+);
 
-            return res.json(normalizedReport);
+router.get(
+    '/bills-schedule',
+    requireOrgAccess,
+    qbRoute('Failed to load your upcoming bills', connection =>
+        billsScheduleService.getBillsSchedule(connection)
+    )
+);
 
-        } catch (error) {
+router.get(
+    '/money-flow',
+    requireOrgAccess,
+    requireDates('startDate', 'endDate'),
+    qbRoute('Failed to work out where your money went', (connection, { startDate, endDate }) =>
+        moneyFlowService.getMoneyFlow(connection, { startDate, endDate })
+    )
+);
 
-            console.error(
-                'Failed to fetch Profit & Loss:',
-                error.response?.data ||
-                error.message
-            );
+// Called as the Scenarios sliders move; the baseline behind it is cached
+// per organization inside the service.
+router.get(
+    '/cash-cushion',
+    requireOrgAccess,
+    qbRoute('Failed to estimate your bank balance', (connection, query) =>
+        cashCushionService.getCashCushion(connection, {
+            months: Number(query.months),
+            revGrowth: Number(query.revGrowth),
+            cogsGrowth: Number(query.cogsGrowth),
+            opexGrowth: Number(query.opexGrowth),
+            taxRate: Number(query.taxRate)
+        })
+    )
+);
 
-            return res.status(500).json({
-                error:
-                    'Failed to fetch Profit & Loss'
-            });
-        }
-    }
+router.get(
+    '/debt-detail',
+    requireOrgAccess,
+    qbRoute('Failed to load your loans and cards', connection =>
+        debtDetailService.getDebtDetail(connection)
+    )
+);
+
+router.get(
+    '/invoice-urgency',
+    requireOrgAccess,
+    qbRoute('Failed to load who owes you', connection =>
+        invoiceUrgencyService.getInvoiceUrgency(connection)
+    )
+);
+
+router.get(
+    '/pl-story',
+    requireOrgAccess,
+    requireDates('startDate', 'endDate'),
+    qbRoute('Failed to work out where your profit went', (connection, { startDate, endDate }) =>
+        plStoryService.getPLStory(connection, { startDate, endDate })
+    )
+);
+
+router.get(
+    '/balance-questions',
+    requireOrgAccess,
+    qbRoute('Failed to read your balance sheet', (connection, { asOf }) =>
+        balanceQuestionsService.getBalanceQuestions(connection, {
+            asOf: /^\d{4}-\d{2}-\d{2}$/.test(String(asOf || ''))
+                ? asOf
+                : new Date().toISOString().slice(0, 10)
+        })
+    )
+);
+
+router.get(
+    '/ratio-questions',
+    requireOrgAccess,
+    requireDates('startDate', 'endDate'),
+    qbRoute('Failed to work out your health checks', (connection, { startDate, endDate }) =>
+        ratioQuestionsService.getRatioQuestions(connection, { startDate, endDate })
+    )
+);
+
+router.get(
+    '/debt',
+    requireOrgAccess,
+    qbRoute('Failed to fetch debt data', async connection => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
+
+        const debtAccounts = quickbooksService.getDebtAccounts(
+            await quickbooksService.getAccounts(accessToken, connection.realmId)
+        );
+
+        const sumOf = categories =>
+            debtAccounts
+                .filter(account => categories.includes(account.category))
+                .reduce((total, account) => total + account.balance, 0);
+
+        const currentDebt = sumOf(['Current Debt', 'Credit Card Debt']);
+        const longTermDebt = sumOf(['Long-Term Debt']);
+
+        return {
+            currentDebt,
+            longTermDebt,
+            totalDebt: currentDebt + longTermDebt,
+            accounts: debtAccounts
+        };
+    })
+);
+
+router.get(
+    '/invoices',
+    requireOrgAccess,
+    qbRoute('Failed to fetch invoices', async connection => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
+
+        return {
+            invoices: await quickbooksService.getInvoices(accessToken, connection.realmId)
+        };
+    })
 );
 
 // ============================================================
-// GET /api/quickbooks/reports/balance-sheet
+// PARSED REPORTS
 // ============================================================
+
+router.get(
+    '/reports/profit-and-loss',
+    requireOrgAccess,
+    requireDates('startDate', 'endDate'),
+    qbRoute('Failed to fetch Profit & Loss', async (connection, { startDate, endDate }) => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
+
+        return quickbooksService.parseProfitAndLoss(
+            await quickbooksService.getProfitAndLoss(accessToken, connection.realmId, startDate, endDate)
+        );
+    })
+);
 
 router.get(
     '/reports/balance-sheet',
     requireOrgAccess,
-    async (req, res) => {
-        try {
-            const {
-                organizationId,
-                startDate
-            } = req.query;
+    requireDates('startDate'),
+    qbRoute('Failed to fetch Balance Sheet', async (connection, { startDate }) => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
 
-            if (!organizationId) {
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-            }
-
-            if (!startDate) {
-                return res.status(400).json({
-                    error:
-                        'startDate is required',
-
-                    example:
-                        '/api/quickbooks/reports/balance-sheet?organizationId=YOUR_ORG_ID&startDate=2026-08-20'
-                });
-            }
-
-            const connection =
-                await getConnection(
-                    organizationId
-                );
-
-            if (!connection) {
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-            }
-
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
-
-            const report =
-                await quickbooksService.getBalanceSheet(
-                    accessToken,
-                    connection.realmId,
-                    startDate
-                );
-
-            const normalizedReport =
-                quickbooksService.parseBalanceSheet(
-                    report
-                );
-
-            res.json(normalizedReport);
-        } catch (error) {
-            console.error(
-                'Failed to fetch Balance Sheet:',
-                error.response?.data ||
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    'Failed to fetch Balance Sheet'
-            });
-        }
-    }
+        return quickbooksService.parseBalanceSheet(
+            await quickbooksService.getBalanceSheet(accessToken, connection.realmId, startDate)
+        );
+    })
 );
-
-// ============================================================
-// GET /api/quickbooks/reports/cash-flow
-// ============================================================
 
 router.get(
     '/reports/cash-flow',
     requireOrgAccess,
-    async (req, res) => {
-        try {
-            const {
-                organizationId,
-                startDate,
-                endDate
-            } = req.query;
+    requireDates('startDate', 'endDate'),
+    qbRoute('Failed to fetch Cash Flow', async (connection, { startDate, endDate }) => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
 
-            if (!organizationId) {
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-            }
-
-            if (!startDate || !endDate) {
-                return res.status(400).json({
-                    error:
-                        'startDate and endDate are required',
-
-                    example:
-                        '/api/quickbooks/reports/cash-flow?organizationId=YOUR_ORG_ID&startDate=2026-01-01&endDate=2026-08-20'
-                });
-            }
-
-            const connection =
-                await getConnection(
-                    organizationId
-                );
-
-            if (!connection) {
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-            }
-
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
-
-            const report =
-                await quickbooksService.getCashFlow(
-                    accessToken,
-                    connection.realmId,
-                    startDate,
-                    endDate
-                );
-
-            const normalizedReport =
-                quickbooksService.parseCashFlow(
-                    report
-                );
-
-            // parseCashFlow reads the real "Cash at beginning of period"
-            // figure straight from QuickBooks' own report — matches the
-            // sandbox exactly. Only fall back to estimating it from the
-            // prior day's Balance Sheet if that row wasn't present.
-            if (!normalizedReport.openingCash) {
-                const openingCash =
-                    await quickbooksService.getOpeningCashBalance(
-                        accessToken,
-                        connection.realmId,
-                        startDate
-                    );
-
-                normalizedReport.openingCash =
-                    openingCash.amount;
-
-                normalizedReport.openingCashDate =
-                    openingCash.date;
-            }
-
-            normalizedReport.closingCash =
-                normalizedReport.endingCash;
-
-                console.log(
-            "FINAL Cash Flow Opening Cash:",
-            normalizedReport.openingCash
-        );
-        
-        console.log(
-            "FINAL Cash Flow Closing Cash:",
-            normalizedReport.closingCash
+        const report = quickbooksService.parseCashFlow(
+            await quickbooksService.getCashFlow(accessToken, connection.realmId, startDate, endDate)
         );
 
-            res.json(normalizedReport);
-        } catch (error) {
-            console.error(
-                'Failed to fetch Cash Flow:',
-                error.response?.data ||
-                error.message
+        // parseCashFlow reads the real "Cash at beginning of period" row
+        // from QuickBooks' own report. Only estimate it from the prior
+        // day's Balance Sheet if that row wasn't present.
+        if (!report.openingCash) {
+            const openingCash = await quickbooksService.getOpeningCashBalance(
+                accessToken,
+                connection.realmId,
+                startDate
             );
 
-            res.status(500).json({
-                error:
-                    'Failed to fetch Cash Flow'
-            });
+            report.openingCash = openingCash.amount;
+            report.openingCashDate = openingCash.date;
         }
-    }
-);
 
-// ============================================================
-// GET /api/quickbooks/reports/accounts-receivable
-// ============================================================
+        report.closingCash = report.endingCash;
+
+        return report;
+    })
+);
 
 router.get(
     '/reports/accounts-receivable',
     requireOrgAccess,
-    async (req, res) => {
-        try {
-            const {
-                organizationId,
-                startDate
-            } = req.query;
+    requireDates('startDate'),
+    qbRoute('Failed to fetch Accounts Receivable', async (connection, { startDate }) => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
 
-            if (!organizationId) {
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-            }
-
-            if (!startDate) {
-                return res.status(400).json({
-                    error:
-                        'startDate is required'
-                });
-            }
-
-            const connection =
-                await getConnection(
-                    organizationId
-                );
-
-            if (!connection) {
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-            }
-
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
-
-            const report =
-                await quickbooksService.getAccountsReceivable(
-                    accessToken,
-                    connection.realmId,
-                    startDate
-                );
-            const normalizedReport =
-                quickbooksService.parseAccountsReceivable(
-                    report
-                );
-
-            res.json(normalizedReport);
-
-        } catch (error) {
-
-            console.error(
-                'Failed to fetch Accounts Receivable:',
-                error.response?.data ||
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    'Failed to fetch Accounts Receivable'
-            });
-        }
-    }
+        return quickbooksService.parseAccountsReceivable(
+            await quickbooksService.getAccountsReceivable(accessToken, connection.realmId, startDate)
+        );
+    })
 );
+
 router.get(
     '/reports/accounts-payable',
     requireOrgAccess,
-    async (req, res) => {
+    requireDates('startDate'),
+    qbRoute('Failed to fetch Accounts Payable', async (connection, { startDate }) => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
 
-        try {
-
-            const {
-                organizationId,
-                startDate
-            } = req.query;
-
-
-            console.log(
-                "AP REQUEST:",
-                {
-                    organizationId,
-                    startDate
-                }
-            );
-
-
-            if (!organizationId) {
-
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-
-            }
-
-
-            if (!startDate) {
-
-                return res.status(400).json({
-                    error:
-                        'startDate is required'
-                });
-
-            }
-
-
-            const connection =
-                await getConnection(
-                    organizationId
-                );
-
-
-            console.log(
-                "AP CONNECTION:",
-                !!connection
-            );
-
-
-            if (!connection) {
-
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-
-            }
-
-
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
-
-
-            console.log(
-                "AP ACCESS TOKEN:",
-                !!accessToken
-            );
-
-
-            console.log(
-                "Calling QuickBooks AgedPayables..."
-            );
-
-
-            const report =
-                await quickbooksService.getAccountsPayable(
-                    accessToken,
-                    connection.realmId,
-                    startDate
-                );
-
-
-
-
-            const normalizedReport =
-                quickbooksService.parseAccountsPayable(
-                    report
-                );
-
-
-            console.log(
-                "NORMALIZED AP:",
-                normalizedReport
-            );
-
-
-            return res.json(
-                normalizedReport
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                'FAILED TO FETCH ACCOUNTS PAYABLE:',
-                error.response?.data ||
-                error.message
-            );
-
-
-            console.error(
-                'FULL ERROR:',
-                error
-            );
-
-
-            return res.status(500).json({
-                error:
-                    'Failed to fetch Accounts Payable'
-            });
-
-        }
-
-    }
+        return quickbooksService.parseAccountsPayable(
+            await quickbooksService.getAccountsPayable(accessToken, connection.realmId, startDate)
+        );
+    })
 );
-router.get(
-    '/invoices',
-    requireOrgAccess,
-    async (req, res) => {
-
-        try {
-
-            const {
-                organizationId
-            } = req.query;
-
-            if (!organizationId) {
-                return res.status(400).json({
-                    error:
-                        'organizationId is required'
-                });
-            }
-
-            const connection =
-                await getConnection(
-                    organizationId
-                );
-
-            if (!connection) {
-                return res.status(401).json({
-                    error:
-                        'QuickBooks is not connected'
-                });
-            }
-
-            const accessToken =
-                await quickbooksService.getValidAccessToken(
-                    connection
-                );
-
-            const invoices =
-                await quickbooksService.getInvoices(
-                    accessToken,
-                    connection.realmId
-                );
-
-            console.log(
-                "RAW INVOICES:",
-                JSON.stringify(
-                    invoices,
-                    null,
-                    2
-                )
-            );
-
-            res.json({
-                invoices
-            });
-
-        } catch (error) {
-
-            console.error(
-                'Failed to fetch invoices:',
-                error.response?.data ||
-                error.message
-            );
-
-            res.status(500).json({
-                error:
-                    'Failed to fetch invoices'
-            });
-        }
-    }
-);
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = router;

@@ -5,8 +5,6 @@
   
   const state = {
     currentPage: "overview",
-    clientId: 1,
-    qbConnected: false,
     plPeriod: "month",
     cfPeriod: "month",
     bsPeriod: "month",
@@ -478,25 +476,15 @@
         );
       }
 
-      console.log(
-        "⚖️ Loading Balance Sheet for:",
-        organizationId,
-        period
-      );
-
       const asOfDate = getPeriodAsOfDate(period);
 
-      const data = await apiGet(
+      return apiGet(
         `/quickbooks/reports/balance-sheet?organizationId=${encodeURIComponent(
           organizationId
         )}&startDate=${encodeURIComponent(
           asOfDate
         )}`
       );
-
-      console.log("✅ Balance Sheet received:", data);
-
-      return data;
     }
 
     // Fetches the current period's snapshot plus the equivalent snapshot
@@ -547,128 +535,6 @@
     }
 
 
-    function renderBalanceAccounts(
-      accounts,
-      currency
-    ) {
-      if (!Array.isArray(accounts) || accounts.length === 0) {
-        return `
-          <div class="statement-empty">
-            No accounts found.
-          </div>
-        `;
-      }
-  
-      return accounts
-        .map(account => {
-          const name =
-            account.name ||
-            account.accountName ||
-            account.account_name ||
-            "Unnamed Account";
-  
-          const amount =
-            account.amount ??
-            account.value ??
-            account.balance ??
-            0;
-  
-          return `
-            <div class="statement-row">
-  
-              <span class="statement-account-name">
-                ${escapeHtml(name)}
-              </span>
-  
-              <strong class="statement-account-value">
-                ${formatCurrency(
-                  amount,
-                  currency
-                )}
-              </strong>
-  
-            </div>
-          `;
-        })
-        .join("");
-    }
-  
-  
-    function renderBalanceSection(
-      title,
-      accounts,
-      total,
-      currency,
-      icon
-    ) {
-      return `
-        <div class="card statement-card">
-  
-          <div class="statement-section-header">
-  
-            <div class="statement-section-title">
-  
-              <span class="statement-section-icon">
-                ${icon}
-              </span>
-  
-              <div>
-                <h2>
-                  ${title}
-                </h2>
-  
-                <span>
-                  ${
-                    Array.isArray(accounts)
-                      ? accounts.length
-                      : 0
-                  }
-                  accounts
-                </span>
-              </div>
-  
-            </div>
-  
-            <strong class="statement-section-total">
-              ${formatCurrency(
-                total,
-                currency
-              )}
-            </strong>
-  
-          </div>
-  
-  
-          <div class="statement-rows">
-  
-            ${renderBalanceAccounts(
-              accounts,
-              currency
-            )}
-  
-          </div>
-  
-  
-          <div class="statement-total">
-  
-            <span>
-              Total ${title}
-            </span>
-  
-            <strong>
-              ${formatCurrency(
-                total,
-                currency
-              )}
-            </strong>
-  
-          </div>
-  
-        </div>
-      `;
-    }
-  
-  
    function renderBalanceSheet(data, priorData = null) {
 
     const page =
@@ -1473,6 +1339,27 @@
       `;
     }
 
+    // A whole statement page that failed to load. Offers the one useful
+    // next step: try again, or reconnect when the connection itself is
+    // the problem. retryCall is always a fixed string from this file.
+    function pageLoadErrorHtml(title, error, retryCall) {
+      const reconnect =
+        error?.code === "QB_REAUTH_REQUIRED" || error?.code === "QB_NOT_CONNECTED";
+
+      return `
+        <div class="card card-pad">
+          <div style="font-size:18px;font-weight:600;">Unable to load ${escapeHtml(title)}</div>
+          <p style="margin-top:8px;color:var(--text-secondary);">
+            ${escapeHtml(error?.message || "Something went wrong. Please try again.")}
+          </p>
+          <button class="btn btn-primary" style="margin-top:16px;"
+                  onclick="${reconnect ? "NFK_App.connectQuickBooks()" : retryCall}">
+            ${reconnect ? "Reconnect QuickBooks" : "Try again"}
+          </button>
+        </div>
+      `;
+    }
+
     async function setBSPeriod(period) {
       state.bsPeriod = period;
 
@@ -1486,7 +1373,13 @@
         const { current, prior } = await loadBalanceSheetComparison(period);
         renderBalanceSheet(current, prior);
       } catch (error) {
-        console.error("❌ Failed to load Balance Sheet for period:", period, error);
+        console.error("Failed to load Balance Sheet:", error);
+
+        if (page) {
+          page.innerHTML = pageLoadErrorHtml(
+            "what you own & owe", error, `NFK_App.setBSPeriod('${period}')`
+          );
+        }
       }
     }
 
@@ -1503,15 +1396,9 @@
         );
       }
 
-      console.log(
-        "📊 Loading Profit & Loss for:",
-        organizationId,
-        period
-      );
-
       const { startDate, endDate } = getPeriodRange(period);
 
-      const data = await apiGet(
+      return apiGet(
         `/quickbooks/reports/profit-and-loss?organizationId=${encodeURIComponent(
           organizationId
         )}&startDate=${encodeURIComponent(
@@ -1520,176 +1407,69 @@
           endDate
         )}`
       );
-
-      console.log(
-        "✅ Profit & Loss received:",
-        data
-      );
-
-      return data;
     }
+
     async function loadInvoices() {
-    
-        const organizationId =
-            getOrganizationId();
-    
-        if (!organizationId) {
-    
-            console.error(
-                "❌ Organization ID is missing"
-            );
-    
-            throw new Error(
-                "Organization ID is missing"
-            );
-        }
-    
-        console.log(
-            "📄 Loading invoices for:",
-            organizationId
-        );
-    
-        try {
-    
-            const data =
-                await apiGet(
-                    `/quickbooks/invoices?organizationId=${encodeURIComponent(
-                        organizationId
-                    )}`
-                );
-    
-            console.log(
-                "📄 Invoice API response:",
-                data
-            );
-    
-            return data;
-    
-        } catch (error) {
-    
-            console.error(
-                "❌ Failed to load invoices:",
-                error
-            );
-    
-            throw error;
-        }
+      const organizationId = getOrganizationId();
+
+      if (!organizationId) {
+        throw new Error("Organization ID is missing");
+      }
+
+      return apiGet(
+        `/quickbooks/invoices?organizationId=${encodeURIComponent(organizationId)}`
+      );
     }
+
     async function loadDebt() {
-    
-        const organizationId =
-            getOrganizationId();
-    
-        if (!organizationId) {
-    
-            console.error(
-                "❌ Organization ID is missing"
-            );
-    
-            throw new Error(
-                "Organization ID is missing"
-            );
-        }
-    
-        console.log(
-            "💳 Loading debt for:",
-            organizationId
-        );
-    
-        try {
-    
-            const data =
-                await apiGet(
-                    `/quickbooks/debt?organizationId=${encodeURIComponent(
-                        organizationId
-                    )}`
-                );
-    
-            console.log(
-                "💳 Debt API response:",
-                data
-            );
-    
-            return data;
-    
-        } catch (error) {
-    
-            console.error(
-                "❌ Failed to load debt:",
-                error
-            );
-    
-            throw error;
-        }
+      const organizationId = getOrganizationId();
+
+      if (!organizationId) {
+        throw new Error("Organization ID is missing");
+      }
+
+      return apiGet(
+        `/quickbooks/debt?organizationId=${encodeURIComponent(organizationId)}`
+      );
     }
     
     
-    function renderProfitAndLoss(data) {
-    
+    // Draws the page frame straight away. The period, basis and currency
+    // in the header come from the same P&L story the body is built from,
+    // so the page needs one request, not a report fetch followed by the
+    // story fetch.
+    function renderProfitAndLoss() {
+
         const page =
             document.getElementById("page-pl");
-    
-        if (!page) {
-            console.error("❌ Profit & Loss page not found");
-            return;
-        }
-    
-        const currency =
-            data?.currency || "USD";
-    
-        console.log("NORMALIZED P&L DATA:", data);
-    
-    
-    
-        // ==========================================================
-        // PAGE
-        // ==========================================================
-    
+
+        if (!page) return;
+
         page.innerHTML = `
-    
+
             <div class="pl-page">
-    
+
                 <!-- HEADER -->
-    
+
                 <div class="pl-page-header">
-    
+
                     <div>
-    
+
                         <div class="pl-page-title">
                             What you kept
                             <span class="page-title-term">Profit &amp; Loss</span>
                         </div>
-    
-                        <div class="pl-page-subtitle">
-    
-                            ${escapeHtml(
-                                data?.period?.startDate || "—"
-                            )}
-    
-                            →
-    
-                            ${escapeHtml(
-                                data?.period?.endDate || "—"
-                            )}
-    
-                            ·
-    
-                            ${escapeHtml(
-                                data?.reportBasis || "Accrual"
-                            )}
-    
-                        </div>
-    
+
+                        <div class="pl-page-subtitle" id="pl-page-subtitle">&nbsp;</div>
+
                     </div>
-    
-    
+
+
                     <div class="pl-header-actions">
 
                         ${renderPeriodSelector(state.plPeriod, "setPLPeriod")}
 
-                        <div class="statement-badge">
-                            ${escapeHtml(currency)}
-                        </div>
+                        <div class="statement-badge" id="pl-currency-badge" style="display:none;"></div>
 
                     </div>
 
@@ -1878,6 +1658,19 @@
       if (!body || !story) return;
 
       const currency = story.currency || "USD";
+
+      const subtitle = document.getElementById("pl-page-subtitle");
+      if (subtitle) {
+        subtitle.textContent =
+          `${story.period?.startDate || "—"} → ${story.period?.endDate || "—"} · ` +
+          `${story.reportBasis || "Accrual"}`;
+      }
+
+      const badge = document.getElementById("pl-currency-badge");
+      if (badge) {
+        badge.textContent = currency;
+        badge.style.display = "";
+      }
       const money = v => formatCurrency(Number(v || 0), currency);
 
       const steps = story.steps || [];
@@ -1917,182 +1710,11 @@
       `;
     }
 
-    async function setPLPeriod(period) {
+    function setPLPeriod(period) {
       state.plPeriod = period;
-
-      const page = document.getElementById("page-pl");
-
-      if (page) {
-        page.innerHTML = renderSkeletonCard(10);
-      }
-
-      try {
-        const data = await loadProfitAndLoss(period);
-        renderProfitAndLoss(data);
-      } catch (error) {
-        console.error("❌ Failed to load Profit & Loss for period:", period, error);
-      }
+      renderProfitAndLoss();
     }
 
-    /* ============================================================
-       ACCOUNTS PAYABLE
-       ============================================================ */
-    
-    function renderAccountsPayable(data) {
-    
-        const page =
-            document.getElementById(
-                "page-ap-vendors"
-            );
-    
-        if (!page) return;
-    
-        const aging =
-            data?.aging || {};
-    
-        const vendors =
-            data?.vendors || [];
-    
-        const total =
-            Number(data?.total || 0);
-    
-        const getStatus = vendor => {
-    
-            if (Number(vendor.over90) > 0)
-                return "90+ days";
-    
-            if (Number(vendor.days61to90) > 0)
-                return "61–90 days";
-    
-            if (Number(vendor.days31to60) > 0)
-                return "31–60 days";
-    
-            if (Number(vendor.days1to30) > 0)
-                return "1–30 days";
-    
-            return "Current";
-        };
-    
-        page.innerHTML = `
-    
-            <div class="page-header">
-    
-                <div>
-                    <div class="page-title">
-                        Bills to pay
-                        <span class="page-title-term">Accounts Payable</span>
-                    </div>
-    
-                    <div class="page-subtitle">
-                        From QuickBooks
-                    </div>
-                </div>
-    
-            </div>
-    
-    
-            <div class="card card-pad">
-    
-                <div class="card-header">
-    
-                    <span class="card-title">
-                        Accounts Payable
-                    </span>
-    
-                    <strong>
-                        ${fmt(total)}
-                    </strong>
-    
-                </div>
-    
-                <div>
-    
-                    Current:
-                    <strong>
-                        ${fmt(aging.current)}
-                    </strong>
-    
-                    &nbsp;&nbsp;
-    
-                    1–30:
-                    <strong>
-                        ${fmt(aging.days1to30)}
-                    </strong>
-    
-                    &nbsp;&nbsp;
-    
-                    31–60:
-                    <strong>
-                        ${fmt(aging.days31to60)}
-                    </strong>
-    
-                    &nbsp;&nbsp;
-    
-                    61–90:
-                    <strong>
-                        ${fmt(aging.days61to90)}
-                    </strong>
-    
-                    &nbsp;&nbsp;
-    
-                    90+:
-                    <strong>
-                        ${fmt(aging.over90)}
-                    </strong>
-    
-                </div>
-    
-            </div>
-    
-    
-            <div class="table-wrap">
-    
-                <table>
-    
-                    <thead>
-    
-                        <tr>
-                            <th>Vendor</th>
-                            <th class="num">Amount</th>
-                            <th>Status</th>
-                        </tr>
-    
-                    </thead>
-    
-                    <tbody>
-    
-                        ${vendors.map(vendor => `
-    
-                            <tr>
-    
-                                <td>
-                                    ${escapeHtml(
-                                        vendor.name
-                                    )}
-                                </td>
-    
-                                <td class="num">
-                                    ${fmt(
-                                        vendor.amount
-                                    )}
-                                </td>
-    
-                                <td>
-                                    ${getStatus(vendor)}
-                                </td>
-    
-                            </tr>
-    
-                        `).join("")}
-    
-                    </tbody>
-    
-                </table>
-    
-            </div>
-        `;
-    }
-    
 // ============================================================
 // CASH FLOW
 // ============================================================
@@ -2110,13 +1732,7 @@
 
       const { startDate, endDate } = getPeriodRange(period);
 
-      console.log(
-        "💵 Loading Cash Flow for:",
-        organizationId,
-        period
-      );
-    
-      const data = await apiGet(
+      return apiGet(
         `/quickbooks/reports/cash-flow?organizationId=${encodeURIComponent(
           organizationId
         )}&startDate=${encodeURIComponent(
@@ -2125,13 +1741,6 @@
           endDate
         )}`
       );
-    
-      console.log(
-        "✅ Cash Flow received:",
-        data
-      );
-    
-      return data;
     }
     
     
@@ -2833,7 +2442,13 @@ function renderCashFlow(data) {
         const data = await loadCashFlow(period);
         renderCashFlow(data);
       } catch (error) {
-        console.error("❌ Failed to load Cash Flow for period:", period, error);
+        console.error("Failed to load Cash Flow:", error);
+
+        if (page) {
+          page.innerHTML = pageLoadErrorHtml(
+            "money in & out", error, `NFK_App.setCFPeriod('${period}')`
+          );
+        }
       }
     }
 
@@ -2852,188 +2467,76 @@ function renderCashFlow(data) {
         );
       }
     
-      console.log(
-        "💰 Loading Accounts Receivable for:",
-        organizationId
-      );
-
       const startDate = toISODate(new Date());
 
-      const data = await apiGet(
+      return apiGet(
         `/quickbooks/reports/accounts-receivable?organizationId=${encodeURIComponent(
           organizationId
         )}&startDate=${encodeURIComponent(
           startDate
         )}`
       );
-    
-      console.log(
-        "✅ Accounts Receivable received:",
-        data
-      );
-    
-      return data;
     }
+
     async function loadAccountsPayable() {
+      const organizationId = getOrganizationId();
 
-    const organizationId =
-        getOrganizationId();
+      if (!organizationId) {
+        throw new Error("Organization ID is missing.");
+      }
 
-    if (!organizationId) {
-        throw new Error(
-            "Organization ID is missing."
-        );
+      const today = toISODate(new Date());
+
+      return apiGet(
+        `/quickbooks/reports/accounts-payable` +
+        `?organizationId=${encodeURIComponent(organizationId)}` +
+        `&startDate=${encodeURIComponent(today)}`
+      );
     }
 
-    console.log(
-        "📊 Loading Accounts Payable for:",
-        organizationId
-    );
 
-    const today = toISODate(new Date());
-
-    const data =
-        await apiGet(
-            `/quickbooks/reports/accounts-payable` +
-            `?organizationId=${encodeURIComponent(
-                organizationId
-            )}` +
-            `&startDate=${encodeURIComponent(
-                today
-            )}`
-        );
-
-    console.log(
-        "✅ Accounts Payable received:",
-        data
-    );
-
-    return data;
-}
-
-    
-//====================================================
+  // ============================================================
   // QUICKBOOKS STATUS
   // ============================================================
 
   async function checkQBConnection() {
-    const organizationId =
-      getOrganizationId();
+    const organizationId = getOrganizationId();
 
-    if (!organizationId) {
-      console.error(
-        "❌ Organization ID is missing"
-      );
-
-      state.qbConnected = false;
-
-      return null;
-    }
+    if (!organizationId) return null;
 
     try {
-      const status =
-        await apiGet(
-          `/quickbooks/status?organizationId=${encodeURIComponent(
-            organizationId
-          )}`
-        );
+      const status = await apiGet(
+        `/quickbooks/status?organizationId=${encodeURIComponent(organizationId)}`
+      );
 
-      state.qbConnected =
-        status.connected === true;
-
-      state.qbCompanyName =
-        status.companyName || null;
+      state.qbCompanyName = status.companyName || null;
 
       return status;
     } catch (error) {
-      console.error(
-        "❌ QuickBooks status check failed:",
-        error
-      );
-
-      state.qbConnected = false;
+      console.error("QuickBooks status check failed:", error);
 
       return null;
     }
   }
 
-  // ============================================================
-  // CONNECT QUICKBOOKS
-  // ============================================================
-
-  async function connectQuickBooks() {
-    const organizationId =
-      getOrganizationId();
-
-    const token =
-      window.NFK_Auth?.getAccessToken?.();
-
-    if (!organizationId || !token) {
-      alert(
-        "Organization ID is missing."
-      );
-
-      return;
-    }
-
-    try {
-      const data = await apiGet(
-        `/quickbooks/connect-url?organizationId=${encodeURIComponent(organizationId)}`
-      );
-
-      if (!data.authUrl) {
-        throw new Error("Failed to start QuickBooks connection");
-      }
-
-      window.location.href = data.authUrl;
-    } catch (error) {
-      console.error("❌ Failed to start QuickBooks connection:", error);
-      alert("Couldn't start the QuickBooks connection. Please try again.");
-    }
-  }
-
-  // ============================================================
-  // QUICKBOOKS CALLBACK
-  // ============================================================
-
-  function handleQBCallback() {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    if (
-      params.get("connected") === "true"
-    ) {
-      state.qbConnected = true;
-
-      console.log(
-        "✅ QuickBooks connected successfully"
-      );
-
-      // Remove query parameters from URL
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
-    }
+  // One connect flow for the whole portal — the one on the Connect screen,
+  // which also recovers an expired session before giving up.
+  function connectQuickBooks() {
+    window.NFK_Auth?.connectQB?.();
   }
 
   // ============================================================
   // INITIALIZE APP
+  //
+  // Only builds the empty shell. Data loads when auth.js calls
+  // enterPortal() for a signed-in, connected owner, so nothing is
+  // fetched for someone still on the login or Connect screen.
   // ============================================================
 
-  async function init() {
-    handleQBCallback();
-
+  function init() {
     buildSidebar();
 
     buildAllPages();
-
-    await buildTopBar();
-
-    navigate("overview");
 
     bindGlobalEvents();
   }
@@ -3170,64 +2673,6 @@ function renderCashFlow(data) {
       `;
 
       overlay.classList.add("open");
-    }
-
-
-    // --------------------------------------------------------
-    // FORECAST
-    // --------------------------------------------------------
-
-    async function loadAIForecast() {
-      const body = document.getElementById("insight-forecast-body");
-      if (!body) return;
-
-      const organizationId = getOrganizationId();
-      if (!organizationId) return;
-
-      try {
-        const { forecast, trend } = await apiGet(
-          `/ai/forecast?organizationId=${encodeURIComponent(organizationId)}`
-        );
-
-        const confidenceBadgeClass =
-          forecast.confidence === "high"
-            ? "badge-pos"
-            : forecast.confidence === "low"
-            ? "badge-warn"
-            : "badge-ai";
-
-        body.innerHTML = `
-          <div class="insight-card forecast">
-            <div class="insight-type-badge forecast">Forecast</div>
-            <div class="insight-body ai-msg-markdown" style="margin-bottom:16px;">
-              ${renderMarkdown(forecast.narrative)}
-            </div>
-            <div style="height:220px;margin-bottom:16px;">
-              <canvas id="chart-ai-forecast"></canvas>
-            </div>
-            <ul style="margin:0 0 12px 18px;padding:0;color:var(--text-secondary);font-size:13px;line-height:1.7;">
-              ${forecast.keyAssumptions.map(a => `<li>${renderMarkdown(a).replace(/^<p>|<\/p>$/g, "")}</li>`).join("")}
-            </ul>
-            <div class="insight-footer" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-              <span class="badge ${confidenceBadgeClass}">
-                ${escapeHtml(forecast.confidence)} confidence
-              </span>
-              <button class="btn btn-ghost" onclick="NFK_App.nav('forecast')">View full trends →</button>
-            </div>
-          </div>
-        `;
-
-        if (window.NFK_Charts?.renderForecastChart) {
-          window.NFK_Charts.renderForecastChart(
-            "chart-ai-forecast",
-            trend,
-            forecast.monthlyProjection
-          );
-        }
-      } catch (error) {
-        console.error("❌ Failed to load AI forecast:", error);
-        body.innerHTML = aiErrorCardHtml(error);
-      }
     }
 
 
@@ -3518,10 +2963,14 @@ function renderCashFlow(data) {
                       class="ai-chat-input"
                       placeholder="Ask about revenue, cash flow, margins..."
                       rows="1"
+                      aria-label="Ask NFP AI a question"
+                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();NFK_App.sendPageChat();}"
                   ></textarea>
-  
+
                   <button
                       class="ai-send-btn"
+                      id="ai-page-send"
+                      aria-label="Send question"
                       onclick="NFK_App.sendPageChat()"
                   >
                       ➤
@@ -4237,117 +3686,88 @@ function renderCashFlow(data) {
     }
 
 
+    let pageChatBusy = false;
+
     async function sendPageChat(prefill = null) {
-    
-        const input =
-            document.getElementById("ai-page-input");
-    
-        const messages =
-            document.getElementById("ai-page-messages");
-    
-        const question =
-            prefill ||
-            input?.value?.trim();
-    
-        if (!question) return;
-    
-        const organizationId =
-            getOrganizationId();
-    
-        if (!organizationId) {
-            console.error(
-                "❌ Organization ID is missing"
-            );
-            return;
-        }
-    
-        messages.innerHTML += `
-            <div class="ai-chat-msg user-msg">
-                <div class="ai-msg-bubble">
-                    ${escapeHtml(question)}
-                </div>
+        const input = document.getElementById("ai-page-input");
+        const messages = document.getElementById("ai-page-messages");
+        const sendBtn = document.getElementById("ai-page-send");
+
+        const question = (prefill || input?.value || "").trim();
+
+        // One question at a time: an answer can take a while, and a second
+        // send before it lands would interleave the conversation.
+        if (!question || !messages || pageChatBusy) return;
+
+        const organizationId = getOrganizationId();
+        if (!organizationId) return;
+
+        pageChatBusy = true;
+        if (sendBtn) sendBtn.disabled = true;
+
+        const append = html => {
+            messages.insertAdjacentHTML("beforeend", html);
+            messages.scrollTop = messages.scrollHeight;
+        };
+
+        const aiBubble = inner => `
+            <div class="ai-chat-msg ai-msg">
+                <div class="ai-msg-avatar">✦</div>
+                ${inner}
             </div>
         `;
-    
-        if (input) {
-            input.value = "";
-        }
-    
+
+        append(`
+            <div class="ai-chat-msg user-msg">
+                <div class="ai-msg-bubble">${escapeHtml(question)}</div>
+            </div>
+        `);
+
+        if (input) input.value = "";
+
+        append(aiBubble(`
+            <div class="ai-msg-bubble ai-typing-bubble" id="ai-page-typing" aria-label="NFP AI is thinking">
+                <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+            </div>
+        `));
+
+        const clearTyping = () =>
+            document.getElementById("ai-page-typing")?.closest(".ai-chat-msg")?.remove();
+
         try {
+            const response = await apiPost("/ai/ask", {
+                organizationId,
+                question,
+                history: nonakaChatHistory
+            });
 
-            console.log(
-                "🤖 Sending question to NFP AI:",
-                question
-            );
-
-            const response =
-                await apiPost(
-                    "/ai/ask",
-                    {
-                        organizationId,
-                        question,
-                        history: nonakaChatHistory
-                    }
-                );
-
-            console.log(
-                "🤖 NFP AI response:",
-                response
-            );
-
-            const answer =
-                response?.answer ||
-                "No answer received.";
+            const answer = response?.answer || "No answer received.";
 
             nonakaChatHistory.push(
                 { role: "user", content: question },
                 { role: "assistant", content: answer }
             );
 
-            messages.innerHTML += `
-                <div class="ai-chat-msg ai-msg">
-
-                    <div class="ai-msg-avatar">
-                        ✦
-                    </div>
-
-                    <div class="ai-msg-bubble ai-msg-markdown">
-                        ${renderMarkdown(answer)}
-                    </div>
-
-                </div>
-            `;
-
-            messages.scrollTop =
-                messages.scrollHeight;
-
+            clearTyping();
+            append(aiBubble(`<div class="ai-msg-bubble ai-msg-markdown">${renderMarkdown(answer)}</div>`));
         } catch (error) {
-
-            console.error(
-                "❌ NFP AI request failed:",
-                error
-            );
+            console.error("NFP AI request failed:", error);
 
             const errorText =
                 error?.code === "AI_KEY_NOT_CONFIGURED"
                     ? "NFP AI needs a Claude API key configured in the backend's .env file before it can answer questions."
                     : error?.code === "QB_NOT_CONNECTED"
                     ? "Connect QuickBooks first so I have real data to answer from."
+                    : error?.code === "QB_REAUTH_REQUIRED" || error?.code === "AI_NO_CREDITS"
+                    ? error.message
                     : "Sorry, I couldn't process that question right now.";
 
-            messages.innerHTML += `
-                <div class="ai-chat-msg ai-msg">
-
-                    <div class="ai-msg-avatar">
-                        ✦
-                    </div>
-
-                    <div class="ai-msg-bubble">
-                        ${escapeHtml(errorText)}
-                    </div>
-
-                </div>
-            `;
+            clearTyping();
+            append(aiBubble(`<div class="ai-msg-bubble">${escapeHtml(errorText)}</div>`));
+        } finally {
+            pageChatBusy = false;
+            if (sendBtn) sendBtn.disabled = false;
+            input?.focus();
         }
     }
   // ------------------------------------------------------
@@ -5676,68 +5096,9 @@ function renderCashFlow(data) {
     const currency =
       pl?.currency || bs?.currency || "USD";
 
-    function statCard(label, value, isError) {
-      return `
-        <div class="stat-card">
-          <div class="stat-label">${escapeHtml(label)}</div>
-          <div class="stat-val">
-            ${
-              isError
-                ? "—"
-                : formatCurrency(Number(value || 0), currency)
-            }
-          </div>
-          ${
-            isError
-              ? `<div class="stat-sub neg">Unable to load</div>`
-              : ""
-          }
-        </div>
-      `;
-    }
-
-    function ratioCard(label, value, isError, suffix = "%") {
-      return `
-        <div class="stat-card">
-          <div class="stat-label">${escapeHtml(label)}</div>
-          <div class="stat-val">
-            ${
-              isError || value === null
-                ? "—"
-                : `${value.toFixed(1)}${suffix}`
-            }
-          </div>
-          ${
-            isError || value === null
-              ? `<div class="stat-sub neg">Unable to calculate</div>`
-              : `<div class="stat-sub">Calculated from QuickBooks data</div>`
-          }
-        </div>
-      `;
-    }
-
-    // ------------------------------------------------------
-    // Ratios — computed only from real fetched QuickBooks
-    // figures. Left null (rendered as "—") when the source
-    // data needed for the calculation is unavailable.
-    // ------------------------------------------------------
-
+    // Left null (rendered as "—") when the report behind them failed.
     const income = pl?.error ? null : Number(pl?.income || 0);
     const netIncome = pl?.error ? null : Number(pl?.netIncome || 0);
-    const grossProfit = pl?.error ? null : Number(pl?.grossProfit || 0);
-
-    const grossMargin =
-      income && income !== 0
-        ? (grossProfit / income) * 100
-        : null;
-
-    const netMargin =
-      income && income !== 0
-        ? (netIncome / income) * 100
-        : null;
-
-    const totalAssets = bs?.error ? null : Number(bs?.totalAssets || 0);
-    const totalLiabilities = bs?.error ? null : Number(bs?.totalLiabilities || 0);
 
     const periodLabel =
       state.overviewPeriod === "quarter"
@@ -6587,9 +5948,11 @@ function renderCashFlow(data) {
     `;
   }
 
-  async function setOverviewPeriod(period) {
-    state.overviewPeriod = period;
-
+  // The prior-period figures are what every headline delta is measured
+  // against, so the page waits for them alongside the current ones. Drawn
+  // without them, a card could compare this quarter against whatever the
+  // previous period selection happened to load.
+  async function loadOverview(period) {
     const page = document.getElementById("page-overview");
 
     if (page) {
@@ -6600,18 +5963,22 @@ function renderCashFlow(data) {
       `;
     }
 
-    loadOverviewComparison(period)
-      .then(prior => { overviewState.prior = prior; })
-      .catch(() => { overviewState.prior = null; });
-
-    const results = await Promise.allSettled([
-      loadProfitAndLoss(period),
-      loadBalanceSheet(period),
-      loadCashFlow(period),
-      loadAccountsReceivable(),
-      loadAccountsPayable(),
-      loadDebt()
+    const [prior, results] = await Promise.all([
+      loadOverviewComparison(period).catch(() => null),
+      Promise.allSettled([
+        loadProfitAndLoss(period),
+        loadBalanceSheet(period),
+        loadCashFlow(period),
+        loadAccountsReceivable(),
+        loadAccountsPayable(),
+        loadDebt()
+      ])
     ]);
+
+    // A later period switch owns the page now.
+    if (period !== state.overviewPeriod || state.currentPage !== "overview") return;
+
+    overviewState.prior = prior;
 
     const [pl, bs, cf, ar, ap, debt] = results.map(r =>
       r.status === "fulfilled"
@@ -6620,6 +5987,11 @@ function renderCashFlow(data) {
     );
 
     renderOverview({ pl, bs, cf, ar, ap, debt });
+  }
+
+  function setOverviewPeriod(period) {
+    state.overviewPeriod = period;
+    return loadOverview(period);
   }
 
   // ------------------------------------------------------------
@@ -6703,38 +6075,7 @@ function renderCashFlow(data) {
     window.scrollTo(0, 0);
 
     if (pageId === "overview") {
-
-      const page =
-        document.getElementById("page-overview");
-
-      if (page) {
-        page.innerHTML = `
-          ${renderSkeletonCard(2)}
-          ${renderSkeletonStatGrid(4)}
-          ${renderSkeletonCard(4)}
-        `;
-      }
-
-      loadOverviewComparison(state.overviewPeriod)
-        .then(prior => { overviewState.prior = prior; })
-        .catch(() => { overviewState.prior = null; });
-
-      Promise.allSettled([
-        loadProfitAndLoss(state.overviewPeriod),
-        loadBalanceSheet(state.overviewPeriod),
-        loadCashFlow(state.overviewPeriod),
-        loadAccountsReceivable(),
-        loadAccountsPayable(),
-        loadDebt()
-      ]).then(results => {
-        const [pl, bs, cf, ar, ap, debt] = results.map(r =>
-          r.status === "fulfilled"
-            ? r.value
-            : { error: r.reason?.message || "Failed to load" }
-        );
-
-        renderOverview({ pl, bs, cf, ar, ap, debt });
-      });
+      loadOverview(state.overviewPeriod);
     }
 
     if (pageId === "kpis") {
@@ -6785,103 +6126,17 @@ function renderCashFlow(data) {
           renderBalanceSheet(current, prior);
         })
         .catch(error => {
+          console.error("Balance Sheet failed:", error);
 
-          console.error(
-            "❌ Balance Sheet failed:",
-            error
-          );
-    
           if (page) {
-            page.innerHTML = `
-              <div class="card card-pad">
-    
-                <div style="
-                  font-size:18px;
-                  font-weight:600;
-                ">
-                  ⚠️ Unable to load Balance Sheet
-                </div>
-    
-                <p style="margin-top:8px;">
-                  ${escapeHtml(
-                    error.message
-                  )}
-                </p>
-    
-                <button
-                  onclick="NFK_App.nav('balance-sheet')"
-                  style="
-                    margin-top:16px;
-                    padding:10px 16px;
-                    border:none;
-                    border-radius:8px;
-                    cursor:pointer;
-                  "
-                >
-                  🔄 Try Again
-                </button>
-    
-              </div>
-            `;
+            page.innerHTML = pageLoadErrorHtml(
+              "what you own & owe", error, "NFK_App.nav('balance-sheet')"
+            );
           }
         });
     }
       if (pageId === "pl") {
-    
-      const page =
-        document.getElementById("page-pl");
-    
-      if (page) {
-        page.innerHTML = `
-          ${renderSkeletonCard(2)}
-          <div class="section-gap"></div>
-          ${renderSkeletonCard(10)}
-        `;
-      }
-
-      loadProfitAndLoss(state.plPeriod)
-        .then(data => {
-          renderProfitAndLoss(data);
-        })
-        .catch(error => {
-
-          console.error(
-            "❌ Profit & Loss failed:",
-            error
-          );
-    
-          if (page) {
-            page.innerHTML = `
-              <div class="card card-pad">
-    
-                <div style="
-                  font-size:18px;
-                  font-weight:600;
-                ">
-                  ⚠️ Unable to load Profit & Loss
-                </div>
-    
-                <p style="margin-top:8px;">
-                  ${escapeHtml(error.message)}
-                </p>
-    
-                <button
-                  onclick="NFK_App.nav('pl')"
-                  style="
-                    margin-top:16px;
-                    padding:10px 16px;
-                    border:none;
-                    border-radius:8px;
-                    cursor:pointer;
-                  "
-                >
-                  🔄 Try Again
-                </button>
-    
-              </div>
-            `;
-          }
-        });
+        renderProfitAndLoss();
       }
       if (pageId === "cash-flow") {
       
@@ -6900,55 +6155,17 @@ function renderCashFlow(data) {
 
         loadCashFlow(state.cfPeriod)
           .then(data => {
-
             renderCashFlow(data);
-
           })
           .catch(error => {
-      
-            console.error(
-              "❌ Cash Flow failed:",
-              error
-            );
-      
+            console.error("Cash Flow failed:", error);
+
             if (page) {
-      
-              page.innerHTML = `
-                <div class="card card-pad">
-      
-                  <div style="
-                    font-size:18px;
-                    font-weight:600;
-                  ">
-                    ⚠️ Unable to load Cash Flow
-                  </div>
-      
-                  <p style="margin-top:8px;">
-                    ${escapeHtml(
-                      error.message
-                    )}
-                  </p>
-      
-                  <button
-                    onclick="NFK_App.nav('cash-flow')"
-                    style="
-                      margin-top:16px;
-                      padding:10px 16px;
-                      border:none;
-                      border-radius:8px;
-                      cursor:pointer;
-                    "
-                  >
-                    🔄 Try Again
-                  </button>
-      
-                </div>
-              `;
-      
+              page.innerHTML = pageLoadErrorHtml(
+                "money in & out", error, "NFK_App.nav('cash-flow')"
+              );
             }
-      
           });
-      
       }
         if (pageId === "working-capital") {
         
@@ -7024,37 +6241,22 @@ function renderCashFlow(data) {
                 <span>Status</span>
             </div>
     
-            <div id="invoices-list"></div>
+            <div id="invoices-list"><div style="padding:16px 22px;">${skeletonLine("92%")}${skeletonLine("86%")}${skeletonLine("90%")}</div></div>
     
             <div class="invoices-table-footer">
-                <div class="invoice-pagination">
-                    <button class="invoice-page active">1</button>
-                    <button class="invoice-page">2</button>
-                </div>
-    
                 <div
                     id="invoices-count"
                     class="invoices-count"
                 >
-                    Showing 0 invoices
+                    Loading invoices…
                 </div>
             </div>
-    
+
         </div>
     `;
-    
-    console.log(
-        "📄 INVOICES PAGE OPENED"
-    );
 
     loadInvoices()
       .then(data => {
-    
-        console.log(
-            "✅ Invoice data:",
-            data
-        );
-    
         const invoices =
             data?.invoices || [];
     
@@ -7080,7 +6282,7 @@ function renderCashFlow(data) {
     
             if (count) {
                 count.textContent =
-                    "Showing 0 invoices";
+                    "0 invoices";
             }
     
             return;
@@ -7182,33 +6384,30 @@ function renderCashFlow(data) {
             }).join("");
     
         if (count) {
-    
             count.textContent =
-                `Showing 1–${invoices.length} of ${invoices.length}`;
+                `${invoices.length} invoice${invoices.length === 1 ? "" : "s"}`;
         }
-    
+
     })
         .catch(error => {
+            console.error("Invoice loading failed:", error);
 
-            console.error(
-                "❌ Invoice loading failed:",
-                error
-            );
+            const list = document.getElementById("invoices-list");
+            const count = document.getElementById("invoices-count");
 
-            const list =
-                document.getElementById(
-                    "invoices-list"
-                );
+            if (count) count.textContent = "";
 
             if (list) {
-
                 list.innerHTML = `
                     <div class="empty-state">
-                        Failed to load invoices.
+                        ${escapeHtml(
+                          error?.code === "QB_REAUTH_REQUIRED"
+                            ? "Reconnect QuickBooks to see your invoices."
+                            : "Unable to load your invoices right now."
+                        )}
                     </div>
                 `;
             }
-
         });
         } 
         if (pageId === "debt-register") {
@@ -7231,22 +6430,22 @@ function renderCashFlow(data) {
 
                   <div class="card debt-summary-card">
                       <span>Total owed</span>
-                      <strong id="debt-total">$0.00</strong>
+                      <strong id="debt-total">—</strong>
                   </div>
 
                   <div class="card debt-summary-card">
                       <span>Due within a year</span>
-                      <strong id="debt-current">$0.00</strong>
+                      <strong id="debt-current">—</strong>
                   </div>
 
                   <div class="card debt-summary-card">
                       <span>Longer-term</span>
-                      <strong id="debt-long-term">$0.00</strong>
+                      <strong id="debt-long-term">—</strong>
                   </div>
 
                   <div class="card debt-summary-card">
                       <span>On cards</span>
-                      <strong id="debt-credit-card">$0.00</strong>
+                      <strong id="debt-credit-card">—</strong>
                   </div>
 
               </div>
@@ -7634,7 +6833,31 @@ function renderCashFlow(data) {
   // TOP BAR
   // ============================================================
 
-  async function buildTopBar() {
+  // Up to two initials from the signed-in person's name, falling back to
+  // their email, for the account button in the top bar.
+  function userInitials() {
+    let name = "";
+
+    try {
+      name = JSON.parse(localStorage.getItem("nfk_profile") || "null")?.full_name || "";
+    } catch {
+      name = "";
+    }
+
+    const words = name.trim().split(/\s+/).filter(Boolean);
+
+    if (words.length) {
+      return (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : "")).toUpperCase();
+    }
+
+    const email = window.NFK_Auth?.getCurrentUser?.()?.email || "";
+
+    return email ? email[0].toUpperCase() : "?";
+  }
+
+  // knownStatus: a /status answer the caller already has, so the badge
+  // doesn't ask QuickBooks again straight after login.
+  async function buildTopBar(knownStatus = null) {
     const el =
       document.getElementById(
         "topbar-inner"
@@ -7741,27 +6964,33 @@ function renderCashFlow(data) {
         <span class="topbar-ai-btn-label">NFP AI</span>
       </button>
 
-      <div
-        class="qb-badge disconnected"
+      <button
+        type="button"
+        class="qb-badge"
         id="qb-status-badge"
-        onclick="NFK_App.connectQuickBooks()"
-        title="Click to (re)connect QuickBooks"
       >
         <span class="qb-status-dot"></span>
-        Checking QuickBooks...
-      </div>
+        <span class="qb-badge-label">Checking QuickBooks…</span>
+      </button>
 
-      <div
+      <button
+        type="button"
         class="user-avatar"
         onclick="NFK_App.nav('settings')"
+        title="Account settings"
+        aria-label="Account settings"
       >
-        AR
-      </div>
+        ${escapeHtml(userInitials())}
+      </button>
     `;
 
-    // Get real QuickBooks status
-    const status =
-      await checkQBConnection();
+    let status = knownStatus;
+
+    if (status?.connected === undefined) {
+      status = await checkQBConnection();
+    } else {
+      state.qbCompanyName = status.companyName || null;
+    }
 
     // The badge next to the sidebar shows which company's data is
     // currently loaded — that's the connected QuickBooks company,
@@ -7795,23 +7024,28 @@ function renderCashFlow(data) {
       return;
     }
 
-    if (
-      status?.connected === true
-    ) {
-      badge.className =
-        "qb-badge connected";
+    // A connected badge opens Settings, where the connection details and
+    // the reconnect button live; only a broken connection goes straight
+    // into the QuickBooks sign-in.
+    if (status?.connected === true) {
+      badge.className = "qb-badge connected";
+      badge.title = "Connected to QuickBooks — connection details";
+      badge.setAttribute("aria-label", badge.title);
+      badge.onclick = () => navigate("settings");
 
       badge.innerHTML = `
         <span class="qb-status-dot"></span>
-        Connected to QuickBooks
+        <span class="qb-badge-label">Connected to QuickBooks</span>
       `;
     } else {
-      badge.className =
-        "qb-badge disconnected";
+      badge.className = "qb-badge disconnected";
+      badge.title = "QuickBooks not connected — connect now";
+      badge.setAttribute("aria-label", badge.title);
+      badge.onclick = connectQuickBooks;
 
       badge.innerHTML = `
         <span class="qb-status-dot"></span>
-        Not Connected
+        <span class="qb-badge-label">Not connected</span>
       `;
     }
   }
@@ -8045,6 +7279,14 @@ function renderCashFlow(data) {
     document.addEventListener("keydown", e => {
       if (e.key !== "Enter" && e.key !== " ") return;
 
+      // Sidebar entries are focusable divs acting as buttons, so they need
+      // the keys a real button would respond to.
+      if (e.target.matches?.('div[role="button"][onclick]')) {
+        e.preventDefault();
+        e.target.click();
+        return;
+      }
+
       const card = e.target.closest?.("[data-goto]");
 
       if (!card || card !== e.target) return;
@@ -8075,19 +7317,6 @@ function renderCashFlow(data) {
         }
       }
     );
-  }
-
-  // Called by charts.js when the theme toggles, so already-visible
-  // charts pick up the new theme's colors immediately instead of only
-  // on the next navigation. Only wired up for pages whose chart data is
-  // already sitting in memory (no refetch needed) — other pages simply
-  // pick up correct colors the next time their data loads.
-  function redrawCurrentPageCharts() {
-    if (state.currentPage === "forecast" && forecastPageState.history) {
-      renderActiveForecastChart();
-    } else if (state.currentPage === "scenarios" && scenarioActuals) {
-      updateScenarioChart();
-    }
   }
 
   // ============================================================
@@ -8155,7 +7384,6 @@ function renderCashFlow(data) {
 
     setForecastChartType,
 
-    redrawCurrentPageCharts,
 
 
     toggleNavGroup(groupId) {
@@ -8199,19 +7427,6 @@ function renderCashFlow(data) {
 
     logout() {
       window.NFK_Auth.logout();
-    },
-
-    toggleClientDD() {
-      const dd =
-        document.getElementById(
-          "client-dropdown"
-        );
-
-      if (dd) {
-        dd.classList.toggle(
-          "open"
-        );
-      }
     }
   };
 
@@ -8293,16 +7508,8 @@ function renderCashFlow(data) {
     return `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>`;
   }
 
-  function icon_pl_sm() {
-    return `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h7a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>`;
-  }
-
   function icon_ops_sm() {
     return `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>`;
-  }
-
-  function icon_ai_sm() {
-    return `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>`;
   }
 
   function icon_settings_sm() {

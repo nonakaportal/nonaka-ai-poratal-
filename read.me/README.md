@@ -1,72 +1,23 @@
-# Documentation Index
+# Nonaka Financial Partners portal
 
-Welcome! Here's where to start:
+A read-only financial portal for small business owners. It connects to their
+QuickBooks Online company and explains the numbers in plain language.
 
-## 📋 Quick Start (Read These First)
+- `frontend/` — static pages served by the backend. `welcome.html` is the
+  intro page, `index.html` is the login + portal, `js/app.js` renders the
+  portal pages, `js/auth.js` handles sign-in and the QuickBooks connection.
+- `backend/` — Express API: Supabase for accounts, QuickBooks for the data,
+  Claude for the AI features.
 
-1. **[CHANGES_SUMMARY.md](CHANGES_SUMMARY.md)** ← Start here
-   - What changed in 2 minutes
-   - How to use new utilities
-   - Next steps
+## Run locally
 
-2. **[COMPLETION_SUMMARY.txt](COMPLETION_SUMMARY.txt)**
-   - Visual overview of all changes
-   - Metrics and verification results
-   - Final status
+1. Copy `.env.example` to `.env` at the repo root and fill it in.
+2. `cd backend && npm install`
+3. `npm start` (or `npm run dev` for auto-reload), then open
+   `http://localhost:3000`.
 
-## 📚 Detailed Documentation
+`QB_ENVIRONMENT=sandbox` points at an Intuit sandbox company.
 
-3. **[AUDIT_REPORT.md](AUDIT_REPORT.md)**
-   - Complete audit findings
-   - What was removed/fixed/optimized
-   - Remaining issues & recommendations
-   - Security assessment
+## More
 
-4. **[AUDIT_PLAN.md](AUDIT_PLAN.md)**
-   - Audit methodology
-   - Findings by category
-   - Optimization roadmap
-
-5. **[API.md](API.md)**
-   - Complete API reference
-   - All 20+ endpoints documented
-   - Service architecture
-   - Error codes
-   - Performance notes
-
-## 🚀 Next Steps
-
-### Before Committing
-```bash
-npm install
-cd backend && npm install
-node server.js  # If .env available
-```
-
-### After Review
-```bash
-git checkout -b audit/optimization
-git add -A
-git commit -m "Audit: remove dead code, optimize performance, add utilities and docs"
-git push -u origin audit/optimization
-```
-
-### Files Modified
-- `backend/server.js` — Removed unused import, added cache headers
-- `backend/routes/quickbooks.routes.js` — Added route documentation
-- `package.json` — Removed unused zod
-
-### Files Deleted
-- `backend/services/quickbooks/company.service.js` — Empty file
-- `frontend/js/sidebar.js` — Unused
-
-### Files Created
-- `backend/services/cache.service.js` — Request deduplication
-- `backend/services/response.service.js` — Response standardization
-- `read.me/` — This documentation folder
-
-## ✓ Status
-- **All changes verified** ✓
-- **Zero breaking changes** ✓
-- **Production-ready** ✓
-- **Safe to deploy** ✓
+- [API.md](API.md) — every endpoint, its auth, and its error codes.

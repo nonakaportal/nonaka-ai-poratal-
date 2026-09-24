@@ -147,7 +147,7 @@ function summarizeDebt(debtAccounts) {
 // ============================================================
 // SHORT-LIVED CACHE
 //
-// The AI Insights page fires Forecast, Anomalies, and Recommendations
+// The Overview fires Anomalies, Recommendations, and the Health Score
 // as 3 near-simultaneous requests. Without this, each one independently
 // re-fetches the same snapshot/trend from QuickBooks — tripling the
 // concurrent load and making the sandbox's 429 rate limit far more
@@ -291,8 +291,20 @@ function buildMonthlyTrend(organizationId, months = 6) {
     );
 }
 
+// Called when an organization's QuickBooks company is connected or
+// removed, so nothing cached describes the previous company.
+function forgetOrganization(organizationId) {
+    cache.delete(`snapshot:${organizationId}`);
+
+    for (const key of cache.keys()) {
+        if (key.startsWith(`trend:${organizationId}:`)) {
+            cache.delete(key);
+        }
+    }
+}
+
 module.exports = {
     buildFinancialSnapshot,
     buildMonthlyTrend,
-    getMonthlyPeriods
+    forgetOrganization
 };
