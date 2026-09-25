@@ -4300,7 +4300,7 @@ function renderCashFlow(data) {
 
       <div id="forecast-content" style="display:none;">
         <div class="scenario-slider-label" style="margin-bottom:10px;">Financial View</div>
-        <div class="period-selector" id="forecast-view-tabs" style="width:max-content;flex-wrap:wrap;margin-bottom:20px;"></div>
+        <div class="period-selector" id="forecast-view-tabs" style="width:fit-content;max-width:100%;flex-wrap:wrap;margin-bottom:20px;"></div>
 
         <div class="card card-pad">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">

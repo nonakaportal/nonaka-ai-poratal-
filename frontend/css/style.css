@@ -1080,8 +1080,30 @@ textarea.ai-chat-input { max-height: 140px; }
 @media (max-width: 640px) {
   .grid-2, .grid-kpi { grid-template-columns: 1fr; }
   .page-content { padding: 18px 16px 48px; }
-  .stat-grid, .debt-summary-grid { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: 1fr; }
+  .debt-summary-grid { grid-template-columns: 1fr 1fr; }
+  .debt-summary-card { padding: 16px; }
+  .debt-summary-grid .debt-summary-card > span:first-child { min-height: 0; margin-bottom: 8px; }
+  .debt-summary-card strong { font-size: 20px; }
   .page-title { font-size: 22px; }
+  /* The accounting term drops under the plain-English title instead of
+     wrapping with a stray indent beside it. */
+  h1 .page-title-term, .page-title .page-title-term, .bs-title .page-title-term, .pl-page-title .page-title-term { display: block; margin: 6px 0 0; }
+
+  /* Five columns don't fit a phone: each invoice becomes a two-line
+     row — who and how much on top, number, due date and status below. */
+  .invoices-table-header { display: none; }
+  .invoice-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "cust cust amt" "num due status";
+    row-gap: 6px; column-gap: 12px; padding: 12px 16px;
+  }
+  .invoice-number { grid-area: num; font-size: 12px; }
+  .invoice-customer { grid-area: cust; font-weight: 500; }
+  .invoice-amount { grid-area: amt; }
+  .invoice-due-date { grid-area: due; font-size: 12px; }
+  .invoice-row > :last-child { grid-area: status; }
+  .invoices-table-footer { padding: 12px 16px; }
   .topbar { padding: 0 14px; }
   .topbar-ai-btn-label { display: none; }
   .topbar-ai-btn { padding: 8px; margin-right: 8px; }
@@ -1810,9 +1832,10 @@ textarea.ai-chat-input { max-height: 140px; }
 @media (max-width: 640px) {
   .billsched-head { flex-direction: column; gap: 6px; }
   .billsched-asof { padding-top: 0; }
-  .billsched-row { grid-template-columns: 1fr auto; row-gap: 3px; }
-  .billsched-when { grid-column: 1; font-size: 11.5px; }
-  .billsched-amount { grid-row: 1 / span 2; }
+  .billsched-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 3px; }
+  .billsched-who { grid-column: 1; grid-row: 1; }
+  .billsched-when { grid-column: 1; grid-row: 2; font-size: 12px; }
+  .billsched-amount { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
 }
 
 .overview-summary {
