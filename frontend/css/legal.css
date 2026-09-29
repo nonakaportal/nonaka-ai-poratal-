@@ -18,7 +18,7 @@ body {
   padding: 18px 32px;
   border-bottom: 1px solid var(--border-hair);
 }
-.legal-nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.legal-nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
 .legal-nav-brand img { height: 40px; width: auto; border-radius: 8px; }
 .legal-nav a.legal-back {
   font-size: 14px;
@@ -43,7 +43,7 @@ body {
   background: var(--warning-bg);
   border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
   color: var(--warning);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.55;
   margin-bottom: 40px;
 }
@@ -56,16 +56,16 @@ body {
   letter-spacing: -0.02em;
   margin: 0 0 8px;
 }
-.legal-updated { color: var(--text-muted); font-size: 13.5px; margin: 0 0 40px; }
+.legal-updated { color: var(--text-muted); font-size: 14px; margin: 0 0 40px; }
 
 .legal-wrap h2 {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 600;
   margin: 40px 0 12px;
   letter-spacing: -0.01em;
 }
 .legal-wrap p, .legal-wrap li {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.7;
   color: var(--text-secondary);
 }
@@ -78,5 +78,5 @@ body {
   padding: 24px 32px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 14px;
 }

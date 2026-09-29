@@ -47,11 +47,14 @@ function applyDefaults() {
 
   const colors = getColors();
 
-  Chart.defaults.font.family = "'Outfit', system-ui, -apple-system, sans-serif";
-  Chart.defaults.font.size = 11;
+  Chart.defaults.font.family = "'Geist', system-ui, -apple-system, sans-serif";
+  Chart.defaults.font.size = 12;
   Chart.defaults.color = colors.text;
-  Chart.defaults.animation.duration = 600;
-  Chart.defaults.animation.easing = "easeInOutQuart";
+  // Charts draw in with the same long, soft ease-out as the page
+  // entrance, and not at all for reduced-motion users.
+  Chart.defaults.animation.duration =
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 900;
+  Chart.defaults.animation.easing = "easeOutQuart";
 }
 
 // ── CASH FLOW WATERFALL ─────────────────────────────────────
@@ -182,7 +185,7 @@ const cashFlowLabelsPlugin = {
 
             if (!Number.isFinite(value)) return;
 
-            ctx.font = "700 14px Outfit, system-ui, sans-serif";
+            ctx.font = "600 14px Geist, system-ui, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillStyle = value < 0 ? "#e08a8f" : "#e9e9ed";
@@ -568,7 +571,7 @@ function renderForecastTrend(canvasId, history = [], view, chartType = "line") {
         legend: {
           display: datasets.length > 1,
           position: "top",
-          labels: { boxWidth: 10, boxHeight: 10, color: colors.text, padding: 12, font: { size: 11 } }
+          labels: { boxWidth: 10, boxHeight: 10, color: colors.text, padding: 12, font: { size: 12 } }
         },
         tooltip: {
           backgroundColor: colors.bg,
@@ -747,7 +750,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
       labels,
       datasets: [
         {
-          label: "Actual Revenue",
+          label: "Actual revenue",
           data: revenue,
           borderColor: colors.primary,
           backgroundColor: "transparent",
@@ -757,7 +760,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
           pointBackgroundColor: colors.primary
         },
         {
-          label: "Actual Gross Profit",
+          label: "Actual gross profit",
           data: gross,
           borderColor: colors.purple,
           backgroundColor: "transparent",
@@ -768,7 +771,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
           pointBackgroundColor: colors.purple
         },
         {
-          label: "Actual Net Income",
+          label: "Actual net income",
           data: net,
           borderColor: colors.success,
           backgroundColor: "transparent",
@@ -778,7 +781,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
           pointBackgroundColor: colors.success
         },
         {
-          label: "Projected Revenue",
+          label: "Projected revenue",
           data: projRev,
           borderColor: colors.primary,
           backgroundColor: "transparent",
@@ -789,7 +792,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
           pointBackgroundColor: colors.primary
         },
         {
-          label: "Projected Gross",
+          label: "Projected gross profit",
           data: projGross,
           borderColor: colors.purple,
           backgroundColor: "transparent",
@@ -800,7 +803,7 @@ function renderPLWithProjection(scenario = null, actualData = null) {
           pointBackgroundColor: colors.purple
         },
         {
-          label: "Projected Net",
+          label: "Projected net income",
           data: projNet,
           borderColor: colors.success,
           backgroundColor: gradProjNet,
@@ -912,7 +915,7 @@ function renderCashProjection(canvasId, projection) {
         plugins: {
           legend: {
             display: true,
-            labels: { color: colors.text, usePointStyle: true, boxWidth: 8, font: { size: 11 } }
+            labels: { color: colors.text, usePointStyle: true, boxWidth: 8, font: { size: 12 } }
           },
           tooltip: {
             backgroundColor: colors.bg,
@@ -941,7 +944,7 @@ function renderCashProjection(canvasId, projection) {
             grid: { display: false },
             ticks: {
               color: colors.text,
-              font: { size: 10 },
+              font: { size: 12 },
               maxTicksLimit: 10,
               autoSkip: true
             }
@@ -950,7 +953,7 @@ function renderCashProjection(canvasId, projection) {
             grid: { color: colors.grid },
             ticks: {
               color: colors.text,
-              font: { size: 10 },
+              font: { size: 12 },
               callback: v =>
                 Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
             }

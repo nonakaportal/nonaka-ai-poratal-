@@ -48,9 +48,9 @@
   --bg-card:     var(--n-surface);
   --bg-elevated: #232326;
   --bg-sidebar:  #0F0F10;
-  --bg-topbar:   rgba(19,19,20,0.82);
+  --bg-topbar:   rgba(19,19,20,0.86);
   --bg-input:    #18181A;
-  --bg-subtle:   #1A1A1C;
+  --bg-subtle:   #232326;
   --bg-hover:    #242426;
 
   --accent:         var(--n-accent);
@@ -72,11 +72,11 @@
   --info:        var(--n-info);
 
   --text-primary:   var(--n-text);
-  --text-secondary: var(--n-neutral-300);
-  --text-muted:     var(--n-neutral-500);
+  --text-secondary: #C7C5D0;
+  --text-muted:     #8F8FA1;
   /* Small (10-12px) label text — measured against --bg-card so it
      stays above the 4.5:1 AA floor on cards, not just on the page. */
-  --text-faint:     #85848F;
+  --text-faint:     #8F8FA1;
   --text-on-dark:   var(--n-neutral-100);
 
   --border:       #353438;
@@ -84,20 +84,46 @@
   --border-hair:  color-mix(in srgb, var(--n-text) 10%, transparent);
   --rule:         color-mix(in srgb, var(--n-text) 14%, transparent);
 
-  --font-sans: "Outfit", system-ui, -apple-system, sans-serif;
-  --font-mono: "Outfit", system-ui, sans-serif; /* figures use tabular-nums, not a second face */
+  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist", system-ui, sans-serif; /* figures use tabular-nums, not a second face */
+
+  /* Type scale — the only sizes the portal uses. Labels 12, captions
+     13, body 14, card titles 15, section headings 18, stat figures 26,
+     page titles 30, the one hero figure per page 56. */
+  --fs-label: 12px;
+  --fs-small: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 15px;
+  --fs-section: 18px;
+  --fs-figure: 26px;
+  --fs-page-title: 30px;
+  --fs-hero: 56px;
+
+  /* Spacing scale — 4 8 12 16 24 32 48. Cards pad 24, sit 16 apart;
+     sections sit 24 apart. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
 
   --shadow-card:  0 0 0 1px var(--border);
   --shadow-hover: 0 0 0 1px #45444A, 0 8px 24px rgba(0,0,0,0.5);
   --shadow-modal: 0 0 0 1px #4E4D55, 0 24px 60px rgba(0,0,0,0.68);
 
-  --radius-card: 14px;
-  --radius-btn: 12px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 14px;
+  --radius-card: 16px;
+  --radius-btn: 10px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
 
-  --sidebar-width: 244px;
-  --topbar-height: 62px;
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
   --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Entrance motion: a long, soft ease-out for rises and chart draws. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --line-2: #2A292D;
+  --chart-out: #E0857C;
 }

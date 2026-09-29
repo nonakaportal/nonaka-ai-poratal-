@@ -872,8 +872,8 @@
 
                         ${
                             isBalanced
-                                ? "✓ BALANCED"
-                                : "⚠ NOT BALANCED"
+                                ? "✓ Balanced"
+                                : "⚠ Not balanced"
                         }
 
                     </div>
@@ -921,7 +921,7 @@
                         <div>
 
                             <span class="bs-card-label">
-                                ASSETS
+                                Assets
                             </span>
 
                             <h2>
@@ -953,7 +953,7 @@
                         <div class="bs-total">
 
                             <span>
-                                Total Assets
+                                Total assets
                             </span>
 
                             <strong>
@@ -982,7 +982,7 @@
                         <div>
 
                             <span class="bs-card-label">
-                                LIABILITIES
+                                Liabilities
                             </span>
 
                             <h2>
@@ -1016,7 +1016,7 @@
                         <div class="bs-total">
 
                             <span>
-                                Total Liabilities
+                                Total liabilities
                             </span>
 
                             <strong>
@@ -1045,7 +1045,7 @@
                         <div>
 
                             <span class="bs-card-label">
-                                EQUITY
+                                Equity
                             </span>
 
                             <h2 class="${
@@ -1081,7 +1081,7 @@
                         <div class="bs-total">
 
                             <span>
-                                Total Equity
+                                Total equity
                             </span>
 
                             <strong class="${
@@ -1129,7 +1129,7 @@
                     <div>
 
                         <strong>
-                            Balance Check
+                            Balance check
                         </strong>
 
                         <span>
@@ -1204,7 +1204,7 @@
             <!-- TREND -->
 
             <div class="card card-pad section-gap" style="margin-top:16px;">
-                <div class="card-title" style="margin-bottom:14px;">Assets, Liabilities &amp; Equity — 6 Months</div>
+                <div class="card-title" style="margin-bottom:14px;">Assets, liabilities &amp; equity · last 6 months</div>
                 <div style="height:300px;">
                     <canvas id="chart-bs-trend"></canvas>
                 </div>
@@ -1222,7 +1222,7 @@
                     "chart-bs-trend",
                     history,
                     {
-                        title: "Assets, Liabilities & Equity",
+                        title: "Assets, liabilities & equity",
                         metrics: [
                             { key: "totalAssets", label: "Assets", color: "primary" },
                             { key: "totalLiabilities", label: "Liabilities", color: "danger" },
@@ -1348,7 +1348,7 @@
 
       return `
         <div class="card card-pad">
-          <div style="font-size:18px;font-weight:600;">Unable to load ${escapeHtml(title)}</div>
+          <div style="font-size:20px;font-weight:600;">Unable to load ${escapeHtml(title)}</div>
           <p style="margin-top:8px;color:var(--text-secondary);">
             ${escapeHtml(error?.message || "Something went wrong. Please try again.")}
           </p>
@@ -2223,7 +2223,7 @@ function renderCashFlow(data) {
 
                 ${activityCard(
                     "Day-to-day trading",
-                    "🏢",
+                    icon_flow(),
                     operating,
                     operatingTotal,
                     "Total from trading",
@@ -2236,7 +2236,7 @@ function renderCashFlow(data) {
 
                 ${activityCard(
                     "Buying and selling assets",
-                    "📈",
+                    icon_scale(),
                     investing,
                     investingTotal,
                     "Total from assets",
@@ -2248,7 +2248,7 @@ function renderCashFlow(data) {
 
                 ${activityCard(
                     "Loans and owner funding",
-                    "🏦",
+                    icon_ar(),
                     financing,
                     financingTotal,
                     "Total from loans and funding",
@@ -2360,7 +2360,7 @@ function renderCashFlow(data) {
                 <div>
 
                     <span class="cf-net-icon">
-                        💰
+                        ${icon_forecast()}
                     </span>
 
                     <div>
@@ -2565,13 +2565,12 @@ function renderCashFlow(data) {
       if (error?.code === "AI_KEY_NOT_CONFIGURED") {
         return `
           <div class="card card-pad">
-            <div style="font-weight:700;margin-bottom:6px;">
-              🔑 Claude API key not configured
+            <div style="font-weight:600;margin-bottom:6px;">
+              AI API key not configured
             </div>
             <p style="color:var(--text-secondary);">
-              Add a real <code>CLAUDE_API_KEY</code> to the backend's
-              <code>.env</code> file to enable AI features, then reload
-              this page.
+              ${escapeHtml(error.message || "Add an AI API key to the backend's .env file.")}
+              Then reload this page.
             </p>
           </div>
         `;
@@ -2580,7 +2579,7 @@ function renderCashFlow(data) {
       if (error?.code === "QB_NOT_CONNECTED") {
         return `
           <div class="card card-pad">
-            <div style="font-weight:700;margin-bottom:6px;">
+            <div style="font-weight:600;margin-bottom:6px;">
               QuickBooks not connected
             </div>
             <p style="color:var(--text-secondary);">
@@ -2593,7 +2592,7 @@ function renderCashFlow(data) {
       if (error?.code === "AI_NO_CREDITS") {
         return `
           <div class="card card-pad">
-            <div style="font-weight:700;margin-bottom:6px;">
+            <div style="font-weight:600;margin-bottom:6px;">
               AI features are paused
             </div>
             <p style="color:var(--text-secondary);">
@@ -2605,8 +2604,8 @@ function renderCashFlow(data) {
 
       return `
         <div class="card card-pad">
-          <div style="font-weight:700;margin-bottom:6px;">
-            ⚠️ Unable to load
+          <div style="font-weight:600;margin-bottom:6px;">
+            Unable to load
           </div>
           <p style="color:var(--text-secondary);">
             ${escapeHtml(error?.message || "Something went wrong.")}
@@ -2649,11 +2648,11 @@ function renderCashFlow(data) {
       content.innerHTML = `
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
           <div style="display:flex;gap:18px;align-items:center;">
-            <div style="font-size:40px;font-weight:800;line-height:1;color:${color};">
+            <div style="font-size:40px;font-weight:600;line-height:1;color:${color};">
               ${Math.round(health.score)}
             </div>
             <div>
-              <div class="card-title">Financial Health Score</div>
+              <div class="card-title">Financial health</div>
               <div class="badge" style="background:${color}22;color:${color};margin-top:6px;text-transform:capitalize;">
                 ${escapeHtml(health.rating)}
               </div>
@@ -2669,8 +2668,8 @@ function renderCashFlow(data) {
         <div class="card-title" style="margin-bottom:10px;">Contributing Factors</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
           ${health.factors.map(f => `
-            <div style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;">
-              <span style="color:${healthRatingColor(f.impact === "positive" ? "good" : f.impact === "negative" ? "critical" : "fair")};font-weight:700;">
+            <div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;">
+              <span style="color:${healthRatingColor(f.impact === "positive" ? "good" : f.impact === "negative" ? "critical" : "fair")};font-weight:600;">
                 ${healthImpactIcon(f.impact)}
               </span>
               <span>
@@ -2683,6 +2682,89 @@ function renderCashFlow(data) {
       `;
 
       overlay.classList.add("open");
+    }
+
+
+    // --------------------------------------------------------
+    // INSIGHT CARD
+    //
+    // Anomaly and recommendation cards open in place to show the longer
+    // explanation that came back with them. A native <details> keeps it
+    // keyboard-accessible with no extra JS. Results cached from before the
+    // explanation fields existed just render as plain, non-opening cards.
+    // --------------------------------------------------------
+
+    const cap = s => { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); };
+
+    // Which page a finding's category is about, so an opened card can
+    // send the owner straight to the numbers behind it.
+    const INSIGHT_PAGES = {
+      revenue: { id: "pl", label: "What you kept" },
+      expenses: { id: "pl", label: "What you kept" },
+      margin: { id: "pl", label: "What you kept" },
+      cashflow: { id: "cash-flow", label: "Money in & out" },
+      receivables: { id: "working-capital", label: "Money owed to you" },
+      payables: { id: "ap-vendors", label: "Bills to pay" },
+      debt: { id: "debt-register", label: "Loans & cards" }
+    };
+
+    // status: "High severity" / "High priority"; tone: neg | warn | pos
+    // colours that chip. figures: optional [{label, value}] from the AI.
+    function insightCardHtml({ kind, status, tone, category, title, description, basis, details, figures = [] }) {
+      const sections = details.filter(d => d.text);
+      const page = INSIGHT_PAGES[String(category || "").toLowerCase()];
+      const question = `Tell me more about this: ${title}`;
+
+      const summaryHtml = `
+        <div class="insight-chips">
+          <span class="chip chip-${tone}">${escapeHtml(status)}</span>
+          <span class="chip chip-muted">${escapeHtml(cap(category))}</span>
+        </div>
+        <div class="insight-title">${escapeHtml(title)}</div>
+        <div class="insight-body ai-msg-markdown">${renderMarkdown(description)}</div>
+      `;
+
+      if (sections.length === 0) {
+        return `<div class="insight-card ${kind}">${summaryHtml}<div class="insight-basis">${escapeHtml(basis)}</div></div>`;
+      }
+
+      const figuresHtml = Array.isArray(figures) && figures.length
+        ? `<div class="insight-figures">${figures.slice(0, 3).map(f => `
+            <div class="insight-figure">
+              <span class="stat-label">${escapeHtml(f.label)}</span>
+              <strong>${escapeHtml(f.value)}</strong>
+            </div>`).join("")}</div>`
+        : "";
+
+      return `
+        <details class="insight-card insight-expandable ${kind}">
+          <summary>
+            ${summaryHtml}
+            <span class="insight-more">Show the full explanation</span>
+          </summary>
+          <div class="insight-details">
+            ${figuresHtml}
+            <div class="insight-detail-grid">
+              ${sections.map(sec => `
+                <div class="insight-detail">
+                  <div class="insight-detail-heading">${escapeHtml(sec.heading)}</div>
+                  <div class="insight-body ai-msg-markdown">${renderMarkdown(sec.text)}</div>
+                </div>
+              `).join("")}
+            </div>
+            <div class="insight-foot">
+              <span class="insight-basis">${escapeHtml(basis)}</span>
+              <span class="insight-actions">
+                <button type="button" class="btn btn-ghost" data-ask="${escapeHtml(question)}"
+                        onclick="NFK_App.askFromTopbar(this.dataset.ask)">${icon_ai()} Ask about this</button>
+                ${page
+                  ? `<button type="button" class="btn btn-primary" onclick="NFK_App.nav('${page.id}')">Open ${escapeHtml(page.label)}</button>`
+                  : ""}
+              </span>
+            </div>
+          </div>
+        </details>
+      `;
     }
 
 
@@ -2713,19 +2795,20 @@ function renderCashFlow(data) {
           return;
         }
 
-        body.innerHTML = anomalies.map(item => `
-          <div class="insight-card anomaly" style="margin-bottom:16px;">
-            <div class="insight-type-badge anomaly">
-              ${escapeHtml(item.severity)} severity · ${escapeHtml(item.category)}
-            </div>
-            <div class="insight-title">${escapeHtml(item.title)}</div>
-            <div class="insight-body ai-msg-markdown">${renderMarkdown(item.description)}</div>
-            <div class="insight-basis">
-              <span>📊</span>
-              <span>${escapeHtml(item.evidence)}</span>
-            </div>
-          </div>
-        `).join("");
+        body.innerHTML = anomalies.map(item => insightCardHtml({
+          kind: "anomaly",
+          status: `${cap(item.severity)} severity`,
+          tone: ({ high: "neg", medium: "warn", low: "muted" })[String(item.severity || "").toLowerCase()] || "muted",
+          category: item.category,
+          title: item.title,
+          description: item.description,
+          basis: item.evidence,
+          figures: item.keyFigures,
+          details: [
+            { heading: "What happened, in numbers", text: item.explanation },
+            { heading: "What it means going forward", text: item.futureImpact }
+          ]
+        })).join("");
       } catch (error) {
         console.error("❌ Failed to load AI anomalies:", error);
         body.innerHTML = aiErrorCardHtml(error);
@@ -2760,19 +2843,19 @@ function renderCashFlow(data) {
           return;
         }
 
-        body.innerHTML = recommendations.map(item => `
-          <div class="insight-card recommendation" style="margin-bottom:16px;">
-            <div class="insight-type-badge recommendation">
-              ${escapeHtml(item.priority)} priority · ${escapeHtml(item.category)}
-            </div>
-            <div class="insight-title">${escapeHtml(item.title)}</div>
-            <div class="insight-body ai-msg-markdown">${renderMarkdown(item.description)}</div>
-            <div class="insight-basis">
-              <span>🎯</span>
-              <span>${escapeHtml(item.expectedImpact)}</span>
-            </div>
-          </div>
-        `).join("");
+        body.innerHTML = recommendations.map(item => insightCardHtml({
+          kind: "recommendation",
+          status: `${cap(item.priority)} priority`,
+          tone: "pos",
+          category: item.category,
+          title: item.title,
+          description: item.description,
+          basis: item.expectedImpact,
+          details: [
+            { heading: "How to do it", text: item.steps },
+            { heading: "The benefit, in numbers", text: item.benefit }
+          ]
+        })).join("");
       } catch (error) {
         console.error("❌ Failed to load AI recommendations:", error);
         body.innerHTML = aiErrorCardHtml(error);
@@ -2781,8 +2864,8 @@ function renderCashFlow(data) {
 
 
     const AI_INSIGHT_TABS = [
-      { id: "anomalies", label: "⚠️ Anomalies" },
-      { id: "recommendations", label: "💡 Recommendations" }
+      { id: "anomalies", label: "Things to watch" },
+      { id: "recommendations", label: "Things to do" }
     ];
 
     function switchInsightTab(tabId) {
@@ -2859,13 +2942,8 @@ function renderCashFlow(data) {
           <div class="page-header">
   
               <div>
-                  <div class="page-title">
-                      NFP AI
-                  </div>
-  
-                  <div class="page-subtitle">
-                      Your AI-powered financial analyst · Based on live financial data
-                  </div>
+                  <h1 class="page-title">Ask NFP AI</h1>
+                  <p class="page-subtitle">Your financial analyst · Answers come from your live QuickBooks numbers</p>
               </div>
   
           </div>
@@ -2877,34 +2955,6 @@ function renderCashFlow(data) {
               style="display:block;"
           >
   
-              <div class="ai-chat-header">
-  
-                  <div style="
-                      display:flex;
-                      align-items:center;
-                      gap:12px;
-                  ">
-  
-                      <div class="ai-fp-avatar">
-                          ✦
-                      </div>
-  
-                      <div>
-  
-                          <div class="ai-chat-title">
-                              Ask NFP AI
-                          </div>
-  
-                          <div class="ai-chat-subtitle">
-                              Powered by live financial data
-                          </div>
-  
-                      </div>
-  
-                  </div>
-  
-              </div>
-  
   
               <div
                   class="ai-chat-messages"
@@ -2913,20 +2963,8 @@ function renderCashFlow(data) {
   
                   <div class="ai-chat-msg ai-msg">
   
-                      <div class="ai-msg-avatar">
-                          ✦
-                      </div>
-  
-                      <div class="ai-msg-bubble">
-  
-                          Hi! I'm NFP AI, your financial analyst.
-                          I have access to your financial data.
-  
-                          <br><br>
-  
-                          What would you like to explore?
-  
-                      </div>
+                      <div class="ai-msg-avatar">${icon_ai()}</div>
+                      <div class="ai-msg-bubble">Hi, I'm NFP AI. Ask me anything about your revenue, cash, bills or customers.</div>
   
                   </div>
   
@@ -2982,9 +3020,7 @@ function renderCashFlow(data) {
                       id="ai-page-send"
                       aria-label="Send question"
                       onclick="NFK_App.sendPageChat()"
-                  >
-                      ➤
-                  </button>
+                  ><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg></button>
   
               </div>
   
@@ -3074,9 +3110,9 @@ function renderCashFlow(data) {
 
     function scenarioPresetButtonsHtml() {
       const presets = [
-        { id: "worst", label: "📉 Worst Case" },
-        { id: "base", label: "Base Case" },
-        { id: "best", label: "📈 Best Case" }
+        { id: "worst", label: "Worst case" },
+        { id: "base", label: "Base case" },
+        { id: "best", label: "Best case" }
       ];
 
       return presets.map(p => `
@@ -3223,13 +3259,13 @@ function renderCashFlow(data) {
           revenueChangePct < 0
         ) +
         outcomeCard(
-          "Projected Gross Profit",
+          "Projected gross profit",
           formatCurrency(projection.endOfHorizon.grossProfit),
           "At end of horizon",
           projection.endOfHorizon.grossProfit < 0
         ) +
         outcomeCard(
-          "Projected Net Income",
+          "Projected net income",
           formatCurrency(projection.endOfHorizon.netIncome),
           "At end of horizon",
           projection.endOfHorizon.netIncome < 0
@@ -3724,7 +3760,7 @@ function renderCashFlow(data) {
 
         const aiBubble = inner => `
             <div class="ai-chat-msg ai-msg">
-                <div class="ai-msg-avatar">✦</div>
+                <div class="ai-msg-avatar">${icon_ai()}</div>
                 ${inner}
             </div>
         `;
@@ -3767,7 +3803,7 @@ function renderCashFlow(data) {
 
             const errorText =
                 error?.code === "AI_KEY_NOT_CONFIGURED"
-                    ? "NFP AI needs a Claude API key configured in the backend's .env file before it can answer questions."
+                    ? "NFP AI needs an AI API key configured in the backend's .env file before it can answer questions."
                     : error?.code === "QB_NOT_CONNECTED"
                     ? "Connect QuickBooks first so I have real data to answer from."
                     : error?.code === "QB_REAUTH_REQUIRED" || error?.code === "AI_NO_CREDITS"
@@ -4176,42 +4212,42 @@ function renderCashFlow(data) {
   const FORECAST_VIEWS = [
     {
       id: "revenue-expenses",
-      title: "Money In vs. Money Out",
+      title: "Money in vs. money out",
       metrics: [
-        { key: "revenue", label: "Money In", color: "primary" },
-        { key: "totalExpenses", label: "Money Out", color: "danger" }
+        { key: "revenue", label: "Money in", color: "primary" },
+        { key: "totalExpenses", label: "Money out", color: "danger" }
       ]
     },
     {
       id: "revenue-profit",
-      title: "Money In vs. What You Kept",
+      title: "Money in vs. what you kept",
       metrics: [
-        { key: "revenue", label: "Money In", color: "primary" },
-        { key: "netIncome", label: "What You Kept", color: "success" }
+        { key: "revenue", label: "Money in", color: "primary" },
+        { key: "netIncome", label: "What you kept", color: "success" }
       ]
     },
     {
       id: "revenue-gross-net",
-      title: "Money In, Money Left After Costs & What You Kept",
+      title: "Money in, money left after costs & what you kept",
       metrics: [
-        { key: "revenue", label: "Money In", color: "primary" },
-        { key: "grossProfit", label: "Money Left After Costs", color: "purple" },
-        { key: "netIncome", label: "What You Kept", color: "success" }
+        { key: "revenue", label: "Money in", color: "primary" },
+        { key: "grossProfit", label: "Money left after costs", color: "purple" },
+        { key: "netIncome", label: "What you kept", color: "success" }
       ]
     },
     {
       id: "expenses-profit",
-      title: "Money Out vs. What You Kept",
+      title: "Money out vs. what you kept",
       metrics: [
-        { key: "totalExpenses", label: "Money Out", color: "danger" },
-        { key: "netIncome", label: "What You Kept", color: "success" }
+        { key: "totalExpenses", label: "Money out", color: "danger" },
+        { key: "netIncome", label: "What you kept", color: "success" }
       ]
     },
     {
       id: "cash-flow",
-      title: "Cash From Running the Business",
+      title: "Cash from running the business",
       metrics: [
-        { key: "operatingCashFlow", label: "Cash From Running the Business", color: "warning" }
+        { key: "operatingCashFlow", label: "Cash from running the business", color: "warning" }
       ]
     }
   ];
@@ -4299,7 +4335,7 @@ function renderCashFlow(data) {
       </div>
 
       <div id="forecast-content" style="display:none;">
-        <div class="scenario-slider-label" style="margin-bottom:10px;">Financial View</div>
+        <div class="scenario-slider-label" style="margin-bottom:10px;">Financial view</div>
         <div class="period-selector" id="forecast-view-tabs" style="width:fit-content;max-width:100%;flex-wrap:wrap;margin-bottom:20px;"></div>
 
         <div class="card card-pad">
@@ -4508,7 +4544,7 @@ function renderCashFlow(data) {
             }
           </div>
           <div class="kpi-footer">
-            <span style="font-size:11px;color:var(--text-muted);">Click for details</span>
+            <span style="font-size:12px;color:var(--text-muted);">Click for details</span>
             <div class="sparkline-wrap">
               <canvas id="spark-${def.id}" width="100" height="36"></canvas>
             </div>
@@ -4626,7 +4662,7 @@ function renderCashFlow(data) {
 
       <div class="card card-pad" style="margin-bottom:20px;background:var(--bg-subtle);">
         <div class="card-title" style="margin-bottom:10px;">How this is calculated</div>
-        <p style="font-family:var(--font-mono);font-size:12.5px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
+        <p style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
           ${
             hasValue
               ? escapeHtml(entry.formula)
@@ -4640,7 +4676,7 @@ function renderCashFlow(data) {
       ${
         hasTrend
           ? `<div style="height:180px;"><canvas id="modal-kpi-chart"></canvas></div>`
-          : `<p style="font-size:12.5px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
+          : `<p style="font-size:13px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
       }
     `;
 
@@ -4684,28 +4720,36 @@ function renderCashFlow(data) {
       const firstSentence =
         (health.summary || "").split(/(?<=[.!?])\s+/)[0] || "";
 
+      const factorTone = f =>
+        f.impact === "positive" ? ["pos", "Good"]
+        : f.impact === "negative" ? ["neg", "Needs attention"]
+        : ["muted", "Fair"];
+
       container.innerHTML = `
-        <div class="card card-pad health-score-card health-score-card-clickable" onclick="NFK_App.openHealthDetail()" title="Click for full breakdown">
-          <div class="health-ring" style="background: conic-gradient(${color} ${pct}%, var(--bg-subtle) 0);">
-            <div class="health-ring-hole"></div>
-            <div class="health-ring-inner">
-              <div class="health-ring-score">${pct}</div>
-              <div class="health-ring-rating" style="color:${color};">${escapeHtml(health.rating)}</div>
-            </div>
+        <div class="card card-pad health-card-overview health-score-card-clickable" onclick="NFK_App.openHealthDetail()" title="Click for full breakdown">
+          <div class="health-card-head">
+            <div class="card-title">Financial health</div>
+            <span class="chip chip-muted">Auto-updated</span>
           </div>
-          <div class="health-score-body">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-              <div class="card-title">Financial Health Score</div>
-              <span class="badge badge-pos">Auto-updated</span>
+          <div class="health-card-top">
+            <div class="health-ring" style="background: conic-gradient(${color} ${pct}%, var(--bg-subtle) 0);">
+              <div class="health-ring-hole"></div>
+              <div class="health-ring-inner">
+                <div class="health-ring-score">${pct}</div>
+                <div class="health-ring-rating" style="color:${color};">${escapeHtml(health.rating)}</div>
+              </div>
             </div>
             <div class="health-score-summary">${escapeHtml(firstSentence)}</div>
-            <div class="health-badge-row">
-              ${health.factors.map(f => `
-                <span class="health-badge ${f.impact === "positive" ? "pos" : f.impact === "negative" ? "neg" : "neutral"}">
-                  ${escapeHtml(f.label)} ${f.impact === "positive" ? "✓" : f.impact === "negative" ? "⚠" : "•"}
-                </span>
-              `).join("")}
-            </div>
+          </div>
+          <div class="health-factor-list">
+            ${health.factors.map(f => {
+              const [tone, word] = factorTone(f);
+              return `
+                <div class="health-factor">
+                  <span class="health-factor-label">${escapeHtml(f.label)}</span>
+                  <span class="chip chip-${tone}">${word}</span>
+                </div>`;
+            }).join("")}
           </div>
         </div>
       `;
@@ -4788,10 +4832,10 @@ function renderCashFlow(data) {
   }
 
   const OVERVIEW_TREND_VIEW = {
-    title: "Money In vs. Money Out",
+    title: "Money in vs. money out",
     metrics: [
-      { key: "revenue", label: "Money In", color: "primary" },
-      { key: "totalExpenses", label: "Money Out", color: "danger" }
+      { key: "revenue", label: "Money in", color: "primary" },
+      { key: "totalExpenses", label: "Money out", color: "danger" }
     ]
   };
 
@@ -4984,7 +5028,9 @@ function renderCashFlow(data) {
           title: item.title,
           body: item.description,
           meta: item.evidence,
-          tag: `${item.severity} severity · ${item.category}`
+          status: `${capWord(item.severity)} severity`,
+          tone: ({ high: "neg", medium: "warn" })[(item.severity || "").toLowerCase()] || "muted",
+          category: capWord(item.category)
         })),
         ...topRecommendation.map((item, i) => ({
           id: `rec-${i}`,
@@ -4993,7 +5039,9 @@ function renderCashFlow(data) {
           title: item.title,
           body: item.description,
           meta: item.expectedImpact,
-          tag: `${item.priority} priority · ${item.category}`
+          status: `${capWord(item.priority)} priority`,
+          tone: "pos",
+          category: capWord(item.category)
         }))
       ];
 
@@ -5008,6 +5056,8 @@ function renderCashFlow(data) {
       `;
     }
   }
+
+  const capWord = s => { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); };
 
   function renderOverviewAlerts() {
     const body = document.getElementById("overview-alerts-body");
@@ -5026,20 +5076,16 @@ function renderCashFlow(data) {
       return;
     }
 
-    const glyph = {
-      warning: icon_alert_warning(),
-      info: icon_alert_info(),
-      positive: icon_alert_ok()
-    };
-
     body.innerHTML = visible
       .map(
         alert => `
-        <div class="alert-row ${alert.kind}" onclick="NFK_App.nav('ai-insights')" style="cursor:pointer;">
-
-          <span class="alert-glyph">${glyph[alert.kind]}</span>
+        <div class="alert-row" onclick="NFK_App.nav('ai-insights')" style="cursor:pointer;">
 
           <div class="alert-content">
+            <div class="insight-chips">
+              <span class="chip chip-${alert.tone}">${escapeHtml(alert.status)}</span>
+              <span class="chip chip-muted">${escapeHtml(alert.category)}</span>
+            </div>
             <div class="alert-title">${escapeHtml(alert.title)}</div>
             <div class="alert-body ai-msg-markdown">${renderMarkdown(alert.body)}</div>
             <div class="alert-meta">${escapeHtml(alert.meta || "")}</div>
@@ -5048,6 +5094,7 @@ function renderCashFlow(data) {
           <button
             class="alert-dismiss"
             title="Dismiss"
+            aria-label="Dismiss"
             onclick="event.stopPropagation(); NFK_App.dismissOverviewAlert('${alert.id}')"
           >&times;</button>
 
@@ -5096,6 +5143,29 @@ function renderCashFlow(data) {
     }
 
     return sentences.join(" ");
+  }
+
+  // The hero cash figure counts up from zero once when the Overview
+  // renders — the one number the page is about. Skipped for anyone
+  // who asks their system for reduced motion.
+  function countUpHeroCash(value, currency) {
+    const el = document.querySelector("#page-overview .metric-card.is-hero .stat-val");
+    if (!el || !Number.isFinite(value)) return;
+
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+
+    const start = performance.now();
+    const duration = 1100;
+
+    const tick = now => {
+      const k = Math.min(1, Math.max(0, (now - start) / duration));
+      const eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = formatCurrency(value * eased, currency);
+      if (k < 1) requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
   }
 
   function renderOverview({ pl, bs, cf, ar, ap, debt }) {
@@ -5158,7 +5228,7 @@ function renderCashFlow(data) {
     // language headline — per the product plan's rule of leading with
     // owner language and keeping the accounting term as an optional
     // secondary label, not deleting it.
-    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel, sparklineId, goTo) {
+    function metricCard(label, value, priorValue, isError, glyph, secondaryLabel, sparklineId, goTo, extraClass = "") {
       const hasDelta =
         !isError &&
         Number.isFinite(value) &&
@@ -5180,13 +5250,13 @@ function renderCashFlow(data) {
         : "";
 
       return `
-        <div class="stat-card metric-card${goTo ? " is-linked" : ""}"${opens}>
+        <div class="stat-card metric-card${goTo ? " is-linked" : ""}${extraClass ? ` ${extraClass}` : ""}"${opens}>
 
           <div class="metric-glyph">${glyph}</div>
 
           <div class="stat-label">${escapeHtml(label)}${
             secondaryLabel
-              ? ` <span class="stat-sub-quiet">(${escapeHtml(secondaryLabel)})</span>`
+              ? ` <span class="stat-sub-quiet">· ${escapeHtml(secondaryLabel)}</span>`
               : ""
           }</div>
 
@@ -5214,11 +5284,32 @@ function renderCashFlow(data) {
       `;
     }
 
+    // A plain figure card for totals that have no prior-period
+    // comparison (what customers owe, what you owe).
+    function totalCard(label, value, note, isError, goTo) {
+      return `
+        <div class="stat-card metric-card is-linked" data-goto="${goTo}" role="link" tabindex="0"
+             aria-label="${escapeHtml(label)} — open the full page">
+          <div class="stat-label">${escapeHtml(label)}</div>
+          <div class="stat-val">${isError || !Number.isFinite(value) ? "—" : formatCurrency(Number(value), currency)}</div>
+          <div class="stat-sub"><span class="stat-sub-quiet">${isError ? "Unable to load" : escapeHtml(note)}</span></div>
+        </div>
+      `;
+    }
+
+    const arTotal = ar?.error ? null : Number(ar?.total || 0);
+    const apTotal = ap?.error ? null : Number(ap?.total || 0);
+    const summaryLine = overviewSummaryLine({
+      income, netIncome, cashBalance, periodLabel, currency
+    });
+
     page.innerHTML = `
       <div class="page-header">
         <div>
           <h1 class="page-title">Overview</h1>
-          <p class="page-subtitle">${escapeHtml(overviewSubtitle)}</p>
+          ${summaryLine
+            ? `<p class="overview-summary">${escapeHtml(summaryLine)}</p>`
+            : `<p class="page-subtitle">${escapeHtml(overviewSubtitle)}</p>`}
         </div>
 
         <div class="page-header-actions">
@@ -5230,55 +5321,46 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      ${(() => {
-        const line = overviewSummaryLine({
-          income, netIncome, cashBalance, periodLabel, currency
-        });
-        return line ? `<p class="overview-summary">${escapeHtml(line)}</p>` : "";
-      })()}
+      <!-- The hero: cash in the bank, how long it lasts, and where it's
+           heading over the next 30 days — the three answers an owner
+           opens the portal for. -->
+      <section class="card overview-hero section-gap">
+        <div class="overview-hero-cash">
+          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow", "is-hero")}
 
-      <div class="stat-grid section-gap">
-        ${metricCard(`Money earned (${periodLabel})`, income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income", "pl")}
-        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net Income", "overview-spark-netincome", "pl")}
-        ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow")}
-        ${metricCard("Left after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), "Working Capital", null, "balance-sheet")}
-
-        <div class="stat-card is-linked" id="overview-cash-runway"
-             data-goto="forecast" role="link" tabindex="0"
-             aria-label="How long your cash lasts — open the forecast">
-          <div class="stat-label">How long your cash lasts</div>
-          <div class="stat-val">
-            <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+          <div class="overview-runway is-linked" id="overview-cash-runway"
+               data-goto="forecast" role="link" tabindex="0"
+               aria-label="How long your cash lasts — open the forecast">
+            <div class="stat-label">How long your cash lasts</div>
+            <div class="stat-val">
+              <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+            </div>
           </div>
         </div>
-      </div>
 
-
-      <div class="card card-pad section-gap is-linked" id="cash-projection-body"
-           data-goto="forecast" role="link" tabindex="0"
-           aria-label="Where your cash is heading — open the forecast">
-        ${renderSkeletonCard(4)}
-      </div>
-
-      <div class="grid-2 section-gap">
-        <div class="card card-pad is-linked" id="money-in-body"
-             data-goto="pl" role="link" tabindex="0"
-             aria-label="Where the money came from — open what you kept">
-          ${renderSkeletonCard(5)}
+        <div class="overview-hero-proj is-linked" id="cash-projection-body"
+             data-goto="forecast" role="link" tabindex="0"
+             aria-label="Where your cash is heading — open the forecast">
+          ${renderSkeletonCard(4)}
         </div>
+      </section>
 
-        <div class="card card-pad is-linked" id="money-out-body"
-             data-goto="pl" role="link" tabindex="0"
-             aria-label="Biggest things money went out on — open what you kept">
-          ${renderSkeletonCard(5)}
-        </div>
+      <div class="overview-figures section-gap">
+        ${metricCard("Money earned", income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income", "pl")}
+        ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net income", "overview-spark-netincome", "pl")}
+        ${metricCard("Left after short-term bills", workingCapital, priorWorkingCapital, !!bs?.error, icon_scale(), null, null, "balance-sheet")}
+        ${totalCard("Owed to you", arTotal, "Unpaid customer invoices", !!ar?.error, "working-capital")}
+        ${totalCard("Bills to pay", apTotal, "Unpaid bills from suppliers", !!ap?.error, "ap-vendors")}
       </div>
 
-      <div class="grid-2 section-gap">
+      <div class="overview-chart-row section-gap">
 
         <div class="card card-pad">
           <div class="card-header">
-            <div class="card-title">Money In vs. Money Out — 12 Months</div>
+            <div>
+              <div class="card-title">Money in vs. money out</div>
+              <div class="card-sub">Last 12 months</div>
+            </div>
 
             <div class="period-selector">
               <button
@@ -5308,7 +5390,24 @@ function renderCashFlow(data) {
 
       </div>
 
-      <div class="section-heading">AI Alerts &amp; Insights</div>
+      <div class="grid-2 section-gap">
+        <div class="card card-pad is-linked" id="money-in-body"
+             data-goto="pl" role="link" tabindex="0"
+             aria-label="Where the money came from — open what you kept">
+          ${renderSkeletonCard(5)}
+        </div>
+
+        <div class="card card-pad is-linked" id="money-out-body"
+             data-goto="pl" role="link" tabindex="0"
+             aria-label="Biggest things money went out on — open what you kept">
+          ${renderSkeletonCard(5)}
+        </div>
+      </div>
+
+      <div class="section-heading-row">
+        <div class="section-heading">What we noticed</div>
+        <a href="#" class="section-link" onclick="event.preventDefault(); NFK_App.nav('ai-insights')">See all →</a>
+      </div>
 
       <div id="overview-alerts-body" class="alert-list section-gap">
         <div class="card card-pad">
@@ -5316,34 +5415,35 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      <div class="section-gap">
-        <div class="card card-pad is-linked"
-             data-goto="debt-register" role="link" tabindex="0"
-             aria-label="Debt breakdown — open loans and cards">
-          <div class="card-header">
-            <div class="card-title">Debt Breakdown</div>
-          </div>
-          ${
-            debt?.error
-              ? `<div class="stat-sub neg">Unable to load debt data</div>`
-              : `
-                <div class="bs-account-row">
-                  <span>Current Debt</span>
-                  <strong>${formatCurrency(Number(debt?.currentDebt || 0), currency)}</strong>
-                </div>
-                <div class="bs-account-row">
-                  <span>Long-Term Debt</span>
-                  <strong>${formatCurrency(Number(debt?.longTermDebt || 0), currency)}</strong>
-                </div>
-                <div class="bs-account-row">
-                  <span>Total Debt</span>
-                  <strong>${formatCurrency(Number(debt?.totalDebt || 0), currency)}</strong>
-                </div>
-              `
-          }
+      <div class="card card-pad overview-debt is-linked section-gap"
+           data-goto="debt-register" role="link" tabindex="0"
+           aria-label="Loans and cards — open the full page">
+        <div>
+          <div class="card-title">Loans &amp; cards</div>
+          <div class="card-sub">What the business still owes</div>
         </div>
+        ${
+          debt?.error
+            ? `<div class="stat-sub neg">Unable to load debt data</div>`
+            : `
+              <div class="overview-debt-fig">
+                <span class="stat-label">Due within a year</span>
+                <strong>${formatCurrency(Number(debt?.currentDebt || 0), currency)}</strong>
+              </div>
+              <div class="overview-debt-fig">
+                <span class="stat-label">Due later</span>
+                <strong>${formatCurrency(Number(debt?.longTermDebt || 0), currency)}</strong>
+              </div>
+              <div class="overview-debt-fig">
+                <span class="stat-label">Total</span>
+                <strong>${formatCurrency(Number(debt?.totalDebt || 0), currency)}</strong>
+              </div>
+            `
+        }
       </div>
     `;
+
+    countUpHeroCash(cashBalance, currency);
 
     loadOverviewHealthScore();
     loadOverviewTrendChart();
@@ -6189,8 +6289,8 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>Money owed to you <span class="page-title-term">Accounts Receivable</span></h1>
-                <p>Read live from QuickBooks</p>
+                <h1 class="page-title">Money owed to you <span class="page-title-term">Accounts Receivable</span></h1>
+                <p class="page-subtitle">Read live from QuickBooks</p>
               </div>
             </div>
 
@@ -6214,8 +6314,8 @@ function renderCashFlow(data) {
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1>Bills to pay <span class="page-title-term">Accounts Payable</span></h1>
-                <p>Read live from QuickBooks</p>
+                <h1 class="page-title">Bills to pay <span class="page-title-term">Accounts Payable</span></h1>
+                <p class="page-subtitle">Read live from QuickBooks</p>
               </div>
             </div>
 
@@ -6238,8 +6338,8 @@ function renderCashFlow(data) {
     page.innerHTML = `
         <div class="page-header">
             <div>
-                <h1>Invoices</h1>
-                <p>Read live from QuickBooks</p>
+                <h1 class="page-title">Invoices</h1>
+                <p class="page-subtitle">Read live from QuickBooks</p>
             </div>
         </div>
     
@@ -6433,8 +6533,8 @@ function renderCashFlow(data) {
 
               <div class="page-header">
                   <div>
-                      <h1>Loans &amp; cards <span class="page-title-term">Debt</span></h1>
-                      <p>Read live from QuickBooks</p>
+                      <h1 class="page-title">Loans &amp; cards <span class="page-title-term">Debt</span></h1>
+                      <p class="page-subtitle">Read live from QuickBooks</p>
                   </div>
               </div>
 
@@ -6965,16 +7065,22 @@ function renderCashFlow(data) {
 
       </div>
 
-      <div class="topbar-spacer"></div>
-
-      <button
-        class="topbar-ai-btn"
-        onclick="NFK_App.nav('nonaka-ai')"
-        title="Open NFP AI"
-      >
+      <!-- Asking NFP AI starts from anywhere: the question is carried
+           over to the Ask NFP AI page and sent there. -->
+      <form class="topbar-ask" role="search" onsubmit="event.preventDefault(); NFK_App.askFromTopbar(this.q.value); this.q.value='';">
         ${icon_ai()}
-        <span class="topbar-ai-btn-label">NFP AI</span>
-      </button>
+        <input
+          name="q"
+          id="topbar-ask-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Ask NFP AI — “How is my cash flow?”"
+          aria-label="Ask NFP AI a question"
+        >
+        <kbd class="topbar-ask-kbd" aria-hidden="true">Ctrl K</kbd>
+      </form>
+
+      <div class="topbar-spacer"></div>
 
       <button
         type="button"
@@ -7161,7 +7267,7 @@ function renderCashFlow(data) {
       </div>
 
       <div class="card card-pad section-gap">
-        <div class="card-title" style="margin-bottom:16px;">QuickBooks Connection</div>
+        <div class="card-title" style="margin-bottom:16px;">QuickBooks connection</div>
         <div id="settings-qb-status">
           <p style="color:var(--text-secondary);">Checking connection status...</p>
         </div>
@@ -7207,9 +7313,9 @@ function renderCashFlow(data) {
         el.innerHTML = `
           <div class="page-header">
             <div class="page-title">
-              ${page
-                .replace("-", " ")
-                .toUpperCase()}
+              ${(p => p.charAt(0).toUpperCase() + p.slice(1))(
+                page.replace("-", " ")
+              )}
             </div>
           </div>
 
@@ -7256,6 +7362,17 @@ function renderCashFlow(data) {
       const sidebar = document.getElementById("app-sidebar");
 
       if (sidebar?.classList.contains("open")) closeSidebar();
+    });
+
+    // Ctrl/⌘+K jumps to the top bar's Ask NFP AI box from any page.
+    document.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        const box = document.getElementById("topbar-ask-input");
+        if (box) {
+          e.preventDefault();
+          box.focus();
+        }
+      }
     });
 
     // Resizing past the breakpoint (rotating a tablet, undocking a
@@ -7383,6 +7500,14 @@ function renderCashFlow(data) {
     setOverviewPeriod,
 
     sendPageChat,
+
+    // The top bar's question box: open Ask NFP AI and send the question
+    // there, so the answer lands in the normal chat thread.
+    askFromTopbar(question) {
+      const q = String(question || "").trim();
+      navigate("nonaka-ai");
+      if (q) setTimeout(() => sendPageChat(q), 0);
+    },
 
     updateScenarioParam,
 
