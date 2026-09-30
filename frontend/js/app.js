@@ -1691,6 +1691,21 @@
             <span class="cashproj-title">${escapeHtml(verdict.headline || "")}</span>
             <span class="plstory-sub">${escapeHtml(verdict.detail || "")}</span>
           </div>
+          ${steps.length
+            ? `<div class="plstory-figures">
+                 <div class="plstory-figure">
+                   <span class="summary-label">${escapeHtml(steps[0].label || "What you sold")}</span>
+                   <strong>${money(steps[0].amount)}</strong>
+                 </div>
+                 <div class="plstory-figure">
+                   <span class="summary-label">${escapeHtml(steps.at(-1).label || "What you kept")}</span>
+                   <strong class="${Number(steps.at(-1).amount) < 0 ? "is-neg" : ""}">${money(steps.at(-1).amount)}</strong>
+                   ${sales > 0 && Number.isFinite(Number(steps.at(-1).share))
+                     ? `<span class="summary-sub">${Number(steps.at(-1).share)}¢ of every $1 sold</span>`
+                     : ""}
+                 </div>
+               </div>`
+            : ""}
         </div>
 
         <div class="plstory-steps">
@@ -5760,6 +5775,23 @@ function renderCashFlow(data) {
     }
   }
 
+  // A summary card as a row of equal figure blocks — the headline first,
+  // then the numbers behind it — so a wide card is filled with figures
+  // instead of a heading in one corner and a caption in the other.
+  // cells: [{ label, value, sub, tone }] — tone: "warn" | "neg" | "pos"
+  function summaryStripHtml(cells) {
+    return `
+      <div class="summary-strip">
+        ${cells.map((c, i) => `
+          <div class="summary-cell${i === 0 ? " is-lead" : ""}">
+            <span class="summary-label">${escapeHtml(c.label)}</span>
+            <span class="summary-value${c.tone ? ` is-${c.tone}` : ""}">${escapeHtml(c.value)}</span>
+            ${c.sub ? `<span class="summary-sub">${escapeHtml(c.sub)}</span>` : ""}
+          </div>`).join("")}
+      </div>
+    `;
+  }
+
   function renderInvoiceUrgency(urgency) {
     const body = document.getElementById("invoice-urgency-body");
     if (!body || !urgency) return;
@@ -5845,17 +5877,24 @@ function renderCashFlow(data) {
     const share = Number(urgency.overdueShare || 0);
     const oldest = urgency.oldest;
 
+    const bandCell = (band, label, tone) => {
+      const count = Number(band?.count || 0);
+      return {
+        label,
+        value: money(band?.total),
+        sub: count ? plural(count, "invoice") : "None",
+        tone: count ? tone : ""
+      };
+    };
+
     body.innerHTML = `
       <div class="card card-pad billsched-summary">
-        <div class="billsched-head">
-          <div>
-            <span class="cashproj-eyebrow">Who to chase first</span>
-            <span class="cashproj-title">${money(owed)} owed to you</span>
-          </div>
-          <span class="billsched-asof ${share > 0 ? "is-warn" : ""}">
-            ${share}% of it is already late
-          </span>
-        </div>
+        ${summaryStripHtml([
+          { label: "Who to chase first", value: `${money(owed)} owed to you` },
+          { label: "Already late", value: `${share}%`, sub: "of what you're owed", tone: share > 0 ? "warn" : "" },
+          bandCell(urgency.atRisk, "At risk", "neg"),
+          bandCell(urgency.dueThisWeek, "Due this week", "")
+        ])}
 
       ${oldest
         ? `<div class="urgency-call">
@@ -6017,13 +6056,26 @@ function renderCashFlow(data) {
 
     body.innerHTML = `
       <div class="card card-pad billsched-summary">
-        <div class="billsched-head">
-          <div>
-            <span class="cashproj-eyebrow">What's due, and when</span>
-            <span class="cashproj-title">${money(total)} still to pay</span>
-          </div>
-          <span class="billsched-asof">Week runs to ${escapeHtml(dayMonth(schedule.weekEnds))}</span>
-        </div>
+        ${summaryStripHtml([
+          { label: "What's due, and when", value: `${money(total)} still to pay` },
+          {
+            label: "Overdue",
+            value: money(schedule.overdue?.total),
+            sub: Number(schedule.overdue?.count || 0) ? plural(schedule.overdue.count, "bill") : "None",
+            tone: Number(schedule.overdue?.count || 0) ? "neg" : ""
+          },
+          {
+            label: "Due this week",
+            value: money(schedule.thisWeek?.total),
+            sub: `To ${dayMonth(schedule.weekEnds)}`,
+            tone: Number(schedule.thisWeek?.count || 0) ? "warn" : ""
+          },
+          {
+            label: "Later this month",
+            value: money(schedule.laterThisMonth?.total),
+            sub: Number(schedule.laterThisMonth?.count || 0) ? plural(schedule.laterThisMonth.count, "bill") : "None"
+          }
+        ])}
       </div>
 
       <div class="billsched-groups">

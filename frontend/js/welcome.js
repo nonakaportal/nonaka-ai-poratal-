@@ -1,16 +1,43 @@
 // ============================================================
 // NONAKA FINANCIAL PARTNERS — INTRO PAGE
-// Scroll reveal, nav scroll state, hero title entrance, and the
-// product preview (cash count-up, rotating example insights).
+// Scroll reveal, nav scroll state, hero title entrance, the hero
+// illustration (tilt, spotlight) and its rotating example insights.
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
     initNavScroll();
     initHeroTitle();
     initScrollReveal();
-    initPreviewCountUp();
+    initHeroInteractive();
     initHeroInsights();
+    initHeroScene();
 });
+
+// The hero illustration is a Lottie animation (assest/hero-scene.json).
+// Its card labels are live text in Geist, so wait for the font first —
+// Lottie measures glyph widths once, at load, and would otherwise space
+// them using the fallback font.
+function initHeroScene() {
+    const container = document.getElementById("hero-scene");
+    if (!container || !window.lottie) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fontsReady = document.fonts
+        ? Promise.all([document.fonts.load("400 11px Geist"), document.fonts.load("600 22px Geist")]).catch(() => {})
+        : Promise.resolve();
+
+    fontsReady.then(() => {
+        const anim = window.lottie.loadAnimation({
+            container,
+            renderer: "svg",
+            loop: true,
+            autoplay: !reduceMotion,
+            path: "assest/hero-scene.json",
+        });
+        // Reduced motion: a still of him mid-typing, cards settled.
+        if (reduceMotion) anim.addEventListener("DOMLoaded", () => anim.goToAndStop(200, true));
+    });
+}
 
 // Example insights only — illustrative, randomized every time they show,
 // never a real user's data. Every template maps to a report category that
@@ -53,6 +80,8 @@ const HERO_INSIGHT_TEMPLATES = [
     { icon: "score", text: () => `Forecast confidence: ${rInt(78, 96)}%.` },
 ];
 
+const HERO_TOAST_STYLES = ["insight-style-a", "insight-style-b", "insight-style-c"];
+
 const HERO_SCREEN_ICONS = {
     chart: '<path d="M3 17l5-5 3 3 6-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
     invoice: '<path d="M6 3h9l3 3v15H6z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 9h6M9 12h6M9 15h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
@@ -80,6 +109,8 @@ function initHeroInsights() {
         lastIndex = index;
 
         const template = HERO_INSIGHT_TEMPLATES[index];
+        HERO_TOAST_STYLES.forEach(cls => toast.classList.remove(cls));
+        toast.classList.add(HERO_TOAST_STYLES[rInt(0, HERO_TOAST_STYLES.length - 1)]);
         if (toastIcon) toastIcon.innerHTML = HERO_SCREEN_ICONS[template.icon];
         if (toastText) toastText.textContent = template.text();
     };
@@ -138,28 +169,35 @@ function initNavScroll() {
     window.addEventListener("scroll", update, { passive: true });
 }
 
-// The preview's cash figure counts up once, the same way the portal's
-// Overview does. It's an example figure, labelled as one in the page.
-function initPreviewCountUp() {
-    const el = document.getElementById("preview-cash");
-    if (!el) return;
+function initHeroInteractive() {
+    const wrap = document.getElementById("hero-illustration-wrap");
+    const inner = document.getElementById("hero-illustration-inner");
+    if (!wrap || !inner) return;
 
-    const value = Number(el.dataset.value);
-    if (!Number.isFinite(value)) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia("(hover: none)").matches) return; // touch devices
 
-    const format = n => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const start = performance.now() + 500;
-    const duration = 1300;
+    wrap.addEventListener("mouseenter", () => wrap.classList.add("is-hovering"));
 
-    const tick = now => {
-        const k = Math.min(1, Math.max(0, (now - start) / duration));
-        el.textContent = format(value * (1 - Math.pow(1 - k, 3)));
-        if (k < 1) requestAnimationFrame(tick);
-    };
+    wrap.addEventListener("mousemove", (e) => {
+        const rect = inner.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
 
-    el.textContent = format(0);
-    requestAnimationFrame(tick);
+        // Tilt: small range, centered on the cursor position.
+        const rotateY = (x - 0.5) * 14;
+        const rotateX = (0.5 - y) * 10;
+        inner.style.transform = `rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
+
+        // Spotlight glow follows the cursor within the card.
+        wrap.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
+        wrap.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
+    });
+
+    wrap.addEventListener("mouseleave", () => {
+        wrap.classList.remove("is-hovering");
+        inner.style.transform = "rotateX(0deg) rotateY(0deg)";
+    });
 }
 
 function initScrollReveal() {
