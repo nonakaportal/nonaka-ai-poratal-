@@ -18,6 +18,13 @@ QuickBooks Online company and explains the numbers in plain language.
 
 `QB_ENVIRONMENT=sandbox` points at an Intuit sandbox company.
 
+## Tests
+
+`cd backend && npm test` runs the suite (Node's built-in runner, nothing extra to install). It
+covers the organization access check, the QuickBooks OAuth state, the request gate, signup
+cleanup, AI chat-history cleaning and the Profit & Loss parser. It needs no `.env` and makes no
+network calls.
+
 ## More
 
 - [API.md](API.md) — every endpoint, its auth, and its error codes.
