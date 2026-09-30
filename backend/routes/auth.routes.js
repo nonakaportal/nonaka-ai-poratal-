@@ -4,11 +4,46 @@ const router = express.Router();
 
 const supabaseService = require("../services/supabase/supabase.service");
 
+// A signup that fails partway must not leave a half-made account behind.
+// `made` records only what this request itself wrote, so nothing that
+// existed beforehand can be removed.
+//
+// The auth user is deleted only if it is brand new. Supabase answers a
+// repeat signup for an unconfirmed address with the same existing user,
+// and that person must never be deleted by a failure in someone else's
+// request.
+const FRESH_USER_MS = 2 * 60 * 1000;
+
+async function undoSignup(made) {
+    const steps = [
+        made.membership && (() => supabaseService.deleteMembershipsForOrganization(made.organizationId)),
+        made.organizationId && (() => supabaseService.deleteOrganization(made.organizationId)),
+        made.profile && (() => supabaseService.deleteProfile(made.userId)),
+        made.userFresh && (() => supabaseService.deleteAuthUser(made.userId))
+    ].filter(Boolean);
+
+    for (const step of steps) {
+        try {
+            await step();
+        } catch (cleanupError) {
+            console.error("Signup cleanup step failed:", cleanupError.message);
+        }
+    }
+}
+
 // ============================================================
 // SIGN UP
 // ============================================================
 
 router.post("/signup", async (req, res) => {
+    const made = {
+        userId: null,
+        userFresh: false,
+        profile: false,
+        organizationId: null,
+        membership: false
+    };
+
     try {
         const {
             email,
@@ -46,11 +81,17 @@ router.post("/signup", async (req, res) => {
             confirmRedirect
         );
 
+        made.userId = user.id;
+        made.userFresh =
+            Date.now() - Date.parse(user.created_at) < FRESH_USER_MS;
+
         // 2. Create profile
         const profile = await supabaseService.createProfile(
             user.id,
             fullName
         );
+
+        made.profile = true;
 
         // 3. Create organization
         const organization =
@@ -58,12 +99,16 @@ router.post("/signup", async (req, res) => {
                 organizationName
             );
 
+        made.organizationId = organization.id;
+
         // 4. Connect user to organization
         const userOrganization =
             await supabaseService.createUserOrganization(
                 user.id,
                 organization.id
             );
+
+        made.membership = true;
 
         res.status(201).json({
             success: true,
@@ -79,6 +124,8 @@ router.post("/signup", async (req, res) => {
 
     } catch (error) {
         console.error("Signup failed:", error);
+
+        await undoSignup(made);
 
         // Backstop for duplicate-email signups Supabase's own response
         // didn't clearly flag ahead of time (see signUpUser's comments):
@@ -145,7 +192,7 @@ router.post("/login", async (req, res) => {
             password
         } = req.body;
 
-        if (!email || !password) {
+        if (!email || !password || typeof email !== "string" || typeof password !== "string") {
             return res.status(400).json({
                 success: false,
                 error: "email and password are required"
@@ -255,7 +302,7 @@ router.post("/refresh", async (req, res) => {
     try {
         const { refresh_token } = req.body;
 
-        if (!refresh_token) {
+        if (!refresh_token || typeof refresh_token !== "string") {
             return res.status(400).json({
                 success: false,
                 error: "refresh_token is required"
@@ -283,9 +330,11 @@ router.post("/refresh", async (req, res) => {
     } catch (error) {
         console.error("Session refresh failed:", error);
 
+        // Supabase's own wording isn't for the browser; the client only
+        // needs to know the session can't be refreshed and must sign in.
         res.status(401).json({
             success: false,
-            error: error.message,
+            error: "Your session has expired. Please sign in again.",
             code: "AUTH_INVALID"
         });
     }
@@ -300,7 +349,7 @@ router.post("/forgot-password", async (req, res) => {
     try {
         const { email } = req.body;
 
-        if (!email) {
+        if (!email || typeof email !== "string") {
             return res.status(400).json({
                 success: false,
                 error: "email is required"
@@ -345,7 +394,7 @@ router.post("/reset-password", async (req, res) => {
     try {
         const { access_token, password } = req.body;
 
-        if (!access_token || !password) {
+        if (!access_token || !password || typeof access_token !== "string" || typeof password !== "string") {
             return res.status(400).json({
                 success: false,
                 error: "access_token and password are required"
@@ -410,3 +459,4 @@ router.post("/reset-password", async (req, res) => {
 
 
 module.exports = router;
+module.exports._internals = { undoSignup };

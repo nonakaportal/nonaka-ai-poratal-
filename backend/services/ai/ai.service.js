@@ -37,6 +37,8 @@ const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a
 
 let client = null;
 
+const AI_TIMEOUT_MS = 90 * 1000;
+
 function getClient() {
     const apiKey = process.env.CLAUDE_API_KEY;
 
@@ -51,7 +53,9 @@ function getClient() {
     }
 
     if (!client) {
-        client = new Anthropic({ apiKey });
+        // The SDK's default wait is ten minutes, long enough for one stuck
+        // call to hold a portal panel (and its cached promise) open.
+        client = new Anthropic({ apiKey, timeout: AI_TIMEOUT_MS, maxRetries: 2 });
     }
 
     return client;
@@ -110,7 +114,8 @@ async function nvidiaComplete(messages, maxTokens) {
                 model: NVIDIA_MODEL,
                 max_tokens: maxTokens,
                 messages
-            })
+            }),
+            signal: AbortSignal.timeout(AI_TIMEOUT_MS)
         });
 
         if (response.status !== 503 && response.status !== 429) break;

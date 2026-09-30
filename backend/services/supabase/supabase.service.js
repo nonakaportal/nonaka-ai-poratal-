@@ -274,6 +274,49 @@ class SupabaseService {
         return data;
     }
 
+    // ==========================================================
+    // SIGNUP CLEANUP
+    //
+    // Signup writes four things in separate calls (auth user, profile,
+    // organization, membership). If a later one fails, what was already
+    // written is removed so the person can simply try again: a user with
+    // no organization can neither log in nor sign up a second time.
+    // ==========================================================
+
+    async deleteMembershipsForOrganization(organizationId) {
+        const { error } = await this._buildClient()
+            .from("user_organization")
+            .delete()
+            .eq("organization_id", organizationId);
+
+        if (error) throw error;
+    }
+
+    async deleteOrganization(organizationId) {
+        const { error } = await this._buildClient()
+            .from("organizations")
+            .delete()
+            .eq("id", organizationId);
+
+        if (error) throw error;
+    }
+
+    async deleteProfile(userId) {
+        const { error } = await this._buildClient()
+            .from("profiles")
+            .delete()
+            .eq("id", userId);
+
+        if (error) throw error;
+    }
+
+    async deleteAuthUser(userId) {
+        const { error } = await this._buildClient()
+            .auth.admin.deleteUser(userId);
+
+        if (error) throw error;
+    }
+
     // Every organization this user belongs to. Nothing stops a person
     // being linked to more than one — an owner with two companies, or an
     // advisor looking after several — so this must never assume one.

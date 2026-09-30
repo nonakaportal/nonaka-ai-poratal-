@@ -6,6 +6,12 @@ const crypto = require('crypto');
 const supabaseService = require('../supabase/supabase.service');
 const requestGate = require('./request-gate');
 
+// Without a limit, an Intuit connection that stalls never settles, and the
+// request-gate slot it holds is never handed back. Three of those and every
+// QuickBooks call for that company queues forever until the server restarts.
+// Reports take a few seconds at most, so 20 s is generous.
+const QB_TIMEOUT_MS = 20 * 1000;
+
 class QuickBooksService {
     constructor() {
         this.clientId = process.env.QB_CLIENT_ID;
@@ -77,10 +83,14 @@ class QuickBooksService {
             .update(encodedPayload)
             .digest('base64url');
 
-        const validSignature = crypto.timingSafeEqual(
-            Buffer.from(signature),
-            Buffer.from(expectedSignature)
-        );
+        // timingSafeEqual throws on buffers of different lengths, so a
+        // wrong-length signature is rejected here as an ordinary bad one.
+        const given = Buffer.from(signature);
+        const expected = Buffer.from(expectedSignature);
+
+        const validSignature =
+            given.length === expected.length &&
+            crypto.timingSafeEqual(given, expected);
 
         if (!validSignature) {
             throw new Error('Invalid OAuth state signature');
@@ -139,6 +149,8 @@ class QuickBooksService {
                 }),
 
                 {
+                    timeout: QB_TIMEOUT_MS,
+
                     headers: {
                         Authorization:
                             'Basic ' +
@@ -182,6 +194,8 @@ class QuickBooksService {
                 }),
 
                 {
+                    timeout: QB_TIMEOUT_MS,
+
                     headers: {
                         Authorization:
                             'Basic ' +
@@ -356,6 +370,7 @@ class QuickBooksService {
                     const config = {
                         method: verb,
                         url,
+                        timeout: QB_TIMEOUT_MS,
 
                         headers: {
                             Authorization:

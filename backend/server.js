@@ -11,7 +11,7 @@ require('dotenv').config({
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 
 
 // ============================================================
@@ -21,6 +21,7 @@ const rateLimit = require('express-rate-limit');
 const quickbooksRoutes = require('./routes/quickbooks.routes');
 const authRoutes = require("./routes/auth.routes");
 const aiRoutes = require("./routes/ai");
+const { authLimiter, ipCeiling, apiLimiter, aiLimiter } = require('./middleware/rate-limit');
 
 
 // ============================================================
@@ -92,6 +93,11 @@ app.use(cors({
   }
 }));
 
+// The stylesheet, the portal script and the hero animation are each well over
+// 100 KB of text that compresses to a fraction of that. Registered before the
+// static files so they are covered too.
+app.use(compression());
+
 app.use(express.json({ limit: '1mb' }));
 
 // Static assets are cached for an hour so a deploy reaches everyone within
@@ -115,37 +121,9 @@ app.use((req, res, next) => {
 // that hardcode "/index.html" are unaffected.
 app.use(express.static(path.join(__dirname, '../frontend'), { index: 'welcome.html' }));
 
-// Login/signup are the only unauthenticated, credential-checking
-// routes in the app — the natural target for brute-force and
-// credential-stuffing attempts, so they get a much tighter limit than
-// everything else.
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts. Please try again later.' }
-});
-
-// AI routes each cost a real Claude API call (money, and Anthropic's
-// own rate limits) — cap abuse independently of the general API limit.
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many AI requests. Please try again later.' }
-});
-
-// Baseline limit for everything else under /api, so no single client
-// can hammer the QuickBooks integration or the server generally.
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 600,
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
+// Rate limits (see middleware/rate-limit.js for why signed-in traffic is
+// counted per session rather than per IP address).
+app.use('/api', ipCeiling);
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/ai', aiLimiter);
@@ -203,6 +181,28 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ============================================================
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// A promise nobody caught used to be swallowed silently or, on newer Node,
+// take the whole process down with no context. Log it with its stack so it
+// can be found; the request that caused it has already been answered or
+// timed out by its own handler.
+process.on('unhandledRejection', reason => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+// Render sends SIGTERM on every deploy. Stop taking new connections and let
+// in-flight requests finish, instead of cutting them off mid-response.
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down`);
+
+  server.close(() => process.exit(0));
+
+  // A connection that never closes must not hold a deploy hostage.
+  setTimeout(() => process.exit(1), 10 * 1000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
