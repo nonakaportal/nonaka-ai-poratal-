@@ -4878,6 +4878,63 @@ function renderCashFlow(data) {
     drawOverviewTrend();
   }
 
+  // Cash Runway — "at this pace, how long does your cash last." Uses the
+  // same 12-month history the trend chart already fetches (no extra API
+  // call), averaged over the last 3 months so one unusual month doesn't
+  // swing the number wildly.
+  function renderCashRunway() {
+    const el = document.getElementById("overview-cash-runway");
+    if (!el) return;
+
+    const cashBalance = overviewState.cashBalance;
+    const history = overviewState.history;
+
+    const notEnoughData = () => {
+      el.innerHTML = `
+        <div class="stat-label">How long your cash lasts</div>
+        <div class="stat-val">—</div>
+        <div class="stat-sub-quiet">Not enough monthly history yet</div>
+      `;
+    };
+
+    if (!Number.isFinite(cashBalance) || !history) {
+      notEnoughData();
+      return;
+    }
+
+    const recentMonths = history
+      .filter(h => Number.isFinite(h.revenue) && Number.isFinite(h.totalExpenses))
+      .slice(-3);
+
+    if (recentMonths.length === 0) {
+      notEnoughData();
+      return;
+    }
+
+    const avgMonthlyBurn =
+      recentMonths.reduce((sum, h) => sum + (h.totalExpenses - h.revenue), 0) /
+      recentMonths.length;
+
+    // Spending less than you're bringing in — there's no countdown to show.
+    if (avgMonthlyBurn <= 0) {
+      el.innerHTML = `
+        <div class="stat-label">How long your cash lasts</div>
+        <div class="stat-val pos-val">Growing</div>
+        <div class="stat-sub-quiet">You're bringing in more than you're spending</div>
+      `;
+      return;
+    }
+
+    const months = Math.max(cashBalance, 0) / avgMonthlyBurn;
+    const urgencyClass = months < 2 ? "neg-val" : months < 6 ? "" : "pos-val";
+
+    el.innerHTML = `
+      <div class="stat-label">How long your cash lasts</div>
+      <div class="stat-val ${urgencyClass}">${months.toFixed(1)} months</div>
+      <div class="stat-sub-quiet">At your recent spending pace</div>
+    `;
+  }
+
   // Fills in the two headline metric cards' sparkline slots once the
   // 12-month history they need has loaded. Net income isn't in the
   // history array directly — revenue minus total expenses is a close
@@ -4909,6 +4966,7 @@ function renderCashFlow(data) {
 
     try {
       overviewState.history = await loadOverviewHistory(12);
+      renderCashRunway();
       renderOverviewSparklines();
 
       const usable = overviewState.history.filter(
@@ -4933,6 +4991,7 @@ function renderCashFlow(data) {
           Unable to load monthly history.
         </div>
       `;
+      renderCashRunway();
     }
   }
 
@@ -5149,6 +5208,9 @@ function renderCashFlow(data) {
 
     const cashBalance = cf?.error ? null : Number(cf?.closingCash || 0);
 
+    // Stashed for renderCashRunway(), which runs later once
+    // overviewState.history has loaded (see loadOverviewTrendChart).
+    overviewState.cashBalance = cashBalance;
     const kpi = computeKPIValues({ pl, bs, ar, ap });
     const workingCapital = kpi?.workingCapital?.value ?? null;
 
@@ -5274,14 +5336,21 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      <!-- The hero: cash in the bank, and where it's heading over the
-           next 30 days — the answers an owner opens the portal for. The
-           curve under the figure is filled in by renderCashProjection. -->
+      <!-- The hero: cash in the bank, how long it lasts, and where it's
+           heading over the next 30 days — the three answers an owner
+           opens the portal for. -->
       <section class="card overview-hero section-gap">
         <div class="overview-hero-cash">
-          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_wallet(), null, null, "cash-flow", "is-hero")}
+          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow", "is-hero")}
 
-          <div class="ovh-curve" id="overview-cash-curve"></div>
+          <div class="overview-runway is-linked" id="overview-cash-runway"
+               data-goto="forecast" role="link" tabindex="0"
+               aria-label="How long your cash lasts — open the forecast">
+            <div class="stat-label">How long your cash lasts</div>
+            <div class="stat-val">
+              <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+            </div>
+          </div>
         </div>
 
         <div class="overview-hero-proj is-linked" id="cash-projection-body"
@@ -5594,180 +5663,79 @@ function renderCashFlow(data) {
     const tip = projection.timingTip;
     const overdue = projection.overdue || {};
 
-    // With nothing dated in the window the curve would be a flat line
-    // that implies a forecast we don't have, so it isn't drawn.
+    // With nothing dated in the window the chart would be a flat line
+    // that implies a forecast we don't have, so say what's actually
+    // known instead of drawing a straight line and calling it a
+    // projection.
     const hasForwardMovement = movementDays > 0;
 
-    renderCashCurve(projection, hasForwardMovement);
-
-    const customerCount = Number(overdue.customerCount || 0);
-    const supplierCount = Number(overdue.supplierCount || 0);
-
     body.innerHTML = `
-      <div class="ovh-head">
-        <div class="ovh-eyebrow">Next 30 days</div>
-        <div class="ovh-title">Where your cash is heading</div>
-      </div>
-
-      <div class="ovh-tiles">
-        <div class="ovh-tile tone-pos">
-          <span class="ovh-icon">${icon_bank()}</span>
-          <div>
-            <span class="ovh-label">In the bank now</span>
-            <strong class="ovh-figure">${money(projection.openingCash)}</strong>
-          </div>
+      <div class="cashproj-head">
+        <div>
+          <div class="cashproj-eyebrow">Next 30 days</div>
+          <div class="cashproj-title">Where your cash is heading</div>
         </div>
-        ${
-          Number.isFinite(projection.safeFloor)
-            ? `<div class="ovh-tile tone-neg">
-                 <span class="ovh-icon">${icon_arrow_up_right()}</span>
-                 <div>
-                   <span class="ovh-label">Your usual monthly outgoings</span>
-                   <strong class="ovh-figure">${money(projection.safeFloor)}</strong>
-                 </div>
-               </div>`
-            : ""
-        }
+        <div class="cashproj-figures">
+          <div class="cashproj-figure">
+            <span class="cashproj-figure-label">In the bank now</span>
+            <strong>${money(projection.openingCash)}</strong>
+          </div>
+          ${
+            Number.isFinite(projection.safeFloor)
+              ? `<div class="cashproj-figure">
+                   <span class="cashproj-figure-label">Your usual monthly outgoings</span>
+                   <strong class="cashproj-floor">${money(projection.safeFloor)}</strong>
+                 </div>`
+              : ""
+          }
+        </div>
       </div>
 
       ${
+        hasForwardMovement
+          ? `<div class="chart-frame cashproj-chart"><canvas id="chart-cash-projection"></canvas></div>`
+          : `<div class="cashproj-nodata">
+               Nothing is currently dated in the next 30 days — every unpaid
+               invoice and bill in your books is already past its due date,
+               so there is no future timing to plot yet.
+             </div>`
+      }
+
+      ${
         tip
-          ? `<div class="ovh-tip">
-               <span class="ovh-icon">${icon_bulb()}</span>
-               <div>
-                 <div class="ovh-tip-head">Worth knowing</div>
-                 <p class="ovh-tip-body">${escapeHtml(tip.suggestion)}</p>
-                 ${
-                   tip.bill
-                     ? `<div class="ovh-tip-meta">${escapeHtml(tip.bill.party)} · ${money(tip.bill.amount)} · due ${escapeHtml(tip.bill.dueDate)}</div>`
-                     : ""
-                 }
-               </div>
+          ? `<div class="cashproj-tip">
+               <div class="cashproj-tip-head">Worth knowing</div>
+               <p class="cashproj-tip-body">${escapeHtml(tip.suggestion)}</p>
+               ${
+                 tip.bill
+                   ? `<div class="cashproj-tip-meta">${escapeHtml(tip.bill.party)} · ${money(tip.bill.amount)} · due ${escapeHtml(tip.bill.dueDate)}</div>`
+                   : ""
+               }
              </div>`
           : ""
       }
 
-      <div class="ovh-owed">
-        <div class="ovh-owed-item tone-pos is-linked"
+      <div class="cashproj-overdue">
+        <div class="cashproj-overdue-item is-linked"
              data-goto="working-capital" role="link" tabindex="0"
              aria-label="Already owed to you — open money owed to you">
-          <span class="ovh-icon">${icon_doc()}</span>
-          <div>
-            <span class="ovh-label">Already owed to you</span>
-            <strong class="ovh-figure pos-val">${money(overdue.customersOweYou)}</strong>
-            <span class="ovh-meta">${customerCount} overdue invoice${customerCount === 1 ? "" : "s"}</span>
-          </div>
+          <span>Already owed to you</span>
+          <strong class="pos-val">${money(overdue.customersOweYou)}</strong>
+          <span class="cashproj-overdue-meta">${Number(overdue.customerCount || 0)} overdue invoice${Number(overdue.customerCount) === 1 ? "" : "s"}</span>
         </div>
-        <div class="ovh-owed-item tone-neg is-linked"
+        <div class="cashproj-overdue-item is-linked"
              data-goto="ap-vendors" role="link" tabindex="0"
              aria-label="You already owe — open bills to pay">
-          <span class="ovh-icon">${icon_doc()}</span>
-          <div>
-            <span class="ovh-label">You already owe</span>
-            <strong class="ovh-figure neg-val">${money(overdue.youOweSuppliers)}</strong>
-            <span class="ovh-meta">${supplierCount} overdue bill${supplierCount === 1 ? "" : "s"}</span>
-          </div>
+          <span>You already owe</span>
+          <strong class="neg-val">${money(overdue.youOweSuppliers)}</strong>
+          <span class="cashproj-overdue-meta">${Number(overdue.supplierCount || 0)} overdue bill${Number(overdue.supplierCount) === 1 ? "" : "s"}</span>
         </div>
       </div>
     `;
-  }
 
-  // The balance day by day over the next 30 days, drawn under the cash
-  // figure. A monotone curve: it never bulges past a real day's balance,
-  // so it can't show a rise or dip that isn't in the projection.
-  function renderCashCurve(projection, hasForwardMovement) {
-    const slot = document.getElementById("overview-cash-curve");
-    if (!slot) return;
-
-    const currency = projection.currency || "USD";
-    const daily = (projection.timeline || [])
-      .map(d => Number(d.balance))
-      .filter(Number.isFinite);
-
-    // The balance only moves on due dates, so day by day it is a staircase.
-    // Every third day (and the last) keeps the shape of the month as a
-    // smooth line, and every point drawn is still a real projected balance.
-    const values = daily.filter((_, i) => i % 3 === 0 || i === daily.length - 1);
-
-    if (!hasForwardMovement || values.length < 2) {
-      slot.innerHTML = `
-        <p class="ovh-curve-empty">
-          Nothing is dated in the next 30 days yet, so there is no
-          projection to draw.
-        </p>
-      `;
-      return;
+    if (hasForwardMovement && window.NFK_Charts?.renderCashProjection) {
+      window.NFK_Charts.renderCashProjection("chart-cash-projection", projection);
     }
-
-    const W = 400, H = 150, PAD = 12;
-    const min = Math.min(...values), max = Math.max(...values);
-    const range = max - min || 1;
-
-    const pts = values.map((v, i) => [
-      (i / (values.length - 1)) * W,
-      PAD + (1 - (v - min) / range) * (H - PAD * 2)
-    ]);
-
-    const line = monotonePath(pts);
-    const [endX, endY] = pts[pts.length - 1];
-    const label =
-      `Projected bank balance over the next 30 days, from ` +
-      `${formatCurrency(values[0], currency)} to ${formatCurrency(values[values.length - 1], currency)}`;
-
-    slot.innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(label)}">
-        <defs>
-          <linearGradient id="ovh-curve-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" style="stop-color:var(--accent);stop-opacity:0.26" />
-            <stop offset="1" style="stop-color:var(--accent);stop-opacity:0" />
-          </linearGradient>
-        </defs>
-        <path d="${line} L${W},${H} L0,${H} Z" fill="url(#ovh-curve-fill)" />
-        <path class="ovh-curve-line" d="${line}" />
-        <circle class="ovh-curve-halo" cx="${endX}" cy="${endY.toFixed(1)}" r="9" />
-        <circle class="ovh-curve-dot" cx="${endX}" cy="${endY.toFixed(1)}" r="5" />
-      </svg>
-      <div class="ovh-curve-axis"><span>Today</span><span>In 30 days</span></div>
-    `;
-  }
-
-  // Monotone cubic through the points (Fritsch–Carlson), as an SVG path.
-  function monotonePath(pts) {
-    const n = pts.length;
-    const dx = [], slope = [];
-
-    for (let i = 0; i < n - 1; i++) {
-      dx[i] = pts[i + 1][0] - pts[i][0];
-      slope[i] = (pts[i + 1][1] - pts[i][1]) / dx[i];
-    }
-
-    const m = [slope[0]];
-    for (let i = 1; i < n - 1; i++) {
-      m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
-    }
-    m[n - 1] = slope[n - 2];
-
-    for (let i = 0; i < n - 1; i++) {
-      if (slope[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
-      const a = m[i] / slope[i], b = m[i + 1] / slope[i], h = a * a + b * b;
-      if (h > 9) {
-        const t = 3 / Math.sqrt(h);
-        m[i] = t * a * slope[i];
-        m[i + 1] = t * b * slope[i];
-      }
-    }
-
-    const f = v => v.toFixed(1);
-    let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
-
-    for (let i = 0; i < n - 1; i++) {
-      const third = dx[i] / 3;
-      d += ` C${f(pts[i][0] + third)},${f(pts[i][1] + m[i] * third)}` +
-           ` ${f(pts[i + 1][0] - third)},${f(pts[i + 1][1] - m[i + 1] * third)}` +
-           ` ${f(pts[i + 1][0])},${f(pts[i + 1][1])}`;
-    }
-
-    return d;
   }
 
   // ------------------------------------------------------------
@@ -7677,30 +7645,6 @@ function renderCashFlow(data) {
 
   function icon_scale() {
     return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 14a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 5.562V16h2a1 1 0 110 2H7a1 1 0 110-2h2V5.562L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/></svg>`;
-  }
-
-  // Line icons for the Overview hero, drawn in currentColor.
-  const lineIcon = paths =>
-    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-
-  function icon_wallet() {
-    return lineIcon('<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>');
-  }
-
-  function icon_bank() {
-    return lineIcon('<path d="M3 21h18"/><path d="M6 17v-6"/><path d="M10 17v-6"/><path d="M14 17v-6"/><path d="M18 17v-6"/><path d="M12 3 20 8H4z"/>');
-  }
-
-  function icon_arrow_up_right() {
-    return lineIcon('<path d="M7 17 17 7"/><path d="M8 7h9v9"/>');
-  }
-
-  function icon_bulb() {
-    return lineIcon('<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>');
-  }
-
-  function icon_doc() {
-    return lineIcon('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>');
   }
 
   function icon_flow() {

@@ -394,8 +394,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin: 8px 0; letter-spacing: -0.02em; line-height: 34px;
 }
 .stat-sub, .stat-meta { font-size: var(--fs-small); line-height: 20px; display: flex; align-items: center; gap: 4px; color: var(--text-muted); flex-wrap: wrap; }
-.stat-sub.pos, .stat-sub .pos, .stat-meta .pos, .pos-val, .cf-positive { color: var(--positive); font-weight: 500; }
-.stat-sub.neg, .stat-sub .neg, .stat-meta .neg, .neg-val, .cf-negative { color: var(--negative); font-weight: 500; }
+.stat-sub.pos, .stat-meta .pos, .pos-val, .cf-positive { color: var(--positive); font-weight: 500; }
+.stat-sub.neg, .stat-meta .neg, .neg-val, .cf-negative { color: var(--negative); font-weight: 500; }
 .stat-icon {
   width: 30px; height: 30px; border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
@@ -1887,111 +1887,26 @@ textarea.ai-chat-input { max-height: 140px; }
 /* Overview hero: cash, how long it lasts, and where it's heading,
    in one card. The cash side is a figure, not a nested card. */
 .overview-hero {
-  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; padding: 32px;
-  background:
-    radial-gradient(120% 120% at 0% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%),
-    var(--bg-card);
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; padding: 28px;
 }
 .overview-hero-cash {
-  display: flex; flex-direction: column; gap: 24px; min-width: 0;
-  padding-right: 40px; border-right: 1px solid var(--line-2);
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  padding-right: 32px; border-right: 1px solid var(--line-2);
 }
 .overview-hero .stat-card { border: 0; padding: 0; background: transparent; }
-.overview-figures .metric-glyph { display: none; }
-.overview-hero .metric-card.is-hero:hover { transform: none; }
-
-/* The wallet tile above the figure. */
-.metric-card.is-hero .metric-glyph {
-  width: 56px; height: 56px; margin-bottom: 24px; border-radius: 16px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated));
-  box-shadow: inset 0 0 0 1px var(--border);
+/* The column is as tall as the projection beside it. The cash figure takes
+   the space above the runway and sits in its middle, instead of leaving a
+   gap under it. */
+.overview-hero-cash .metric-card.is-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.overview-hero .metric-glyph, .overview-figures .metric-glyph { display: none; }
+.metric-card.is-hero .stat-val { font-size: var(--fs-hero); line-height: 60px; letter-spacing: -0.035em; margin: 8px 0; }
+.overview-runway {
+  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line-2);
+  display: flex; flex-direction: column; gap: 4px; cursor: pointer;
 }
-.metric-card.is-hero .metric-glyph svg { width: 26px; height: 26px; }
-.metric-card.is-hero .stat-label { font-size: var(--fs-card-title); color: var(--text-secondary); }
-.metric-card.is-hero .stat-val { font-size: var(--fs-hero); line-height: 60px; letter-spacing: -0.035em; margin: 8px 0 12px; }
-.metric-card.is-hero .stat-sub { font-size: var(--fs-body); }
-
-/* With no curve to show, the figure sits in the middle of the column
-   instead of at the top of an empty one. */
-.overview-hero-cash:has(.ovh-curve:empty) .metric-card.is-hero { margin-block: auto; }
-
-/* 30-day curve under the cash figure */
-.ovh-curve { margin-top: auto; }
-.ovh-curve:empty { display: none; }
-.ovh-curve svg { display: block; width: 100%; height: auto; overflow: visible; }
-.ovh-curve-line {
-  fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
-  filter: drop-shadow(0 0 6px var(--accent-glow));
-}
-.ovh-curve-halo { fill: var(--accent-glow); }
-.ovh-curve-dot { fill: var(--bg-card); stroke: var(--accent); stroke-width: 2.5; }
-.ovh-curve-axis {
-  display: flex; justify-content: space-between; margin-top: 8px;
-  font-size: var(--fs-label); color: var(--text-muted);
-}
-.ovh-curve-empty { margin: 0; font-size: var(--fs-small); line-height: 22px; color: var(--text-muted); }
-
-/* Where your cash is heading */
-.overview-hero-proj { min-width: 0; cursor: pointer; display: flex; flex-direction: column; gap: 16px; }
-.ovh-head { margin-bottom: 4px; }
-.ovh-eyebrow {
-  font-size: var(--fs-label); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text-muted);
-}
-.ovh-title { margin-top: 6px; font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); }
-
-.ovh-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.ovh-tile, .ovh-tip, .ovh-owed { border: 1px solid var(--border); border-radius: 16px; }
-.ovh-tile, .ovh-tip, .ovh-owed-item { display: flex; align-items: center; gap: 20px; padding: 20px 24px; min-width: 0; }
-
-.ovh-icon {
-  flex: none; width: 52px; height: 52px; border-radius: 50%;
-  display: grid; place-items: center;
-}
-.ovh-icon svg { width: 26px; height: 26px; }
-.ovh-label { display: block; font-size: var(--fs-body); line-height: 22px; color: var(--text-secondary); }
-.ovh-figure {
-  display: block; margin-top: 4px; font-size: 24px; line-height: 32px; font-weight: 600;
-  letter-spacing: -0.01em; color: var(--text-primary); font-variant-numeric: tabular-nums;
-}
-.ovh-meta { display: block; margin-top: 2px; font-size: var(--fs-small); color: var(--text-muted); }
-
-.ovh-tile.tone-pos {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--positive) 11%, var(--bg-card)), color-mix(in srgb, var(--positive) 3%, var(--bg-card)));
-  border-color: color-mix(in srgb, var(--positive) 28%, transparent);
-}
-.ovh-tile.tone-neg {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--negative) 11%, var(--bg-card)), color-mix(in srgb, var(--negative) 3%, var(--bg-card)));
-  border-color: color-mix(in srgb, var(--negative) 28%, transparent);
-}
-.tone-pos .ovh-icon { color: var(--positive); background: color-mix(in srgb, var(--positive) 15%, transparent); }
-.tone-neg .ovh-icon { color: var(--negative); background: color-mix(in srgb, var(--negative) 15%, transparent); }
-
-.ovh-tip {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--warning) 12%, var(--bg-card)), color-mix(in srgb, var(--warning) 4%, var(--bg-card)));
-  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
-}
-.ovh-tip .ovh-icon { color: var(--warning); background: color-mix(in srgb, var(--warning) 16%, transparent); }
-.ovh-tip-head { font-size: var(--fs-card-title); font-weight: 600; color: var(--warning); margin-bottom: 4px; }
-.ovh-tip-body { margin: 0; font-size: var(--fs-body); line-height: 24px; color: var(--text-primary); text-wrap: pretty; }
-.ovh-tip-meta { margin-top: 6px; font-size: var(--fs-small); color: var(--text-muted); }
-
-.ovh-owed { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
-.ovh-owed-item + .ovh-owed-item { border-left: 1px solid var(--border); }
-.ovh-owed-item .ovh-icon { border-radius: 14px; }
-.ovh-owed-item.is-linked:hover { transform: none; background: var(--bg-hover); }
-
-@media (max-width: 1100px) {
-  .overview-hero-cash { padding-right: 0; border-right: 0; padding-bottom: 28px; border-bottom: 1px solid var(--line-2); }
-}
-@media (max-width: 700px) {
-  .ovh-owed { grid-template-columns: 1fr; }
-  .ovh-owed-item + .ovh-owed-item { border-left: 0; border-top: 1px solid var(--border); }
-  .ovh-title { font-size: 22px; line-height: 30px; }
-  .ovh-tile, .ovh-tip, .ovh-owed-item { gap: 16px; padding: 16px; }
-  .ovh-icon { width: 44px; height: 44px; }
-  .ovh-icon svg { width: 22px; height: 22px; }
-}
+.overview-runway .stat-val { font-size: var(--fs-section); line-height: 26px; margin: 0; }
+.overview-runway .stat-sub-quiet { font-size: var(--fs-small); color: var(--text-muted); }
+.overview-hero-proj { min-width: 0; cursor: pointer; }
 
 .overview-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
 .overview-figures .stat-val { font-size: var(--fs-figure); line-height: 32px; }
@@ -2010,6 +1925,7 @@ textarea.ai-chat-input { max-height: 140px; }
 }
 @media (max-width: 1100px) {
   .overview-hero, .overview-chart-row { grid-template-columns: minmax(0, 1fr); }
+  .overview-hero-cash { padding-right: 0; border-right: 0; padding-bottom: 24px; border-bottom: 1px solid var(--line-2); }
 }
 @media (max-width: 640px) {
   .overview-hero { padding: 20px; gap: 24px; }
