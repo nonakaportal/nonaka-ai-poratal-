@@ -5341,14 +5341,19 @@ function renderCashFlow(data) {
            opens the portal for. -->
       <section class="card overview-hero section-gap">
         <div class="overview-hero-cash">
-          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_flow(), null, null, "cash-flow", "is-hero")}
+          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_wallet(), null, null, "cash-flow", "is-hero")}
 
-          <div class="overview-runway is-linked" id="overview-cash-runway"
+          <div class="ovh-curve" id="overview-cash-curve"></div>
+
+          <div class="overview-runway is-linked"
                data-goto="forecast" role="link" tabindex="0"
                aria-label="How long your cash lasts — open the forecast">
-            <div class="stat-label">How long your cash lasts</div>
-            <div class="stat-val">
-              <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+            <span class="overview-runway-icon">${icon_clock()}</span>
+            <div class="overview-runway-text" id="overview-cash-runway">
+              <div class="stat-label">How long your cash lasts</div>
+              <div class="stat-val">
+                <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -5464,7 +5469,124 @@ function renderCashFlow(data) {
     loadOverviewTrendChart();
     loadOverviewAlerts();
     loadCashProjection();
+    loadCashHistory();
     loadMoneyFlow();
+  }
+
+  // ------------------------------------------------------------
+  // CASH OVER THE LAST YEAR
+  //
+  // The line under "Cash in the bank": the balance at the end of each of
+  // the last twelve months, ending on today's. It doesn't depend on the
+  // period toggle, so it is kept for the organization rather than asked
+  // for again every time the toggle moves.
+  // ------------------------------------------------------------
+
+  async function loadCashHistory() {
+    const organizationId = getOrganizationId();
+    if (!organizationId) return;
+
+    try {
+      if (overviewState.cashHistory?.organizationId !== organizationId) {
+        const history = await apiGet(
+          `/quickbooks/cash-history?organizationId=${encodeURIComponent(organizationId)}`
+        );
+
+        overviewState.cashHistory = { organizationId, ...history };
+      }
+
+      renderCashHistory(overviewState.cashHistory);
+    } catch (error) {
+      // The figure above still stands on its own; the line is extra.
+      console.error("Cash history failed:", error);
+    }
+  }
+
+  function renderCashHistory(history) {
+    const slot = document.getElementById("overview-cash-curve");
+    if (!slot) return;
+
+    const points = (history?.points || []).filter(p => Number.isFinite(Number(p.balance)));
+    const values = points.map(p => Number(p.balance));
+
+    // A flat line would only say "no data", so nothing is drawn.
+    if (values.length < 2 || Math.min(...values) === Math.max(...values)) {
+      slot.innerHTML = "";
+      return;
+    }
+
+    const currency = history.currency || "USD";
+    const W = 400, H = 230, PAD = 12;
+    const min = Math.min(...values), max = Math.max(...values);
+
+    const pts = values.map((v, i) => [
+      (i / (values.length - 1)) * W,
+      PAD + (1 - (v - min) / (max - min)) * (H - PAD * 2)
+    ]);
+
+    const line = monotonePath(pts);
+    const [endX, endY] = pts[pts.length - 1];
+    const label =
+      `Bank balance at the end of each month, from ${points[0].label} ` +
+      `(${formatCurrency(values[0], currency)}) to ${points[points.length - 1].label} ` +
+      `(${formatCurrency(values[values.length - 1], currency)})`;
+
+    slot.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(label)}">
+        <defs>
+          <linearGradient id="ovh-curve-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style="stop-color:var(--positive);stop-opacity:0.24" />
+            <stop offset="1" style="stop-color:var(--positive);stop-opacity:0" />
+          </linearGradient>
+        </defs>
+        <path d="${line} L${W},${H} L0,${H} Z" fill="url(#ovh-curve-fill)" />
+        <path class="ovh-curve-line" d="${line}" />
+        <circle class="ovh-curve-halo" cx="${endX}" cy="${endY.toFixed(1)}" r="9" />
+        <circle class="ovh-curve-dot" cx="${endX}" cy="${endY.toFixed(1)}" r="5" />
+      </svg>
+      <div class="ovh-curve-caption">Bank balance, last 12 months</div>
+    `;
+  }
+
+  // Monotone cubic through the points (Fritsch–Carlson), as an SVG path.
+  // Unlike a plain smooth curve it never bulges past a real point, so it
+  // can't show a rise or dip that isn't in the numbers.
+  function monotonePath(pts) {
+    const n = pts.length;
+    const dx = [], slope = [];
+
+    for (let i = 0; i < n - 1; i++) {
+      dx[i] = pts[i + 1][0] - pts[i][0];
+      slope[i] = (pts[i + 1][1] - pts[i][1]) / dx[i];
+    }
+
+    const m = [slope[0]];
+    for (let i = 1; i < n - 1; i++) {
+      m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+    }
+    m[n - 1] = slope[n - 2];
+
+    for (let i = 0; i < n - 1; i++) {
+      if (slope[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+      const a = m[i] / slope[i], b = m[i + 1] / slope[i], h = a * a + b * b;
+      if (h > 9) {
+        const t = 3 / Math.sqrt(h);
+        m[i] = t * a * slope[i];
+        m[i + 1] = t * b * slope[i];
+      }
+    }
+
+    const f = v => v.toFixed(1);
+    let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+
+    for (let i = 0; i < n - 1; i++) {
+      const third = dx[i] / 3;
+      d += ` C${f(pts[i][0] + third)},${f(pts[i][1] + m[i] * third)}` +
+           ` ${f(pts[i + 1][0] - third)},${f(pts[i + 1][1] - m[i + 1] * third)}` +
+           ` ${f(pts[i + 1][0])},${f(pts[i + 1][1])}`;
+    }
+
+    return d;
   }
 
   // ------------------------------------------------------------
@@ -7645,6 +7767,18 @@ function renderCashFlow(data) {
 
   function icon_scale() {
     return `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 14a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 5.562V16h2a1 1 0 110 2H7a1 1 0 110-2h2V5.562L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/></svg>`;
+  }
+
+  // Line icons for the cash hero, drawn in currentColor.
+  const lineIcon = paths =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+  function icon_wallet() {
+    return lineIcon('<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>');
+  }
+
+  function icon_clock() {
+    return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
   }
 
   function icon_flow() {

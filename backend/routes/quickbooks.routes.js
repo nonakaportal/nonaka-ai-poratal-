@@ -8,6 +8,7 @@
 //   DELETE /disconnect                    Unlink the connected company
 //   GET    /status                        Connection state + company name
 //   GET    /cash-projection               Bank balance over the next 7-90 days
+//   GET    /cash-history                  Month-end bank balance, last 12 months
 //   GET    /bills-schedule                Unpaid bills grouped by due date
 //   GET    /money-flow                    Where money came from / went
 //   GET    /cash-cushion                  Bank balance under Scenarios assumptions
@@ -328,6 +329,18 @@ router.get(
             days,
             monthlyOutflows: outgoings.filter(v => v > 0)
         });
+    })
+);
+
+// Month-end bank balance over the last year, for the line under the cash
+// figure on the Overview.
+router.get(
+    '/cash-history',
+    requireOrgAccess,
+    qbRoute('Failed to load your cash history', async connection => {
+        const accessToken = await quickbooksService.getValidAccessToken(connection);
+
+        return quickbooksService.getCashHistory(accessToken, connection.realmId, 12);
     })
 );
 

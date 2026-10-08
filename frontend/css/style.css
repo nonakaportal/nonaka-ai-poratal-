@@ -394,8 +394,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin: 8px 0; letter-spacing: -0.02em; line-height: 34px;
 }
 .stat-sub, .stat-meta { font-size: var(--fs-small); line-height: 20px; display: flex; align-items: center; gap: 4px; color: var(--text-muted); flex-wrap: wrap; }
-.stat-sub.pos, .stat-meta .pos, .pos-val, .cf-positive { color: var(--positive); font-weight: 500; }
-.stat-sub.neg, .stat-meta .neg, .neg-val, .cf-negative { color: var(--negative); font-weight: 500; }
+.stat-sub.pos, .stat-sub .pos, .stat-meta .pos, .pos-val, .cf-positive { color: var(--positive); font-weight: 500; }
+.stat-sub.neg, .stat-sub .neg, .stat-meta .neg, .neg-val, .cf-negative { color: var(--negative); font-weight: 500; }
 .stat-icon {
   width: 30px; height: 30px; border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
@@ -1894,16 +1894,45 @@ textarea.ai-chat-input { max-height: 140px; }
   padding-right: 32px; border-right: 1px solid var(--line-2);
 }
 .overview-hero .stat-card { border: 0; padding: 0; background: transparent; }
-/* The column is as tall as the projection beside it. The cash figure takes
-   the space above the runway and sits in its middle, instead of leaving a
-   gap under it. */
-.overview-hero-cash .metric-card.is-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-.overview-hero .metric-glyph, .overview-figures .metric-glyph { display: none; }
+.overview-figures .metric-glyph { display: none; }
+
+/* Cash in the bank: an icon tile beside the label, figure and change. */
+.overview-hero .metric-card.is-hero {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 20px; align-items: start;
+}
+.overview-hero .metric-card.is-hero:hover { transform: none; }
+.overview-hero .metric-card.is-hero > :not(.metric-glyph) { grid-column: 2; }
+.overview-hero .metric-card.is-hero .metric-glyph,
+.overview-runway-icon {
+  grid-row: 1 / span 3; width: 52px; height: 52px; margin: 0; border-radius: 14px;
+  display: grid; place-items: center; flex: none;
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 9%, var(--bg-elevated));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--positive) 22%, transparent);
+}
+.overview-hero .metric-card.is-hero .metric-glyph svg,
+.overview-runway-icon svg { width: 24px; height: 24px; }
+.overview-runway-icon { color: var(--text-secondary); background: var(--bg-elevated); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* Month-end balance over the last year, under the figure. With no line to
+   show, the figure sits in the middle of the column instead of the top. */
+.ovh-curve { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+.ovh-curve:empty { display: none; }
+.overview-hero-cash:has(.ovh-curve:empty) .metric-card.is-hero { margin-block: auto; }
+.ovh-curve svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ovh-curve-line {
+  fill: none; stroke: var(--positive); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--positive) 45%, transparent));
+}
+.ovh-curve-halo { fill: color-mix(in srgb, var(--positive) 22%, transparent); }
+.ovh-curve-dot { fill: var(--bg-card); stroke: var(--positive); stroke-width: 2.5; }
+.ovh-curve-caption { margin-top: 8px; font-size: var(--fs-label); color: var(--text-muted); }
 .metric-card.is-hero .stat-val { font-size: var(--fs-hero); line-height: 50px; letter-spacing: -0.035em; margin: 8px 0; }
 .overview-runway {
-  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line-2);
-  display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+  margin-top: auto; padding-top: 20px; border-top: 1px solid var(--line-2);
+  display: flex; align-items: center; gap: 20px; cursor: pointer;
 }
+.overview-runway-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .overview-runway .stat-val { font-size: var(--fs-section); line-height: 26px; margin: 0; }
 .overview-runway .stat-sub-quiet { font-size: var(--fs-small); color: var(--text-muted); }
 .overview-hero-proj { min-width: 0; cursor: pointer; }

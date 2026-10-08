@@ -1505,6 +1505,76 @@ class QuickBooksService {
     }
 
     // ==========================================================
+    // CASH HISTORY
+    //
+    // The bank balance at the end of each of the last few months, for the
+    // line under "Cash in the bank". QuickBooks' month-by-month Cash Flow
+    // report gives each month's net change but no month-end balances, so
+    // they are worked backwards from today's ending cash: a month ended
+    // on today's balance less everything that changed after it.
+    // ==========================================================
+
+    async getCashHistory(accessToken, realmId, months = 12) {
+        const today = new Date();
+        const local = d =>
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        const startDate = local(new Date(today.getFullYear(), today.getMonth() - (months - 1), 1));
+        const endDate = local(today);
+
+        const [monthly, total] = await Promise.all([
+            this.makeApiRequest(
+                accessToken,
+                realmId,
+                `reports/CashFlow?start_date=${startDate}&end_date=${endDate}&summarize_column_by=Month`
+            ),
+            this.getCashFlow(accessToken, realmId, startDate, endDate)
+        ]);
+
+        return this.parseCashHistory(monthly, this.parseCashFlow(total).endingCash);
+    }
+
+    parseCashHistory(monthlyReport, endingCash) {
+        const columns = monthlyReport?.Columns?.Column || [];
+
+        // Column 0 holds the row labels; a trailing "Total" isn't a month.
+        const monthIndexes = columns
+            .map((column, index) => ({ index, title: String(column?.ColTitle || '').trim() }))
+            .filter(({ index, title }) => index > 0 && title && title.toLowerCase() !== 'total');
+
+        const increaseRow = (monthlyReport?.Rows?.Row || []).find(row =>
+            row?.group === 'CashIncrease' ||
+            /net cash increase/i.test(String(row?.Summary?.ColData?.[0]?.value || ''))
+        );
+
+        const cells = increaseRow?.Summary?.ColData || [];
+
+        if (!monthIndexes.length || !cells.length || !Number.isFinite(Number(endingCash))) {
+            return { points: [] };
+        }
+
+        const increases = monthIndexes.map(({ index }) => {
+            const value = Number(cells[index]?.value);
+            return Number.isFinite(value) ? value : 0;
+        });
+
+        const balances = new Array(increases.length);
+        balances[balances.length - 1] = Number(endingCash);
+
+        for (let i = balances.length - 1; i > 0; i--) {
+            balances[i - 1] = balances[i] - increases[i];
+        }
+
+        return {
+            currency: monthlyReport?.Header?.Currency || 'USD',
+            points: monthIndexes.map(({ title }, i) => ({
+                label: title,
+                balance: Math.round(balances[i] * 100) / 100
+            }))
+        };
+    }
+
+    // ==========================================================
     // PARSE CASH FLOW
     // ==========================================================
 
