@@ -1348,7 +1348,7 @@
 
       return `
         <div class="card card-pad">
-          <div style="font-size:20px;font-weight:600;">Unable to load ${escapeHtml(title)}</div>
+          <div style="font-size:18px;font-weight:600;">Unable to load ${escapeHtml(title)}</div>
           <p style="margin-top:8px;color:var(--text-secondary);">
             ${escapeHtml(error?.message || "Something went wrong. Please try again.")}
           </p>
@@ -2683,7 +2683,7 @@ function renderCashFlow(data) {
         <div class="card-title" style="margin-bottom:10px;">Contributing Factors</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
           ${health.factors.map(f => `
-            <div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;">
+            <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;">
               <span style="color:${healthRatingColor(f.impact === "positive" ? "good" : f.impact === "negative" ? "critical" : "fair")};font-weight:600;">
                 ${healthImpactIcon(f.impact)}
               </span>
@@ -4666,18 +4666,18 @@ function renderCashFlow(data) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
         <div>
           <div class="kpi-label">${escapeHtml(entry.label)}</div>
-          <div class="kpi-value" style="font-size:28px;">${formatKPIValue(entry.value, entry.format)}</div>
+          <div class="kpi-value" style="font-size:24px;">${formatKPIValue(entry.value, entry.format)}</div>
         </div>
         <button class="btn btn-ghost" onclick="NFK_App.closeKPIModal()">✕</button>
       </div>
 
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:20px;">
         ${escapeHtml(entry.interp)}
       </p>
 
       <div class="card card-pad" style="margin-bottom:20px;background:var(--bg-subtle);">
         <div class="card-title" style="margin-bottom:10px;">How this is calculated</div>
-        <p style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
+        <p style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);margin-bottom:14px;line-height:1.6;">
           ${
             hasValue
               ? escapeHtml(entry.formula)
@@ -4691,7 +4691,7 @@ function renderCashFlow(data) {
       ${
         hasTrend
           ? `<div style="height:180px;"><canvas id="modal-kpi-chart"></canvas></div>`
-          : `<p style="font-size:13px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
+          : `<p style="font-size:12px;color:var(--text-muted);">Loading historical trend from QuickBooks, or not enough historical data is available yet.</p>`
       }
     `;
 

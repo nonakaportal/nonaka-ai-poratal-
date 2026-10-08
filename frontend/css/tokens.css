@@ -90,14 +90,14 @@
   /* Type scale — the only sizes the portal uses. Labels 12, captions
      13, body 14, card titles 15, section headings 18, stat figures 26,
      page titles 30, the one hero figure per page 56. */
-  --fs-label: 13px;
-  --fs-small: 14px;
-  --fs-body: 15px;
-  --fs-card-title: 17px;
-  --fs-section: 20px;
-  --fs-figure: 28px;
-  --fs-page-title: 32px;
-  --fs-hero: 56px;
+  --fs-label: 12px;
+  --fs-small: 13px;
+  --fs-body: 14px;
+  --fs-card-title: 16px;
+  --fs-section: 18px;
+  --fs-figure: 24px;
+  --fs-page-title: 28px;
+  --fs-hero: 44px;
 
   /* Spacing scale — 4 8 12 16 24 32 48. Cards pad 24, sit 16 apart;
      sections sit 24 apart. */
