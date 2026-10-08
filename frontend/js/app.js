@@ -1446,74 +1446,58 @@
         if (!page) return;
 
         page.innerHTML = `
-
-            <div class="pl-page">
-
-                <!-- HEADER -->
-
-                <div class="pl-page-header">
-
-                    <div>
-
-                        <div class="pl-page-title">
-                            What you kept
-                            <span class="page-title-term">Profit &amp; Loss</span>
-                        </div>
-
-                        <div class="pl-page-subtitle" id="pl-page-subtitle">&nbsp;</div>
-
-                    </div>
-
-
-                    <div class="pl-header-actions">
-
-                        ${renderPeriodSelector(state.plPeriod, "setPLPeriod")}
-
-                        <div class="statement-badge" id="pl-currency-badge" style="display:none;"></div>
-
-                    </div>
-
-                </div>
-    
-    
-                <!-- THE STATEMENT ITSELF. Every row opens to the
-                     accounts behind it, so there is no second copy
-                     of the same figures further down the page. -->
-
-                <div class="section-gap" id="pl-story-body">
-                    ${renderSkeletonCard(5)}
+            <div class="page-header">
+                <div>
+                    <div class="page-eyebrow">Your money · Profit &amp; loss</div>
+                    <h1 class="page-title">What you kept</h1>
+                    <p class="page-subtitle" id="pl-page-subtitle">Everything you earned, what it cost to earn it, and what was left.</p>
                 </div>
 
-
-    
-                <!-- DATA NOTE -->
-    
-                <div class="pl-data-note">
-    
-                    <span>
-                        🔄
-                    </span>
-    
-                    <div>
-    
-                        <strong>
-                            Live QuickBooks financial data
-                        </strong>
-    
-                        <p>
-                            Account balances are retrieved
-                            from your connected QuickBooks company.
-                        </p>
-    
-                    </div>
-    
+                <div class="page-header-actions">
+                    ${renderPeriodSelector(state.plPeriod, "setPLPeriod")}
+                    <div class="statement-badge" id="pl-currency-badge" style="display:none;"></div>
                 </div>
-    
             </div>
 
+            <!-- The statement itself, as numbered steps. Every step opens
+                 to the accounts behind it. -->
+            <div id="pl-story-body">
+                ${renderSkeletonCard(5)}
+            </div>
+
+            <div class="grid-2 section-gap">
+                <section class="card card-pad pl-list-card" aria-labelledby="pl-in-h">
+                    <div class="card-header pl-list-head">
+                        <h2 class="card-title" id="pl-in-h">Where the money came from</h2>
+                        <span class="card-sub num" id="pl-in-total"></span>
+                    </div>
+                    <ul class="pl-list" id="pl-came-from">${renderSkeletonCard(3)}</ul>
+                </section>
+
+                <section class="card card-pad pl-list-card" aria-labelledby="pl-out-h">
+                    <div class="card-header pl-list-head">
+                        <h2 class="card-title" id="pl-out-h">Biggest costs</h2>
+                        <span class="card-sub num" id="pl-out-total"></span>
+                    </div>
+                    <ul class="pl-list" id="pl-went-on">${renderSkeletonCard(3)}</ul>
+                </section>
+            </div>
+
+            <section class="card card-pad section-gap" aria-labelledby="pl-months-h">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title" id="pl-months-h">What you kept, month by month</h2>
+                        <div class="card-sub" id="pl-months-sub">Last 12 months</div>
+                    </div>
+                </div>
+                <div class="pl-months" id="pl-months">${renderSkeletonCard(2)}</div>
+            </section>
+
+            <p class="page-footnote">Figures come from your connected QuickBooks company and are read-only.</p>
         `;
 
         loadPLStory();
+        loadPLMonths();
     }
 
     // ------------------------------------------------------------
@@ -1547,23 +1531,24 @@
       } catch (error) {
         console.error("P&L story failed:", error);
 
-        body.innerHTML = `
-          <div class="empty-state">
-            ${escapeHtml(
-              error?.code === "QB_REAUTH_REQUIRED"
-                ? "Reconnect QuickBooks to see this."
-                : "Unable to work out where your profit went right now."
-            )}
-          </div>
-        `;
+        const message = error?.code === "QB_REAUTH_REQUIRED"
+          ? "Reconnect QuickBooks to see this."
+          : "Unable to work out where your profit went right now.";
+
+        body.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+
+        ["pl-came-from", "pl-went-on"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = `<li class="ovw-muted">${escapeHtml(message)}</li>`;
+        });
       }
     }
 
-    // Every row on the statement opens to show what is inside it: the
-    // accounts for the rows that have accounts, and the sum it came
-    // from for the subtotals, which have none. Same behaviour on every
-    // row, so nothing looks clickable that isn't.
-    function renderPLStep(step, { money, widthOf }) {
+    // Every step opens to show what is inside it: the accounts for the
+    // steps that have accounts, and the sum it came from for the
+    // subtotals, which have none. Same behaviour on every step, so
+    // nothing looks clickable that isn't.
+    function renderPLStep(step, { money, number }) {
       const detailRow = (name, amount, extra = "") => `
         <div class="plstory-line ${extra}">
           <span class="plstory-line-name">${escapeHtml(name)}</span>
@@ -1615,42 +1600,64 @@
                   </div>`;
       }
 
+      const isTotal = step.kind === "subtotal" || step.kind === "result";
+      const share = step.share !== null && step.share !== undefined
+        ? ` · ${Number(step.share)}% of sales`
+        : "";
+
       return `
-        <details class="card card-pad plstory-step kind-${escapeHtml(step.kind)}">
-          <summary class="plstory-summary">
-            <div class="plstory-step-top">
-              <span class="plstory-label">
-                <span class="plstory-name">${escapeHtml(step.label)}</span>
-                <span class="plstory-term">${escapeHtml(step.term)}</span>
-              </span>
-              <span class="plstory-right">
-                <strong class="plstory-amount">
-                  ${step.kind === "out" ? "−" : ""}${money(Math.abs(step.amount))}
-                </strong>
-                <svg class="plstory-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
-                </svg>
-              </span>
-            </div>
-
-            <div class="plstory-bar">
-              <span
-                class="plstory-bar-fill"
-                style="width:${widthOf(step.amount)}%"
-              ></span>
-            </div>
-
-            <div class="plstory-step-foot">
-              <span class="plstory-explain">${escapeHtml(step.explain)}</span>
-              ${step.share !== null && step.share !== undefined
-                ? `<span class="plstory-share">${Number(step.share)}% of sales</span>`
-                : ""}
-            </div>
+        <details class="pl-step kind-${escapeHtml(step.kind)}${step.kind === "result" && Number(step.amount) < 0 ? " is-loss" : ""}">
+          <summary class="pl-step-row">
+            <span class="pl-step-num" aria-hidden="true">${isTotal ? "=" : number}</span>
+            <span class="pl-step-label">
+              <span class="pl-step-name">${escapeHtml(step.label)}</span>
+              <span class="pl-step-term">${escapeHtml(step.term || "")}${share}</span>
+            </span>
+            <strong class="pl-step-amount num">${step.kind === "out" ? "−" : ""}${money(Math.abs(step.amount))}</strong>
+            <svg class="pl-step-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
           </summary>
 
-          <div class="plstory-detail">${inside}</div>
+          <div class="plstory-detail">
+            ${step.explain ? `<p class="pl-step-explain">${escapeHtml(step.explain)}</p>` : ""}
+            ${inside}
+          </div>
         </details>
       `;
+    }
+
+    // A ranked list with bars, for where money came from and went.
+    function plRankedList(lines, money, tone) {
+      const rows = lines
+        .map(line => ({ name: line.name, amount: Math.abs(Number(line.amount || 0)) }))
+        .filter(line => line.amount > 0)
+        .sort((a, b) => b.amount - a.amount);
+
+      if (!rows.length) {
+        return `<li class="ovw-muted">Nothing recorded in this period.</li>`;
+      }
+
+      const total = rows.reduce((t, r) => t + r.amount, 0);
+      const top = rows.slice(0, 4);
+      const rest = rows.slice(4);
+
+      if (rest.length) {
+        top.push({
+          name: `Everything else · ${rest.length} more`,
+          amount: rest.reduce((t, r) => t + r.amount, 0)
+        });
+      }
+
+      return top.map(row => `
+        <li class="pl-list-row">
+          <span class="pl-list-top">
+            <span class="pl-list-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span>
+            <strong class="num">${money(row.amount)}</strong>
+          </span>
+          <span class="pl-list-bar"><span class="tone-${tone}" style="width:${((row.amount / total) * 100).toFixed(1)}%"></span></span>
+        </li>
+      `).join("");
     }
 
     function renderPLStory(story) {
@@ -1662,8 +1669,8 @@
       const subtitle = document.getElementById("pl-page-subtitle");
       if (subtitle) {
         subtitle.textContent =
-          `${story.period?.startDate || "—"} → ${story.period?.endDate || "—"} · ` +
-          `${story.reportBasis || "Accrual"}`;
+          `Everything you earned, what it cost to earn it, and what was left · ` +
+          `${story.period?.startDate || "—"} → ${story.period?.endDate || "—"}`;
       }
 
       const badge = document.getElementById("pl-currency-badge");
@@ -1675,54 +1682,153 @@
 
       const steps = story.steps || [];
       const verdict = story.verdict || {};
-
-      // Bars are drawn against sales, so the shrinking left-hand edge
-      // is the point: each cost takes a bite out of what came in.
       const sales = Math.abs(Number(steps[0]?.amount || 0));
-      const widthOf = amount =>
-        sales > 0
-          ? Math.max(Math.min((Math.abs(amount) / sales) * 100, 100), 0.8)
-          : 0;
+      const result = steps.at(-1);
+      const kept = Number(result?.amount || 0);
+
+      // Where each dollar of sales went: every cost step, then what was
+      // kept. Only drawn when it adds up to a real dollar — a loss would
+      // need more than 100% and can't be shown as parts of one.
+      const outSteps = steps.filter(step => step.kind === "out");
+      const parts = sales > 0 && kept >= 0
+        ? [
+            ...outSteps.map((step, i) => ({
+              label: step.label, share: Math.abs(Number(step.amount)) / sales, tone: i === 0 ? "warn" : "neg"
+            })),
+            { label: result?.label || "Kept", share: kept / sales, tone: "pos" }
+          ].filter(part => part.share > 0)
+        : [];
+
+      let number = 0;
 
       body.innerHTML = `
-        <div class="card card-pad plstory-verdict">
-          <div class="plstory-head">
-            <span class="cashproj-eyebrow">Where the money went</span>
-            <span class="cashproj-title">${escapeHtml(verdict.headline || "")}</span>
-            <span class="plstory-sub">${escapeHtml(verdict.detail || "")}</span>
+        <section class="card verdict-band tone-${kept >= 0 ? "pos" : "neg"} section-gap pl-verdict" aria-label="This period in one line">
+          <div class="verdict-band-text">
+            <span class="verdict-band-eyebrow">This period</span>
+            <p class="verdict-band-headline">${escapeHtml(verdict.headline || "")}</p>
+            <p class="verdict-band-detail">${escapeHtml(verdict.detail || "")}</p>
           </div>
           ${steps.length
-            ? `<div class="plstory-figures">
-                 <div class="plstory-figure">
-                   <span class="summary-label">${escapeHtml(steps[0].label || "What you sold")}</span>
-                   <strong>${money(steps[0].amount)}</strong>
+            ? `<dl class="verdict-band-figures">
+                 <div><dt>${escapeHtml(steps[0].label || "Earned")}</dt><dd>${money(steps[0].amount)}</dd></div>
+                 <div><dt>${escapeHtml(result?.label || "Kept")}</dt><dd class="${kept < 0 ? "neg-val" : "pos-val"}">${money(kept)}</dd></div>
+               </dl>`
+            : ""}
+          ${parts.length
+            ? `<div class="pl-dollar">
+                 <div class="pl-dollar-bar" role="img" aria-label="${escapeHtml(parts.map(p => `${p.label}: ${Math.round(p.share * 100)} cents`).join(", "))} of every dollar">
+                   ${parts.map(p => `<span class="tone-${p.tone}" style="width:${(p.share * 100).toFixed(2)}%"></span>`).join("")}
                  </div>
-                 <div class="plstory-figure">
-                   <span class="summary-label">${escapeHtml(steps.at(-1).label || "What you kept")}</span>
-                   <strong class="${Number(steps.at(-1).amount) < 0 ? "is-neg" : ""}">${money(steps.at(-1).amount)}</strong>
-                   ${sales > 0 && Number.isFinite(Number(steps.at(-1).share))
-                     ? `<span class="summary-sub">${Number(steps.at(-1).share)}¢ of every $1 sold</span>`
-                     : ""}
+                 <div class="pl-dollar-legend">
+                   ${parts.map(p => `<span><i class="tone-${p.tone}"></i>${escapeHtml(p.label)} <strong class="num">${Math.round(p.share * 100)}¢</strong></span>`).join("")}
                  </div>
                </div>`
             : ""}
-        </div>
+        </section>
 
-        <div class="plstory-steps">
-          ${steps.map(step => renderPLStep(step, { money, widthOf })).join("")}
-        </div>
+        <section class="card pl-steps section-gap" aria-labelledby="pl-steps-h">
+          <div class="card-header pl-steps-head">
+            <h2 class="card-title" id="pl-steps-h">Step by step</h2>
+            <span class="card-sub">Open any step to see the accounts behind it</span>
+          </div>
+          ${steps.map(step => {
+            if (step.kind === "in" || step.kind === "out") number += 1;
+            return renderPLStep(step, { money, number });
+          }).join("")}
+        </section>
 
         ${!story.reconciliation?.balances
-          ? `<div class="plstory-warn">
+          ? `<div class="plstory-warn section-gap">
                These steps come to ${money(
                  Number(steps.at(-1)?.amount || 0) +
                  Number(story.reconciliation?.difference || 0)
                )}, which is ${money(Math.abs(story.reconciliation?.difference || 0))}
-               away from the total QuickBooks reports. The statement below is
-               the one to trust.
+               away from the total QuickBooks reports. The QuickBooks figure is the one to trust.
              </div>`
           : ""}
       `;
+
+      // The two ranked lists come from the same steps: the first step's
+      // accounts are where money came from; every cost step's accounts
+      // are where it went.
+      const flatten = lines => (lines || []).flatMap(line =>
+        Array.isArray(line.items) && line.items.length ? line.items : [line]);
+
+      const incomeLines = flatten(steps[0]?.lines);
+      const costLines = outSteps.flatMap(step => flatten(step.lines));
+
+      const inList = document.getElementById("pl-came-from");
+      const outList = document.getElementById("pl-went-on");
+      const inTotal = document.getElementById("pl-in-total");
+      const outTotal = document.getElementById("pl-out-total");
+
+      if (inList) inList.innerHTML = plRankedList(incomeLines, money, "accent");
+      if (outList) outList.innerHTML = plRankedList(costLines, money, "neg");
+      if (inTotal) inTotal.textContent = sales > 0 ? money(sales) : "";
+      if (outTotal) {
+        const costs = outSteps.reduce((t, step) => t + Math.abs(Number(step.amount || 0)), 0);
+        outTotal.textContent = costs > 0 ? money(costs) : "";
+      }
+    }
+
+    // Profit by month for the last year, from the same twelve monthly
+    // reports the Overview uses (the request gate shares them).
+    async function loadPLMonths() {
+      const el = document.getElementById("pl-months");
+      if (!el) return;
+
+      try {
+        if (!overviewState.history) {
+          overviewState.history = await loadOverviewHistory(12);
+        }
+
+        const months = overviewState.history.map(h => ({
+          label: h.label,
+          kept: Number.isFinite(h.revenue) && Number.isFinite(h.totalExpenses)
+            ? h.revenue - h.totalExpenses
+            : null
+        }));
+
+        const known = months.filter(m => m.kept !== null);
+
+        if (!known.length) {
+          el.innerHTML = `<p class="ovw-muted">Not enough monthly history yet.</p>`;
+          return;
+        }
+
+        // One scale for profit and loss: the plot is split between the
+        // largest profit above the line and the largest loss below it.
+        const PLOT = 150;
+        const maxUp = Math.max(0, ...known.map(m => m.kept));
+        const maxDown = Math.max(0, ...known.map(m => -m.kept));
+        const pxPer = PLOT / ((maxUp + maxDown) || 1);
+        el.style.setProperty("--pl-up", `${Math.max(maxUp * pxPer, 1).toFixed(1)}px`);
+        el.style.setProperty("--pl-down", `${(maxDown * pxPer).toFixed(1)}px`);
+        const losses = known.filter(m => m.kept < 0).length;
+        const sub = document.getElementById("pl-months-sub");
+
+        if (sub) {
+          sub.textContent = losses
+            ? `Last 12 months · ${losses} month${losses === 1 ? "" : "s"} ran at a loss`
+            : "Last 12 months";
+        }
+
+        el.innerHTML = months.map(m => {
+          const height = m.kept === null ? 0 : Math.abs(m.kept) * pxPer;
+          const tone = m.kept === null ? "none" : m.kept < 0 ? "neg" : m.kept > 0 ? "pos" : "zero";
+
+          return `
+            <div class="pl-month tone-${tone}" title="${escapeHtml(m.label)}: ${m.kept === null ? "no data" : formatCurrency(m.kept)}">
+              <span class="pl-month-up">${m.kept > 0 ? `<span style="height:${height.toFixed(1)}px"></span>` : ""}</span>
+              <span class="pl-month-down">${m.kept < 0 ? `<span style="height:${height.toFixed(1)}px"></span>` : ""}</span>
+              <span class="pl-month-label">${escapeHtml(String(m.label).split(" ")[0])}</span>
+            </div>
+          `;
+        }).join("");
+      } catch (error) {
+        console.error("P&L months failed:", error);
+        el.innerHTML = `<p class="ovw-muted">Unable to load the monthly history right now.</p>`;
+      }
     }
 
     function setPLPeriod(period) {
