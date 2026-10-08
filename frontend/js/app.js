@@ -5515,7 +5515,7 @@ async function loadCashFlowMonths() {
       console.error("Invoice urgency failed:", error);
 
       body.innerHTML = `
-        <div class="empty-state">
+        <div class="card card-pad empty-state">
           ${escapeHtml(
             error?.code === "QB_REAUTH_REQUIRED"
               ? "Reconnect QuickBooks to see who owes you."
@@ -5526,21 +5526,223 @@ async function loadCashFlowMonths() {
     }
   }
 
-  // A summary card as a row of equal figure blocks — the headline first,
-  // then the numbers behind it — so a wide card is filled with figures
-  // instead of a heading in one corner and a caption in the other.
-  // cells: [{ label, value, sub, tone }] — tone: "warn" | "neg" | "pos"
-  function summaryStripHtml(cells) {
+  // ------------------------------------------------------------
+  // SHARED BY "MONEY OWED TO YOU" AND "BILLS TO PAY"
+  // ------------------------------------------------------------
+
+  function plural(n, word) {
+    return `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
+  }
+
+  // "a, b and c" — for invoice numbers in a sentence.
+  function listJoin(items) {
+    return items.length < 2
+      ? items.join("")
+      : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  }
+
+  // The bank figure both pages measure against: the cash projection's
+  // opening balance, which is the bank accounts alone. Null when it can't
+  // be read, so the page simply leaves that sentence out.
+  async function loadBankPicture() {
+    const organizationId = getOrganizationId();
+    if (!organizationId) return null;
+
+    try {
+      const projection = await apiGet(
+        `/quickbooks/cash-projection?organizationId=${encodeURIComponent(organizationId)}&days=30`
+      );
+
+      return Number.isFinite(Number(projection?.openingCash)) ? projection : null;
+    } catch (error) {
+      console.error("Bank balance failed:", error);
+      return null;
+    }
+  }
+
+  // A stacked bar of how the total splits by due date.
+  // parts: [{ label, total, tone }]
+  function dueBarHtml(parts) {
+    const shown = parts.filter(p => Number(p.total) > 0);
+    const sum = shown.reduce((t, p) => t + Number(p.total), 0);
+
+    if (!sum) return "";
+
+    const share = p => (Number(p.total) / sum) * 100;
+
     return `
-      <div class="summary-strip">
-        ${cells.map((c, i) => `
-          <div class="summary-cell${i === 0 ? " is-lead" : ""}">
-            <span class="summary-label">${escapeHtml(c.label)}</span>
-            <span class="summary-value${c.tone ? ` is-${c.tone}` : ""}">${escapeHtml(c.value)}</span>
-            ${c.sub ? `<span class="summary-sub">${escapeHtml(c.sub)}</span>` : ""}
-          </div>`).join("")}
+      <div class="due-bar" role="img" aria-label="${escapeHtml(
+        shown.map(p => `${p.label} ${Math.round(share(p))}%`).join(", ")
+      )}">
+        ${shown.map(p => `<span class="tone-${p.tone}" style="width:${share(p).toFixed(2)}%"></span>`).join("")}
       </div>
     `;
+  }
+
+  // One tile per due-date group. An empty group keeps the quiet colour:
+  // a red $0.00 would read as a warning about nothing.
+  // tiles: [{ label, total, count, word, note, tone }]
+  function dueTilesHtml(tiles, money) {
+    return `
+      <div class="due-tiles">
+        ${tiles.map(t => {
+          const count = Number(t.count || 0);
+
+          return `
+            <div class="due-tile tone-${count ? t.tone : "quiet"}${count ? "" : " is-empty"}">
+              <span class="due-tile-label"><i aria-hidden="true"></i>${escapeHtml(t.label)}</span>
+              <strong class="due-tile-value num">${money(t.total)}</strong>
+              <span class="due-tile-sub">${count
+                ? escapeHtml(`${plural(count, t.word)}${t.note ? ` · ${t.note}` : ""}`)
+                : "Nothing here"}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // How late something is, as a small coloured pill.
+  function latePill(text, tone) {
+    return `<span class="late-pill tone-${tone}">${escapeHtml(text)}</span>`;
+  }
+
+  // Saves rows as a CSV file the owner can open in Excel or Sheets. Text
+  // that starts like a formula is quoted out so a spreadsheet won't run it.
+  function downloadCsv(filename, header, rows) {
+    const cell = value => {
+      if (typeof value === "number") return String(value);
+
+      let text = String(value ?? "");
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const csv = [header, ...rows].map(row => row.map(cell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = Object.assign(document.createElement("a"), { href: url, download: filename });
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  // A long list shows its first rows; the rest stay one click away, and a
+  // search box (and, optionally, filter chips) narrows the whole list.
+  // Rows carry data-index, data-name (lower case) and, for chips,
+  // data-tags. The footer and the "no match" row are optional.
+  function wireListFilter(root, { visible, input, chips, more, empty }) {
+    if (!root) return;
+
+    let showAll = false;
+    let filter = "all";
+    const rows = [...root.querySelectorAll("tr[data-index]")];
+
+    function apply() {
+      const q = (input?.value || "").trim().toLowerCase();
+      const narrowed = !!q || filter !== "all";
+      let matches = 0;
+
+      rows.forEach(row => {
+        const match = (!q || row.dataset.name.includes(q)) &&
+          (filter === "all" || (row.dataset.tags || "").split(" ").includes(filter));
+        const inView = narrowed || showAll || Number(row.dataset.index) < visible;
+
+        row.hidden = !(match && inView);
+        if (match) matches += 1;
+      });
+
+      if (empty) empty.hidden = matches > 0;
+      if (more) {
+        more.hidden = narrowed || rows.length <= visible;
+        const button = more.querySelector("button");
+        const label = more.querySelector("[data-more-label]");
+        if (button) button.textContent = showAll ? "Show fewer" : `Show all ${rows.length}`;
+        if (label) label.hidden = showAll;
+      }
+    }
+
+    input?.addEventListener("input", apply);
+    chips?.addEventListener("click", event => {
+      const chip = event.target.closest("[data-filter]");
+      if (!chip) return;
+
+      filter = chip.dataset.filter;
+      chips.querySelectorAll("[data-filter]").forEach(c => {
+        c.classList.toggle("is-active", c === chip);
+        c.setAttribute("aria-pressed", String(c === chip));
+      });
+      apply();
+    });
+    more?.querySelector("button")?.addEventListener("click", () => {
+      showAll = !showAll;
+      apply();
+    });
+
+    apply();
+  }
+
+  function listSearchHtml(id, placeholder) {
+    return `
+      <label class="list-search">
+        ${icon_search()}
+        <span class="visually-hidden">${escapeHtml(placeholder)}</span>
+        <input type="search" id="${id}" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
+      </label>
+    `;
+  }
+
+  // ------------------------------------------------------------
+  // MONEY OWED TO YOU
+  //
+  // Who to chase first, and what is merely not due yet. The bands come
+  // from the server (invoice-urgency.service.js); this page groups the
+  // late invoices by customer, because a reminder goes to a customer,
+  // not to an invoice.
+  // ------------------------------------------------------------
+
+  // How the owner signs a reminder: their name, then the company.
+  function reminderSignOff() {
+    let name = "";
+
+    try {
+      name = JSON.parse(localStorage.getItem("nfk_profile") || "null")?.full_name || "";
+    } catch {
+      name = "";
+    }
+
+    const company = document.getElementById("client-name")?.textContent.trim() || "";
+
+    return `${name.trim() || "[Your name]"}${company ? `\n${company}` : ""}`;
+  }
+
+  // A reminder the owner can paste into an email. Built from the invoices
+  // themselves; nothing is sent from the portal.
+  function reminderText(row, firm) {
+    const money = v => formatCurrency(Number(v || 0));
+    const many = row.invoices.length > 1;
+    const numbers = row.invoices.map(i => i.docNumber).filter(Boolean).map(String);
+    const days = plural(row.daysLate, "day");
+
+    const which = numbers.length === row.invoices.length
+      ? `${many ? "invoices" : "invoice"} ${listJoin(numbers)}`
+      : many ? `${row.invoices.length} of our invoices` : "our invoice";
+
+    const amount = many ? `totalling ${money(row.amount)}` : `for ${money(row.amount)}`;
+    const verb = many ? "are" : "is";
+    const it = many ? "they've" : "it's";
+
+    const body = firm
+      ? `${which[0].toUpperCase()}${which.slice(1)}, ${amount}, ${verb} now ${
+          many ? `overdue — the oldest by ${days} —` : `${days} overdue,`
+        } and we haven't received payment yet. Please arrange payment this week, or reply to let me know when it will be paid.\n\nIf something on the ${many ? "invoices" : "invoice"} needs correcting, tell me and I'll sort it out.\n\nRegards,`
+      : `Just a friendly reminder that ${which}, ${amount}, ${verb} now ${
+          many ? `past due — the oldest by ${days}` : `${days} past due`
+        }. If ${it} already been paid, thank you — please ignore this. If not, could you let me know when we can expect payment?\n\nThanks,`;
+
+    return `Hi ${row.customer},\n\n${body}\n${reminderSignOff()}`;
   }
 
   function renderInvoiceUrgency(urgency) {
@@ -5548,150 +5750,236 @@ async function loadCashFlowMonths() {
     if (!body || !urgency) return;
 
     const money = v => formatCurrency(Number(v || 0));
+    const lede = document.getElementById("owed-lede");
+    const exportButton = document.getElementById("owed-export");
 
-    const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
-
-    const invoiceRow = invoice => `
-      <div class="billsched-row">
-        <div class="billsched-who">
-          <span class="billsched-vendor">${escapeHtml(invoice.customer || "Unknown customer")}</span>
-          ${invoice.docNumber
-            ? `<span class="billsched-ref">Invoice ${escapeHtml(String(invoice.docNumber))}</span>`
-            : ""}
-        </div>
-        <span class="billsched-when">${escapeHtml(invoice.timing || "")}</span>
-        <strong class="billsched-amount">${money(invoice.amount)}</strong>
-      </div>
-    `;
-
-    const group = (band, { title, note, tone = "", showWhenEmpty = false }) => {
-      const count = Number(band?.count || 0);
-
-      if (!count && !showWhenEmpty) return "";
-
-      return `
-        <div class="card card-pad billsched-group ${count ? tone : ""}">
-          <div class="billsched-group-head">
-            <div>
-              <span class="billsched-group-title">${escapeHtml(title)}</span>
-              <span class="billsched-group-count">${plural(count, "invoice")}</span>
-            </div>
-            <strong>${money(band?.total)}</strong>
-          </div>
-          ${note ? `<div class="billsched-group-note">${escapeHtml(note)}</div>` : ""}
-          ${count
-            ? renderInvoiceRows(band.invoices || [])
-            : `<div class="billsched-none">Nothing here — good news.</div>`}
-        </div>
-      `;
-    };
-
-    // A band can run to twenty-odd rows. The first few are what gets
-    // acted on today; the rest stay one click away rather than being
-    // dropped, so the list still agrees with the total above it.
-    const VISIBLE = 8;
-
-    function renderInvoiceRows(invoices) {
-      const head = invoices.slice(0, VISIBLE);
-      const tail = invoices.slice(VISIBLE);
-
-      return `
-        <div class="billsched-rows">
-          ${head.map(invoiceRow).join("")}
-          ${tail.length
-            ? `<details class="urgency-more">
-                 <summary>Show the other ${tail.length} (${money(
-                   tail.reduce((sum, i) => sum + Number(i.amount || 0), 0)
-                 )})</summary>
-                 ${tail.map(invoiceRow).join("")}
-               </details>`
-            : ""}
-        </div>
-      `;
-    }
-
+    const bands = ["atRisk", "late", "dueThisWeek", "dueLater", "undated"];
+    const all = bands.flatMap(key => urgency[key]?.invoices || []);
+    const late = [...(urgency.atRisk?.invoices || []), ...(urgency.late?.invoices || [])];
     const owed = Number(urgency.totalOwed || 0);
+    const atRiskAfter = Number(urgency.atRiskAfterDays || 30);
 
     if (!owed) {
+      if (lede) lede.textContent = "Nobody owes you anything right now.";
       body.innerHTML = `
-        <div class="billsched-head">
-          <span class="cashproj-eyebrow">Who to chase first</span>
-          <span class="cashproj-title">Nobody owes you anything</span>
-        </div>
-        <div class="cashproj-nodata">
+        <div class="card card-pad empty-state">
           QuickBooks shows no unpaid customer invoices on your books right now.
         </div>
       `;
       return;
     }
 
-    const share = Number(urgency.overdueShare || 0);
-    const oldest = urgency.oldest;
+    if (lede) {
+      lede.innerHTML = `<strong class="num">${money(owed)}</strong> across ${plural(all.length, "invoice")} — ${
+        late.length === all.length
+          ? "every one of them past its due date."
+          : late.length
+            ? `${late.length} of them past ${late.length === 1 ? "its" : "their"} due date.`
+            : "none of them late."
+      }`;
+    }
 
-    const bandCell = (band, label, tone) => {
-      const count = Number(band?.count || 0);
-      return {
-        label,
-        value: money(band?.total),
-        sub: count ? plural(count, "invoice") : "None",
-        tone: count ? tone : ""
-      };
-    };
+    if (exportButton) {
+      exportButton.hidden = false;
+      exportButton.onclick = () => downloadCsv(
+        `money-owed-to-you-${urgency.asOf || "today"}.csv`,
+        ["Customer", "Invoice", "Due date", "Days late", "Still owed"],
+        all.map(i => [i.customer || "", i.docNumber || "", i.dueDate || "", Number(i.daysLate || 0), Number(i.amount || 0)])
+      );
+    }
+
+    // One row per customer: a reminder goes to a person, not an invoice.
+    const byCustomer = new Map();
+
+    for (const invoice of late) {
+      const name = invoice.customer || "Unknown customer";
+      const row = byCustomer.get(name) || { customer: name, invoices: [], amount: 0, daysLate: 0 };
+
+      row.invoices.push(invoice);
+      row.amount += Number(invoice.amount || 0);
+      row.daysLate = Math.max(row.daysLate, Number(invoice.daysLate || 0));
+      byCustomer.set(name, row);
+    }
+
+    const chase = [...byCustomer.values()].sort((a, b) => b.daysLate - a.daysLate || b.amount - a.amount);
+    const VISIBLE = 8;
+    const rest = chase.slice(VISIBLE);
+    const undated = urgency.undated || {};
 
     body.innerHTML = `
-      <div class="card card-pad billsched-summary">
-        ${summaryStripHtml([
-          { label: "Who to chase first", value: `${money(owed)} owed to you` },
-          { label: "Already late", value: `${share}%`, sub: "of what you're owed", tone: share > 0 ? "warn" : "" },
-          bandCell(urgency.atRisk, "At risk", "neg"),
-          bandCell(urgency.dueThisWeek, "Due this week", "")
+      <section class="card card-pad section-gap due-card" aria-label="How late the money is">
+        ${dueBarHtml([
+          { label: "At risk", total: urgency.atRisk?.total, tone: "neg" },
+          { label: "Late", total: urgency.late?.total, tone: "warn" },
+          { label: "Due this week", total: urgency.dueThisWeek?.total, tone: "info" },
+          { label: "Due later", total: urgency.dueLater?.total, tone: "muted" },
+          { label: "No due date", total: undated.total, tone: "deep" }
         ])}
+        ${dueTilesHtml([
+          { label: `At risk · over ${atRiskAfter} days late`, total: urgency.atRisk?.total, count: urgency.atRisk?.count, word: "invoice", note: "the longer it waits, the harder it is to collect", tone: "neg" },
+          { label: `Late · up to ${atRiskAfter} days`, total: urgency.late?.total, count: urgency.late?.count, word: "invoice", note: "a reminder is usually enough", tone: "warn" },
+          { label: "Due this week", total: urgency.dueThisWeek?.total, count: urgency.dueThisWeek?.count, word: "invoice", note: "not late yet", tone: "info" },
+          { label: "Due later", total: urgency.dueLater?.total, count: urgency.dueLater?.count, word: "invoice", note: "nothing to do yet", tone: "quiet" }
+        ], money)}
+        ${Number(undated.count || 0)
+          ? `<p class="due-footnote">Plus ${money(undated.total)} on ${plural(undated.count, "invoice")} with no due date in QuickBooks, so they can't be placed on the calendar.</p>`
+          : ""}
+      </section>
 
-      ${oldest
-        ? `<div class="urgency-call">
-             <span class="urgency-call-head">Start with ${escapeHtml(oldest.customer)}</span>
-             <span class="urgency-call-body">
-               ${money(oldest.amount)} has been unpaid for ${Number(oldest.daysLate)} days${
-                 oldest.docNumber ? ` on invoice ${escapeHtml(String(oldest.docNumber))}` : ""
-               } — the longest of anything you're owed.
-             </span>
-           </div>`
-        : ""}
-      </div>
+      <section class="card section-gap list-card" aria-labelledby="owed-chase-h">
+        <div class="list-card-head">
+          <div>
+            <h2 class="card-title" id="owed-chase-h">Who to chase first</h2>
+            <span class="card-sub">${chase.length ? "Ordered by how late, then by how much" : "Nobody is late paying you"}</span>
+          </div>
+          ${chase.length > VISIBLE ? listSearchHtml("owed-search", "Find a customer") : ""}
+        </div>
+        ${chase.length
+          ? `<div class="table-scroll">
+               <table class="list-table">
+                 <thead>
+                   <tr>
+                     <th scope="col">Customer</th>
+                     <th scope="col" class="num">Invoices</th>
+                     <th scope="col">How late</th>
+                     <th scope="col" class="num">Amount</th>
+                     <th scope="col"><span class="visually-hidden">Reminder</span></th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   ${chase.map((row, i) => `
+                     <tr data-index="${i}" data-name="${escapeHtml(row.customer.toLowerCase())}">
+                       <td class="list-strong cell-main">${escapeHtml(row.customer)}</td>
+                       <td class="num list-muted cell-hide" title="${escapeHtml(row.invoices.map(inv => inv.docNumber).filter(Boolean).map(n => `Invoice ${n}`).join(", "))}">${row.invoices.length}</td>
+                       <td class="cell-sub">${latePill(plural(row.daysLate, "day"), row.daysLate > atRiskAfter ? "neg" : "warn")}</td>
+                       <td class="num list-strong cell-amount">${money(row.amount)}</td>
+                       <td class="list-action cell-side"><button type="button" class="list-btn" data-remind="${i}">Draft reminder</button></td>
+                     </tr>
+                   `).join("")}
+                   <tr class="list-empty" hidden><td colspan="5">No late customer matches that name.</td></tr>
+                 </tbody>
+               </table>
+             </div>
+             ${rest.length
+               ? `<div class="list-foot" id="owed-more">
+                    <span data-more-label>${plural(rest.length, "more customer")} · <span class="num">${money(rest.reduce((t, r) => t + r.amount, 0))}</span></span>
+                    <button type="button" class="btn btn-ghost">Show all ${chase.length}</button>
+                  </div>`
+               : ""}`
+          : `<p class="list-none">${Number(urgency.dueThisWeek?.count || 0)
+              ? `${money(urgency.dueThisWeek.total)} falls due this week. Nothing needs chasing yet.`
+              : "Every invoice is still inside its payment terms. Nothing needs chasing."}</p>`}
+      </section>
 
-      <div class="billsched-groups">
-      ${group(urgency.atRisk, {
-        title: "At risk",
-        note: `More than ${Number(urgency.atRiskAfterDays)} days past due. The longer these sit, the harder they get to collect.`,
-        tone: "is-overdue",
-        showWhenEmpty: true
-      })}
+      <section class="card card-pad section-gap owed-draft" id="owed-draft" hidden aria-labelledby="owed-draft-h">
+        <div class="owed-draft-head">
+          <div>
+            <h2 class="card-title" id="owed-draft-h">Reminder</h2>
+            <span class="card-sub">Ready to paste into an email. Nothing is sent from here.</span>
+          </div>
+          <div class="owed-draft-actions">
+            <button type="button" class="btn btn-ghost" id="owed-draft-tone">Firmer tone</button>
+            <button type="button" class="btn btn-primary" id="owed-draft-copy">${icon_copy()}<span>Copy</span></button>
+          </div>
+        </div>
+        <label class="visually-hidden" for="owed-draft-text">Reminder text</label>
+        <textarea id="owed-draft-text" class="owed-draft-text" rows="9" spellcheck="true"></textarea>
+      </section>
 
-      ${group(urgency.late, {
-        title: "Late",
-        note: "Past the date you asked to be paid, but not yet a problem.",
-        tone: "is-soon",
-        showWhenEmpty: true
-      })}
-
-      ${group(urgency.dueThisWeek, {
-        title: "Due this week",
-        note: "Not late. Worth knowing what's about to land.",
-        tone: "is-upcoming",
-        showWhenEmpty: true
-      })}
-
-      ${group(urgency.dueLater, {
-        title: "Due later",
-        note: "Nothing to do yet."
-      })}
-
-      ${group(urgency.undated, {
-        title: "No due date recorded",
-        note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
-      })}
-      </div>
+      <div id="owed-note"></div>
     `;
+
+    const table = body.querySelector(".list-table");
+
+    wireListFilter(table, {
+      visible: VISIBLE,
+      input: document.getElementById("owed-search"),
+      more: document.getElementById("owed-more"),
+      empty: body.querySelector(".list-empty")
+    });
+
+    // The reminder panel: one draft at a time, switchable between a
+    // friendly and a firmer wording, copied with one click.
+    const draft = document.getElementById("owed-draft");
+    const draftText = document.getElementById("owed-draft-text");
+    const toneButton = document.getElementById("owed-draft-tone");
+    const copyButton = document.getElementById("owed-draft-copy");
+    let current = null;
+    let firm = false;
+
+    function showDraft() {
+      document.getElementById("owed-draft-h").textContent = `Reminder for ${current.customer}`;
+      draftText.value = reminderText(current, firm);
+      toneButton.textContent = firm ? "Friendlier tone" : "Firmer tone";
+      copyButton.querySelector("span").textContent = "Copy";
+
+      // Tall enough for the whole message, sign-off included.
+      draftText.style.height = "auto";
+      draftText.style.height = `${draftText.scrollHeight + 2}px`;
+    }
+
+    table?.addEventListener("click", event => {
+      const button = event.target.closest("[data-remind]");
+      if (!button) return;
+
+      current = chase[Number(button.dataset.remind)];
+      firm = current.daysLate > atRiskAfter;
+      draft.hidden = false;
+      showDraft();
+      draft.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    toneButton?.addEventListener("click", () => {
+      if (!current) return;
+      firm = !firm;
+      showDraft();
+    });
+
+    copyButton?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(draftText.value);
+      } catch {
+        draftText.select();
+        document.execCommand("copy");
+      }
+      copyButton.querySelector("span").textContent = "Copied";
+    });
+
+    // Measured against the bank, once that figure arrives.
+    if (chase.length) {
+      loadBankPicture().then(picture => {
+        const slot = document.getElementById("owed-note");
+        if (!slot) return;
+
+        const lateTotal = chase.reduce((t, r) => t + r.amount, 0);
+        const top = chase.slice().sort((a, b) => b.amount - a.amount).slice(0, 3);
+        const topTotal = top.reduce((t, r) => t + r.amount, 0);
+        const topLine = chase.length > 3
+          ? `The three biggest — ${listJoin(top.map(r => escapeHtml(r.customer)))} — owe <span class="num">${money(topTotal)}</span> of it.`
+          : `That's ${plural(chase.length, "customer")}: ${listJoin(chase.map(r => escapeHtml(r.customer)))}.`;
+        const bank = Number(picture?.openingCash);
+
+        let head = `${money(lateTotal)} is late`;
+        let detail = topLine;
+
+        if (Number.isFinite(bank) && bank > 0) {
+          head = lateTotal >= bank
+            ? "Collecting what's late would more than double what's in the bank"
+            : `Collecting what's late would add ${Math.round((lateTotal / bank) * 100)}% to what's in the bank`;
+          detail = `You have <span class="num">${money(bank)}</span> in bank accounts and <span class="num">${money(lateTotal)}</span> is late. ${topLine}`;
+        }
+
+        slot.innerHTML = `
+          <section class="page-note tone-pos" aria-label="Worth knowing">
+            <span class="page-note-icon">${icon_bulb()}</span>
+            <span class="page-note-text">
+              <strong>${escapeHtml(head)}</strong>
+              <span>${detail}</span>
+            </span>
+          </section>
+        `;
+      });
+    }
   }
 
   // ------------------------------------------------------------
@@ -5720,7 +6008,7 @@ async function loadCashFlowMonths() {
       console.error("Bills schedule failed:", error);
 
       body.innerHTML = `
-        <div class="empty-state">
+        <div class="card card-pad empty-state">
           ${escapeHtml(
             error?.code === "QB_REAUTH_REQUIRED"
               ? "Reconnect QuickBooks to see what's due."
@@ -5736,49 +6024,8 @@ async function loadCashFlowMonths() {
     if (!body || !schedule) return;
 
     const money = v => formatCurrency(Number(v || 0));
-
-    const plural = (n, word) =>
-      `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
-
-    const billRow = bill => `
-      <div class="billsched-row">
-        <div class="billsched-who">
-          <span class="billsched-vendor">${escapeHtml(bill.vendor || "Unknown supplier")}</span>
-          ${bill.docNumber
-            ? `<span class="billsched-ref">Bill ${escapeHtml(String(bill.docNumber))}</span>`
-            : ""}
-        </div>
-        <span class="billsched-when">${escapeHtml(bill.timing || "")}</span>
-        <strong class="billsched-amount">${money(bill.amount)}</strong>
-      </div>
-    `;
-
-    // A group with nothing in it is still worth showing when it is one
-    // the owner would look for — "Overdue: none" is reassuring, and its
-    // absence would leave them wondering whether it was checked.
-    const group = (bucket, { title, note, tone = "", showWhenEmpty = false }) => {
-      const count = Number(bucket?.count || 0);
-
-      if (!count && !showWhenEmpty) return "";
-
-      // An empty group is good news, so it keeps the neutral colour —
-      // a red or amber $0.00 would read as a warning about nothing.
-      return `
-        <div class="card card-pad billsched-group ${count ? tone : ""}">
-          <div class="billsched-group-head">
-            <div>
-              <span class="billsched-group-title">${escapeHtml(title)}</span>
-              <span class="billsched-group-count">${plural(count, "bill")}</span>
-            </div>
-            <strong>${money(bucket?.total)}</strong>
-          </div>
-          ${note ? `<div class="billsched-group-note">${escapeHtml(note)}</div>` : ""}
-          ${count
-            ? `<div class="billsched-rows">${(bucket.bills || []).map(billRow).join("")}</div>`
-            : `<div class="billsched-none">Nothing here — you're up to date.</div>`}
-        </div>
-      `;
-    };
+    const lede = document.getElementById("bills-lede");
+    const exportButton = document.getElementById("bills-export");
 
     const dayMonth = iso => {
       if (!iso) return "";
@@ -5793,74 +6040,328 @@ async function loadCashFlowMonths() {
     const total = Number(schedule.totalOutstanding || 0);
 
     if (!total) {
+      if (lede) lede.textContent = "Nothing outstanding — every supplier bill is paid.";
       body.innerHTML = `
-        <div class="billsched-head">
-          <span class="cashproj-eyebrow">What's due, and when</span>
-          <span class="cashproj-title">Nothing outstanding</span>
-        </div>
-        <div class="cashproj-nodata">
+        <div class="card card-pad empty-state">
           QuickBooks has no unpaid supplier bills on your books right now.
         </div>
       `;
       return;
     }
 
+    // Most overdue first, then soonest due; undated bills last.
+    const groups = ["overdue", "thisWeek", "laterThisMonth", "later", "undated"];
+    const bills = groups.flatMap(key => schedule[key]?.bills || []);
+    const overdue = schedule.overdue || {};
+    const overdueCount = Number(overdue.count || 0);
+    const comingSoon = Number(schedule.thisWeek?.count || 0) + Number(schedule.laterThisMonth?.count || 0);
+    const suppliers = new Set(bills.map(b => b.vendor || "Unknown supplier")).size;
+
+    if (lede) {
+      lede.innerHTML = `<strong class="num">${money(total)}</strong> owed to ${plural(suppliers, "supplier")}${
+        overdueCount === bills.length
+          ? ", all past due."
+          : overdueCount
+            ? `, ${money(overdue.total)} of it past due.`
+            : ". Nothing is past due."
+      } ${comingSoon
+        ? `${money(Number(schedule.thisWeek?.total || 0) + Number(schedule.laterThisMonth?.total || 0))} more falls due before ${escapeHtml(dayMonth(schedule.monthEnds))}.`
+        : `Nothing new falls due before ${escapeHtml(dayMonth(schedule.monthEnds))}.`}`;
+    }
+
+    if (exportButton) {
+      exportButton.hidden = false;
+      exportButton.onclick = () => downloadCsv(
+        `bills-to-pay-${schedule.asOf || "today"}.csv`,
+        ["Supplier", "Bill", "Due date", "When", "Still to pay"],
+        bills.map(b => [b.vendor || "", b.docNumber || "", b.dueDate || "", b.timing || "", Number(b.amount || 0)])
+      );
+    }
+
+    const pillTone = bill => {
+      const days = bill.daysUntilDue;
+      if (days === null || days === undefined) return "quiet";
+      if (days < 0) return "neg";
+      if (days <= 6) return "warn";
+      return "quiet";
+    };
+
+    const VISIBLE = 10;
+    const rest = bills.slice(VISIBLE);
+    const laterCount = Number(schedule.later?.count || 0);
+    const undated = schedule.undated || {};
+
     body.innerHTML = `
-      <div class="card card-pad billsched-summary">
-        ${summaryStripHtml([
-          { label: "What's due, and when", value: `${money(total)} still to pay` },
-          {
-            label: "Overdue",
-            value: money(schedule.overdue?.total),
-            sub: Number(schedule.overdue?.count || 0) ? plural(schedule.overdue.count, "bill") : "None",
-            tone: Number(schedule.overdue?.count || 0) ? "neg" : ""
-          },
-          {
-            label: "Due this week",
-            value: money(schedule.thisWeek?.total),
-            sub: `To ${dayMonth(schedule.weekEnds)}`,
-            tone: Number(schedule.thisWeek?.count || 0) ? "warn" : ""
-          },
-          {
-            label: "Later this month",
-            value: money(schedule.laterThisMonth?.total),
-            sub: Number(schedule.laterThisMonth?.count || 0) ? plural(schedule.laterThisMonth.count, "bill") : "None"
-          }
+      <section class="card card-pad section-gap due-card" aria-labelledby="bills-when-h">
+        <h2 class="card-title" id="bills-when-h">What's due, and when</h2>
+        ${dueBarHtml([
+          { label: "Overdue", total: overdue.total, tone: "neg" },
+          { label: "Due this week", total: schedule.thisWeek?.total, tone: "warn" },
+          { label: "Later this month", total: schedule.laterThisMonth?.total, tone: "info" },
+          { label: "After this month", total: schedule.later?.total, tone: "muted" },
+          { label: "No due date", total: undated.total, tone: "deep" }
         ])}
-      </div>
+        ${dueTilesHtml([
+          { label: "Overdue now", total: overdue.total, count: overdue.count, word: "bill", note: "worth dealing with first", tone: "neg" },
+          { label: `Next 7 days · to ${dayMonth(schedule.weekEnds)}`, total: schedule.thisWeek?.total, count: schedule.thisWeek?.count, word: "bill", tone: "warn" },
+          { label: `Rest of the month · to ${dayMonth(schedule.monthEnds)}`, total: schedule.laterThisMonth?.total, count: schedule.laterThisMonth?.count, word: "bill", tone: "info" },
+          ...(laterCount
+            ? [{ label: "After this month", total: schedule.later.total, count: laterCount, word: "bill", note: "not urgent", tone: "quiet" }]
+            : [])
+        ], money)}
+        ${Number(undated.count || 0)
+          ? `<p class="due-footnote">Plus ${money(undated.total)} on ${plural(undated.count, "bill")} with no due date in QuickBooks, so they can't be placed on the calendar.</p>`
+          : ""}
+      </section>
 
-      <div class="billsched-groups">
-      ${group(schedule.overdue, {
-        title: "Overdue",
-        note: "Past the date agreed with your supplier. Worth dealing with first.",
-        tone: "is-overdue",
-        showWhenEmpty: true
-      })}
+      <div class="section-gap bills-layout">
+        <section class="card list-card bills-list" aria-labelledby="bills-list-h">
+          <div class="list-card-head">
+            <div>
+              <h2 class="card-title" id="bills-list-h">Every unpaid bill</h2>
+              <span class="card-sub">Most overdue first, then by due date</span>
+            </div>
+            ${bills.length > VISIBLE ? listSearchHtml("bills-search", "Find a supplier") : ""}
+          </div>
+          <div class="table-scroll">
+            <table class="list-table">
+              <thead>
+                <tr>
+                  <th scope="col">Supplier</th>
+                  <th scope="col">Bill</th>
+                  <th scope="col">When</th>
+                  <th scope="col" class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bills.map((bill, i) => `
+                  <tr data-index="${i}" data-name="${escapeHtml(String(bill.vendor || "").toLowerCase())}">
+                    <td class="list-strong cell-main">${escapeHtml(bill.vendor || "Unknown supplier")}</td>
+                    <td class="list-muted cell-side">${bill.docNumber ? `<span class="cell-label">Bill </span>${escapeHtml(String(bill.docNumber))}` : `<span class="cell-dash">—</span>`}</td>
+                    <td class="cell-sub">${latePill(bill.timing || "No due date", pillTone(bill))}</td>
+                    <td class="num list-strong cell-amount">${money(bill.amount)}</td>
+                  </tr>
+                `).join("")}
+                <tr class="list-empty" hidden><td colspan="4">No supplier matches that name.</td></tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3">Total</td>
+                  <td class="num">${money(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          ${rest.length
+            ? `<div class="list-foot" id="bills-more">
+                 <span data-more-label>${plural(rest.length, "more bill")} · <span class="num">${money(rest.reduce((t, b) => t + Number(b.amount || 0), 0))}</span></span>
+                 <button type="button" class="btn btn-ghost">Show all ${bills.length}</button>
+               </div>`
+            : ""}
+        </section>
 
-      ${group(schedule.thisWeek, {
-        title: "Due this week",
-        note: `Everything due between today and ${dayMonth(schedule.weekEnds)}.`,
-        tone: "is-soon",
-        showWhenEmpty: true
-      })}
-
-      ${group(schedule.laterThisMonth, {
-        title: "Due later this month",
-        note: `Falls due before ${dayMonth(schedule.monthEnds)}.`,
-        tone: "is-upcoming"
-      })}
-
-      ${group(schedule.later, {
-        title: "Due after this month",
-        note: "Not urgent, but already on your books."
-      })}
-
-      ${group(schedule.undated, {
-        title: "No due date recorded",
-        note: "QuickBooks has no due date on these, so they can't be placed on the calendar."
-      })}
+        <aside class="card card-pad bills-today" id="bills-today" aria-labelledby="bills-today-h" hidden></aside>
       </div>
     `;
+
+    wireListFilter(body.querySelector(".list-table"), {
+      visible: VISIBLE,
+      input: document.getElementById("bills-search"),
+      more: document.getElementById("bills-more"),
+      empty: body.querySelector(".list-empty")
+    });
+
+    // What paying everything at once would leave in the bank. Only drawn
+    // when the bank figure can be read.
+    loadBankPicture().then(picture => {
+      const aside = document.getElementById("bills-today");
+      if (!aside || !picture) return;
+
+      const bank = Number(picture.openingCash);
+      const left = bank - total;
+      const floor = Number(picture.safeFloor);
+
+      let tone = "pos";
+      let note = "You can cover every bill and still have a normal month's outgoings left over.";
+
+      if (left < 0) {
+        tone = "neg";
+        note = overdueCount
+          ? `The bank can't cover everything at once. Start with the ${plural(overdueCount, "overdue bill")} (${money(overdue.total)}), then the rest as money comes in.`
+          : "The bank can't cover everything at once. Pay in due-date order as money comes in.";
+      } else if (Number.isFinite(floor) && floor > 0 && left < floor) {
+        tone = "warn";
+        note = `That's tight — less than a normal month's outgoings (${money(floor)}). Paying the overdue ones first and the rest on their due dates keeps more room.`;
+      } else if (!Number.isFinite(floor) || floor <= 0) {
+        note = "You can cover every bill from what's in the bank today.";
+      }
+
+      aside.innerHTML = `
+        <h2 class="card-title" id="bills-today-h">If you paid everything today</h2>
+        <dl class="bills-today-sum">
+          <div><dt>In bank accounts</dt><dd class="num">${money(bank)}</dd></div>
+          <div><dt>${bills.length === 1 ? "The one bill" : `All ${bills.length} bills`}</dt><dd class="num neg-val">−${money(total)}</dd></div>
+          <div class="is-total"><dt>Left in the bank</dt><dd class="num ${left < 0 ? "neg-val" : ""}">${money(left)}</dd></div>
+        </dl>
+        <div class="bills-today-note tone-${tone}">
+          ${icon_bulb()}
+          <span>${escapeHtml(note)}</span>
+        </div>
+      `;
+      aside.hidden = false;
+    });
+  }
+
+  // ------------------------------------------------------------
+  // INVOICES
+  //
+  // Every invoice QuickBooks holds, paid or not. Money owed to you is
+  // the "what to do" view of the unpaid ones; this is the record.
+  // ------------------------------------------------------------
+
+  function renderInvoicesPage(invoices) {
+    const body = document.getElementById("invoices-body");
+    if (!body) return;
+
+    const money = v => formatCurrency(Number(v || 0));
+    const lede = document.getElementById("invoices-lede");
+    const exportButton = document.getElementById("invoices-export");
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    const shortDate = iso => iso
+      ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "—";
+
+    const rows = invoices
+      .map(invoice => {
+        const balance = Number(invoice.Balance || 0);
+        const due = invoice.DueDate ? String(invoice.DueDate).slice(0, 10) : "";
+        const status = balance <= 0 ? "paid" : due && due < todayIso ? "overdue" : "open";
+
+        return {
+          number: String(invoice.DocNumber || invoice.Id || ""),
+          customer: invoice.CustomerRef?.name || "Unknown customer",
+          issued: invoice.TxnDate ? String(invoice.TxnDate).slice(0, 10) : "",
+          due,
+          total: Number(invoice.TotalAmt || 0),
+          balance: Math.max(balance, 0),
+          status
+        };
+      })
+      .sort((a, b) => b.issued.localeCompare(a.issued));
+
+    if (!rows.length) {
+      if (lede) lede.textContent = "No invoices in QuickBooks yet.";
+      body.innerHTML = `<div class="card card-pad empty-state">QuickBooks has no invoices on your books yet.</div>`;
+      return;
+    }
+
+    const sum = (list, key) => list.reduce((t, r) => t + r[key], 0);
+    const overdue = rows.filter(r => r.status === "overdue");
+    const open = rows.filter(r => r.status === "open");
+    const paid = rows.filter(r => r.status === "paid");
+    const unpaid = overdue.length + open.length;
+
+    if (lede) {
+      lede.innerHTML = `${plural(rows.length, "invoice")} in QuickBooks${
+        unpaid
+          ? ` — <strong class="num">${money(sum(overdue, "balance") + sum(open, "balance"))}</strong> still to be paid on ${unpaid} of them.`
+          : ", all of them paid."
+      }`;
+    }
+
+    if (exportButton) {
+      exportButton.hidden = false;
+      exportButton.onclick = () => downloadCsv(
+        `invoices-${todayIso}.csv`,
+        ["Invoice", "Customer", "Issued", "Due date", "Status", "Amount", "Still owed"],
+        rows.map(r => [r.number, r.customer, r.issued, r.due, r.status[0].toUpperCase() + r.status.slice(1), r.total, r.balance])
+      );
+    }
+
+    const STATUS = {
+      paid: { label: "Paid", tone: "pos" },
+      open: { label: "Not due yet", tone: "info" },
+      overdue: { label: "Overdue", tone: "neg" }
+    };
+
+    const VISIBLE = 15;
+    const chip = (value, label, count) =>
+      `<button type="button" class="list-chip${value === "all" ? " is-active" : ""}" data-filter="${value}" aria-pressed="${value === "all"}">${escapeHtml(label)} <span class="num">${count}</span></button>`;
+
+    body.innerHTML = `
+      <section class="card card-pad section-gap due-card" aria-label="Invoices by status">
+        ${dueTilesHtml([
+          { label: "Overdue", total: sum(overdue, "balance"), count: overdue.length, word: "invoice", note: "still owed", tone: "neg" },
+          { label: "Not due yet", total: sum(open, "balance"), count: open.length, word: "invoice", note: "still owed", tone: "info" },
+          { label: "Paid", total: sum(paid, "total"), count: paid.length, word: "invoice", tone: "pos" }
+        ], money)}
+        ${overdue.length
+          ? `<p class="due-footnote">To see who to chase first and draft a reminder, open <button type="button" class="text-link" onclick="NFK_App.nav('working-capital')">Money owed to you</button>.</p>`
+          : ""}
+      </section>
+
+      <section class="card section-gap list-card" aria-labelledby="invoices-list-h">
+        <div class="list-card-head">
+          <div>
+            <h2 class="card-title" id="invoices-list-h">Every invoice</h2>
+            <span class="card-sub">Newest first</span>
+          </div>
+          <div class="list-tools">
+            <div class="list-chips" role="group" aria-label="Show">
+              ${chip("all", "All", rows.length)}
+              ${chip("unpaid", "Unpaid", unpaid)}
+              ${chip("overdue", "Overdue", overdue.length)}
+              ${chip("paid", "Paid", paid.length)}
+            </div>
+            ${listSearchHtml("invoices-search", "Find a customer or invoice")}
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th scope="col">Invoice</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Issued</th>
+                <th scope="col">Due</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="num">Amount</th>
+                <th scope="col" class="num">Still owed</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r, i) => `
+                <tr data-index="${i}" data-name="${escapeHtml(`${r.customer} ${r.number}`.toLowerCase())}" data-tags="${r.status === "paid" ? "paid" : `unpaid ${r.status}`}">
+                  <td class="list-muted cell-side"><span class="cell-label">Invoice </span>${escapeHtml(r.number || "—")}</td>
+                  <td class="list-strong cell-main">${escapeHtml(r.customer)}</td>
+                  <td class="list-muted cell-hide">${shortDate(r.issued)}</td>
+                  <td class="list-muted cell-hide">${shortDate(r.due)}</td>
+                  <td class="cell-sub">${latePill(STATUS[r.status].label, STATUS[r.status].tone)}</td>
+                  <td class="num cell-amount">${money(r.total)}</td>
+                  <td class="num list-strong cell-hide">${r.balance ? money(r.balance) : `<span class="list-muted">—</span>`}</td>
+                </tr>
+              `).join("")}
+              <tr class="list-empty" hidden><td colspan="7">No invoice matches.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        ${rows.length > VISIBLE
+          ? `<div class="list-foot" id="invoices-more">
+               <span data-more-label>${plural(rows.length - VISIBLE, "older invoice")}</span>
+               <button type="button" class="btn btn-ghost">Show all ${rows.length}</button>
+             </div>`
+          : ""}
+      </section>
+    `;
+
+    wireListFilter(body.querySelector(".list-table"), {
+      visible: VISIBLE,
+      input: document.getElementById("invoices-search"),
+      chips: body.querySelector(".list-chips"),
+      more: document.getElementById("invoices-more"),
+      empty: body.querySelector(".list-empty")
+    });
   }
 
   // The prior-period figures are what every headline delta is measured
@@ -6083,248 +6584,110 @@ async function loadCashFlowMonths() {
           });
       }
         if (pageId === "working-capital") {
-        
+
           const page =
             document.getElementById("page-working-capital");
-        
+
           if (!page) return;
-        
+
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1 class="page-title">Money owed to you <span class="page-title-term">Accounts Receivable</span></h1>
-                <p class="page-subtitle">Read live from QuickBooks</p>
+                <div class="page-eyebrow">Customers &amp; bills · Accounts receivable</div>
+                <h1 class="page-title">Money owed to you</h1>
+                <p class="page-subtitle" id="owed-lede">Read live from QuickBooks</p>
+              </div>
+              <div class="page-header-actions">
+                <button type="button" class="btn btn-ghost" id="owed-export" hidden>${icon_download()}<span>Export list</span></button>
               </div>
             </div>
 
-            <div class="section-gap" id="invoice-urgency-body">
-              ${renderSkeletonCard(5)}
+            <div id="invoice-urgency-body">
+              ${renderSkeletonCard(3)}
+              <div class="section-gap"></div>
+              ${renderSkeletonCard(6)}
             </div>
-
           `;
-        
-          loadInvoiceUrgency();
 
-        
-        }    
+          loadInvoiceUrgency();
+        }
+
         if (pageId === "ap-vendors") {
-        
+
           const page =
             document.getElementById("page-ap-vendors");
-        
+
           if (!page) return;
-        
+
           page.innerHTML = `
             <div class="page-header">
               <div>
-                <h1 class="page-title">Bills to pay <span class="page-title-term">Accounts Payable</span></h1>
-                <p class="page-subtitle">Read live from QuickBooks</p>
+                <div class="page-eyebrow">Customers &amp; bills · Accounts payable</div>
+                <h1 class="page-title">Bills to pay</h1>
+                <p class="page-subtitle" id="bills-lede">Read live from QuickBooks</p>
+              </div>
+              <div class="page-header-actions">
+                <button type="button" class="btn btn-ghost" id="bills-export" hidden>${icon_download()}<span>Export list</span></button>
               </div>
             </div>
 
-            <div class="section-gap" id="bills-schedule-body">
-              ${renderSkeletonCard(5)}
+            <div id="bills-schedule-body">
+              ${renderSkeletonCard(3)}
+              <div class="section-gap"></div>
+              ${renderSkeletonCard(6)}
             </div>
-
           `;
-          loadBillsSchedule();
 
-        
-        } 
+          loadBillsSchedule();
+        }
+
         if (pageId === "invoices") {
 
-    const page =
-        document.getElementById("page-invoices");
+          const page =
+              document.getElementById("page-invoices");
 
-    if (!page) return;
+          if (!page) return;
 
-    page.innerHTML = `
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">Invoices</h1>
-                <p class="page-subtitle">Read live from QuickBooks</p>
-            </div>
-        </div>
-    
-        <div class="card invoices-card">
-    
-            <div class="invoices-table-header">
-                <span>Invoice #</span>
-                <span>Customer</span>
-                <span>Amount</span>
-                <span>Due Date</span>
-                <span>Status</span>
-            </div>
-    
-            <div id="invoices-list"><div style="padding:16px 22px;">${skeletonLine("92%")}${skeletonLine("86%")}${skeletonLine("90%")}</div></div>
-    
-            <div class="invoices-table-footer">
-                <div
-                    id="invoices-count"
-                    class="invoices-count"
-                >
-                    Loading invoices…
-                </div>
-            </div>
+          page.innerHTML = `
+              <div class="page-header">
+                  <div>
+                      <div class="page-eyebrow">Customers &amp; bills · Invoices</div>
+                      <h1 class="page-title">Invoices</h1>
+                      <p class="page-subtitle" id="invoices-lede">Read live from QuickBooks</p>
+                  </div>
+                  <div class="page-header-actions">
+                      <button type="button" class="btn btn-ghost" id="invoices-export" hidden>${icon_download()}<span>Export list</span></button>
+                  </div>
+              </div>
 
-        </div>
-    `;
+              <div id="invoices-body">
+                  ${renderSkeletonCard(3)}
+                  <div class="section-gap"></div>
+                  ${renderSkeletonCard(7)}
+              </div>
+          `;
 
-    loadInvoices()
-      .then(data => {
-        const invoices =
-            data?.invoices || [];
-    
-        const list =
-            document.getElementById(
-                "invoices-list"
-            );
-    
-        const count =
-            document.getElementById(
-                "invoices-count"
-            );
-    
-        if (!list) return;
-    
-        if (!invoices.length) {
-    
-            list.innerHTML = `
-                <div class="empty-state">
-                    No invoices found.
-                </div>
-            `;
-    
-            if (count) {
-                count.textContent =
-                    "0 invoices";
-            }
-    
-            return;
-        }
-    
-        list.innerHTML =
-            invoices.map(invoice => {
-    
-                const total =
-                    Number(
-                        invoice.TotalAmt || 0
-                    );
-    
-                const balance =
-                    Number(
-                        invoice.Balance || 0
-                    );
-    
-                const invoiceNumber =
-                    invoice.DocNumber ||
-                    invoice.Id ||
-                    "";
-    
-                const customer =
-                    invoice.CustomerRef?.name ||
-                    "Unknown Customer";
-    
-                const dueDate =
-                    invoice.DueDate
-                        ? new Date(
-                            invoice.DueDate +
-                            "T00:00:00"
-                        ).toLocaleDateString(
-                            "en-US",
-                            {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric"
-                            }
-                        )
-                        : "—";
-    
-                let status = "Paid";
-                let statusClass = "paid";
-    
-                if (balance > 0) {
-    
-                    status = "Open";
-                    statusClass = "open";
-    
-                    if (
-                        invoice.DueDate &&
-                        new Date(
-                            invoice.DueDate +
-                            "T00:00:00"
-                        ) < new Date()
-                    ) {
-                        status = "Overdue";
-                        statusClass = "overdue";
-                    }
-                }
-    
-                return `
-                    <div class="invoice-row">
-    
-                        <span class="invoice-number">
-                            ${escapeHtml(
-                                invoiceNumber
-                            )}
-                        </span>
-    
-                        <span class="invoice-customer">
-                            ${escapeHtml(
-                                customer
-                            )}
-                        </span>
-    
-                        <strong class="invoice-amount">
-                            ${formatCurrency(
-                                total
-                            )}
-                        </strong>
-    
-                        <span class="invoice-due-date">
-                            ${dueDate}
-                        </span>
-    
-                        <span>
-                            <span
-                                class="invoice-status ${statusClass}"
-                            >
-                                ${status}
-                            </span>
-                        </span>
-    
-                    </div>
+          loadInvoices()
+            .then(data => renderInvoicesPage(data?.invoices || []))
+            .catch(error => {
+              console.error("Invoice loading failed:", error);
+
+              const body = document.getElementById("invoices-body");
+
+              if (body) {
+                body.innerHTML = `
+                  <div class="card card-pad empty-state">
+                    ${escapeHtml(
+                      error?.code === "QB_REAUTH_REQUIRED"
+                        ? "Reconnect QuickBooks to see your invoices."
+                        : "Unable to load your invoices right now."
+                    )}
+                  </div>
                 `;
-    
-            }).join("");
-    
-        if (count) {
-            count.textContent =
-                `${invoices.length} invoice${invoices.length === 1 ? "" : "s"}`;
+              }
+            });
         }
 
-    })
-        .catch(error => {
-            console.error("Invoice loading failed:", error);
-
-            const list = document.getElementById("invoices-list");
-            const count = document.getElementById("invoices-count");
-
-            if (count) count.textContent = "";
-
-            if (list) {
-                list.innerHTML = `
-                    <div class="empty-state">
-                        ${escapeHtml(
-                          error?.code === "QB_REAUTH_REQUIRED"
-                            ? "Reconnect QuickBooks to see your invoices."
-                            : "Unable to load your invoices right now."
-                        )}
-                    </div>
-                `;
-            }
-        });
-        } 
         if (pageId === "debt-register") {
 
           const page =
@@ -7328,6 +7691,18 @@ async function loadCashFlowMonths() {
 
   function icon_alert() {
     return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>');
+  }
+
+  function icon_search() {
+    return lineIcon('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>');
+  }
+
+  function icon_copy() {
+    return lineIcon('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>');
+  }
+
+  function icon_download() {
+    return lineIcon('<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>');
   }
 
   function icon_bulb() {

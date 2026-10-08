@@ -31,8 +31,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* Figures: one face, tabular numerals — no second font. */
 .stat-val, .stat-value, .kpi-value, .bs-amount, .debt-balance,
 .scenario-slider-val, .scenario-kpi-val, .pl-number, .realm-id,
-.cf-activity-total, .cf-row-value, .cf-net-value, .invoice-amount,
-.invoice-number, td.num, th.num, .health-ring-score, .health-score-num > span:first-child,
+.cf-activity-total, .cf-row-value, .cf-net-value, td.num, th.num, .health-ring-score, .health-score-num > span:first-child,
 .bs-card-top h2, .bs-account-row strong, .bs-total strong, .bs-section-header strong,
 .cf-summary-item strong, .ar-summary-header strong, .ar-customer-row strong,
 .debt-summary-card strong, .bs-check-values strong {
@@ -713,9 +712,9 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .ar-summary-header h2 { margin: 0; font-size: 15px; font-weight: 500; }
 .ar-summary-header strong { font-size: 24px; font-weight: 500; color: var(--text-primary); letter-spacing: -0.02em; }
 
-.ar-customers-card, .invoices-card, .debt-register-card { overflow: hidden; padding: 0; }
+.ar-customers-card, .debt-register-card { overflow: hidden; padding: 0; }
 .ar-table-header, .ar-customer-row { display: grid; grid-template-columns: minmax(0,1fr) 160px 150px; align-items: center; padding-left: 24px; padding-right: 24px; }
-.ar-table-header, .invoices-table-header, .debt-table-header {
+.ar-table-header, .debt-table-header {
   background: transparent; color: var(--text-faint); font-size: 12px; font-weight: 600; letter-spacing: 0.01em; border-bottom: 1px solid var(--border);
   padding-top: 16px; padding-bottom: 16px;
 }
@@ -724,33 +723,15 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .ar-customer-row:last-child { border-bottom: none; }
 .ar-customer-row:hover { background: color-mix(in srgb, var(--n-text) 3%, transparent); }
 .ar-customer-row strong { display: block; width: 100%; text-align: right; color: var(--text-primary); font-size: 14px; font-weight: 500; white-space: nowrap; }
-.ar-status, .invoice-status {
+.ar-status {
   justify-self: end; display: inline-flex; align-items: center; justify-content: center;
   width: fit-content; padding: 4px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 500; white-space: nowrap; border: 1px solid transparent;
 }
-.ar-status.current, .invoice-status.paid { color: var(--positive); background: var(--positive-bg); border-color: color-mix(in srgb, var(--positive) 25%, transparent); }
+.ar-status.current { color: var(--positive); background: var(--positive-bg); border-color: color-mix(in srgb, var(--positive) 25%, transparent); }
 .ar-status.info { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); border-color: var(--accent-line); }
-.ar-status.warning, .invoice-status.open { color: var(--warning); background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 25%, transparent); }
-.ar-status.over90, .invoice-status.overdue { color: var(--negative); background: var(--negative-bg); border-color: color-mix(in srgb, var(--negative) 25%, transparent); }
-
-.invoices-table-header, .invoice-row {
-  display: grid;
-  grid-template-columns: minmax(90px,1fr) minmax(0,2fr) minmax(120px,1.2fr) minmax(110px,1.1fr) minmax(96px,0.9fr);
-  align-items: center; gap: 16px; padding-left: 24px; padding-right: 24px;
-}
-.invoices-table-header span:nth-child(3), .invoice-amount { text-align: right; }
-.invoice-row { min-height: 60px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: 14px; transition: background var(--transition); }
-.invoice-row:last-child { border-bottom: none; }
-.invoice-row:hover { background: color-mix(in srgb, var(--n-text) 3%, transparent); }
-.invoice-row > * { min-width: 0; }
-.invoice-number, .invoice-customer { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.invoice-number { font-weight: 400; color: var(--text-secondary); }
-.invoice-customer { font-weight: 400; }
-.invoice-amount { font-weight: 500; }
-.invoice-due-date { color: var(--text-muted); }
-.invoices-table-footer { display: flex; align-items: center; justify-content: flex-end; padding: 16px 24px; background: transparent; border-top: 1px solid var(--border); }
-.invoices-count { color: var(--text-muted); font-size: 13px; }
+.ar-status.warning { color: var(--warning); background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 25%, transparent); }
+.ar-status.over90 { color: var(--negative); background: var(--negative-bg); border-color: color-mix(in srgb, var(--negative) 25%, transparent); }
 
 .debt-table { width: 100%; overflow-x: auto; }
 .debt-table-header, .debt-row { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(140px,1.1fr); align-items: center; gap: 12px; padding: 16px 24px; }
@@ -1043,20 +1024,6 @@ textarea.ai-chat-input { max-height: 140px; }
      wrapping with a stray indent beside it. */
   h1 .page-title-term, .page-title .page-title-term, .bs-title .page-title-term, .pl-page-title .page-title-term { display: block; margin: 8px 0 0; }
 
-  /* Five columns don't fit a phone: each invoice becomes a two-line
-     row — who and how much on top, number, due date and status below. */
-  .invoices-table-header { display: none; }
-  .invoice-row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "cust cust amt" "num due status";
-    row-gap: 8px; column-gap: 12px; padding: 12px 16px;
-  }
-  .invoice-number { grid-area: num; font-size: 13px; }
-  .invoice-customer { grid-area: cust; font-weight: 500; }
-  .invoice-amount { grid-area: amt; }
-  .invoice-due-date { grid-area: due; font-size: 13px; }
-  .invoice-row > :last-child { grid-area: status; }
-  .invoices-table-footer { padding: 12px 16px; }
   .topbar { padding: 0 16px; }
   .topbar-ai-btn-label { display: none; }
   .topbar-ai-btn { padding: 8px; margin-right: 8px; }
@@ -1695,97 +1662,6 @@ textarea.ai-chat-input { max-height: 140px; }
   text-wrap: pretty;
 }
 
-/* Bills grouped by when they fall due */
-.billsched-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; margin-bottom: 24px;
-}
-.billsched-head > div { display: flex; flex-direction: column; gap: 4px; }
-.billsched-asof {
-  font-size: 12px; color: var(--text-faint); white-space: nowrap; padding-top: 4px;
-}
-/* Each band is its own box, edged and titled by how urgent it is —
-   the same reading the Profit & Loss uses. An empty band stays
-   neutral: "nothing at risk" is good news and must not show red. */
-.billsched-group { border: 1px solid var(--border); }
-.billsched-group.is-upcoming .billsched-group-title { color: var(--info); }
-.billsched-group.is-soon .billsched-group-title { color: var(--warning); }
-.billsched-groups { display: flex; flex-direction: column; gap: 16px; }
-.billsched-summary { margin-bottom: 16px; }
-.billsched-group-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-}
-.billsched-group-head > div {
-  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-}
-.billsched-group-head strong {
-  font-size: 15px; font-weight: 600; color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-.billsched-group-title {
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-}
-.billsched-group-count { font-size: 13px; color: var(--text-muted); }
-.billsched-group-note {
-  font-size: 13px; color: var(--text-faint); margin-top: 4px; text-wrap: pretty;
-}
-.billsched-group.is-overdue .billsched-group-title,
-.billsched-group.is-overdue .billsched-group-head strong { color: var(--negative); }
-.billsched-group.is-soon .billsched-group-head strong { color: var(--warning); }
-.billsched-rows { margin-top: 12px; display: flex; flex-direction: column; }
-.billsched-row {
-  display: grid; grid-template-columns: 1fr auto auto;
-  align-items: center; gap: 16px;
-  padding: 8px 0; border-bottom: 1px solid var(--border-light);
-}
-.billsched-row:last-child { border-bottom: none; }
-.billsched-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.billsched-vendor {
-  font-size: 14px; color: var(--text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.billsched-ref { font-size: 12px; color: var(--text-faint); }
-.billsched-when {
-  font-size: 13px; color: var(--text-muted); white-space: nowrap;
-}
-.billsched-amount {
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-  font-variant-numeric: tabular-nums; text-align: right; min-width: 88px;
-}
-.billsched-none { font-size: 13px; color: var(--text-muted); margin-top: 12px; }
-.billsched-asof.is-warn { color: var(--warning); }
-
-/* The one call worth making today, on the Customers page */
-.urgency-call {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 12px 16px; margin-bottom: 16px;
-  border-radius: var(--radius-md); background: var(--bg-subtle);
-  border: 1px solid var(--accent-line); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
-}
-.urgency-call-head {
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-}
-.urgency-call-body {
-  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
-  text-wrap: pretty;
-}
-.urgency-more > summary {
-  font-size: 13px; color: var(--text-muted); cursor: pointer;
-  list-style: none; padding: 12px 0 2px;
-}
-.urgency-more > summary::-webkit-details-marker { display: none; }
-.urgency-more > summary::before { content: "▸ "; color: var(--text-faint); }
-.urgency-more[open] > summary::before { content: "▾ "; }
-.urgency-more > summary:hover { color: var(--text-secondary); }
-@media (max-width: 640px) {
-  .billsched-head { flex-direction: column; gap: 8px; }
-  .billsched-asof { padding-top: 0; }
-  .billsched-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
-  .billsched-who { grid-column: 1; grid-row: 1; }
-  .billsched-when { grid-column: 1; grid-row: 2; font-size: 13px; }
-  .billsched-amount { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
-}
-
 .overview-summary {
   font-size: 15px; line-height: 26px; color: var(--text-secondary);
   margin: 8px 0 0; max-width: 72ch; text-wrap: pretty;
@@ -2080,9 +1956,7 @@ textarea.ai-chat-input { max-height: 140px; }
 .cashproj-title { display: block; font-size: 18px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
 .card-title { font-size: 16px; line-height: 24px; }
 
-.billsched-asof { font-size: 14px; color: var(--text-secondary); padding-top: 0; }
-
-.cashproj-head:last-child, .plstory-head:last-child, .rq-head:last-child, .billsched-head:last-child { margin-bottom: 0; }
+.cashproj-head:last-child, .plstory-head:last-child, .rq-head:last-child { margin-bottom: 0; }
 .plstory-sub { font-size: 14px; line-height: 24px; }
 .cashproj-figure-label { font-size: 13px; color: var(--text-muted); }
 .cashproj-figure strong { font-size: 20px; line-height: 30px; }
@@ -2107,35 +1981,10 @@ textarea.ai-chat-input { max-height: 140px; }
 /* A heading made of a label and a headline belongs together, left
    aligned — not pushed to opposite corners. (Headers that pair a
    heading block with a figure on the right are unaffected.) */
-.cashproj-head:has(> .cashproj-eyebrow), .billsched-head:has(> .cashproj-eyebrow) {
+.cashproj-head:has(> .cashproj-eyebrow) {
   flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px;
 }
 
-
-/* ------------------------------------------------------------
-   SUMMARY STRIP — a wide summary card as equal figure blocks
------------------------------------------------------------- */
-.summary-strip {
-  display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-}
-.summary-cell {
-  display: flex; flex-direction: column; justify-content: center; gap: 4px;
-  padding: 4px 24px; border-left: 1px solid var(--line-2); min-width: 0;
-}
-.summary-cell.is-lead { padding-left: 0; border-left: 0; }
-.summary-label { font-size: 13px; line-height: 20px; font-weight: 500; color: var(--text-muted); }
-.summary-value {
-  font-size: 20px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em;
-  color: var(--text-primary); font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-.summary-cell.is-lead .summary-value { font-size: 22px; line-height: 32px; }
-.summary-value.is-warn { color: var(--warning); }
-.summary-value.is-neg { color: var(--negative); }
-.summary-value.is-pos { color: var(--positive); }
-.summary-sub { font-size: 13px; line-height: 20px; color: var(--text-secondary); }
-.billsched-summary .urgency-call { margin: 20px 0 0; }
 
 /* What you kept: the statement on the left, its two figures on the right. */
 .plstory-verdict { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; }
@@ -2149,18 +1998,10 @@ textarea.ai-chat-input { max-height: 140px; }
 .plstory-figure strong.is-neg { color: var(--negative); }
 
 @media (max-width: 1000px) {
-  .summary-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 20px; }
-  .summary-cell { padding: 0 16px; }
-  .summary-cell.is-lead { grid-column: 1 / -1; padding: 0 0 20px; border-bottom: 1px solid var(--line-2); }
-  .summary-cell:nth-child(2) { padding-left: 0; border-left: 0; }
   .plstory-verdict { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .plstory-figure:first-child { padding-left: 0; border-left: 0; }
 }
 @media (max-width: 560px) {
-  .summary-strip { grid-template-columns: minmax(0, 1fr); }
-  .summary-cell { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--line-2); }
-  .summary-cell.is-lead { padding: 0 0 4px; border-top: 0; border-bottom: 0; }
-  .summary-cell:nth-child(2) { border-top: 0; }
   .plstory-figure { min-width: 0; flex: 1; padding: 0 16px; }
 }
 
@@ -2395,3 +2236,211 @@ textarea.ai-chat-input { max-height: 140px; }
 .kv-row:last-child { border-bottom: none; }
 .kv-row span { color: var(--text-secondary); font-size: var(--fs-label); }
 .kv-row strong { color: var(--text-primary); font-size: var(--fs-small); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Read by screen readers, not drawn. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* A button that reads as a link inside a sentence. */
+.text-link {
+  padding: 0; border: 0; background: none; font: inherit; color: var(--accent);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.text-link:hover { color: var(--accent-hover); }
+
+.page-subtitle strong { color: var(--text-primary); font-weight: 600; }
+.page-header-actions .btn svg, .owed-draft-actions .btn svg { width: 16px; height: 16px; }
+.page-header-actions .btn, .owed-draft-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---- DUE DATES: money owed to you, bills to pay, invoices ---- */
+.due-card { display: flex; flex-direction: column; gap: 18px; }
+.due-bar { display: flex; height: 12px; gap: 2px; border-radius: 6px; overflow: hidden; }
+.due-bar span { min-width: 3px; }
+.due-bar .tone-neg { background: var(--negative); }
+.due-bar .tone-warn { background: var(--warning); }
+.due-bar .tone-info { background: var(--info); }
+.due-bar .tone-muted { background: var(--n-neutral-400); }
+.due-bar .tone-deep { background: var(--n-accent-800); }
+
+.due-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-tiles); }
+.due-tile {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  padding: 16px; border-radius: 12px; background: #18181A; border: 1px solid var(--border-light);
+}
+.due-tile-label { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-small); font-weight: 600; color: var(--text-secondary); }
+.due-tile-label i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--n-neutral-400); }
+.due-tile-value { font-size: var(--fs-figure); line-height: 30px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); overflow-wrap: anywhere; }
+.due-tile-sub { font-size: 12px; line-height: 18px; color: var(--text-muted); }
+.due-tile.is-empty .due-tile-value { color: var(--text-muted); }
+.due-tile.tone-neg { background: color-mix(in srgb, var(--negative) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--negative) 28%, transparent); }
+.due-tile.tone-neg .due-tile-label { color: var(--negative); }
+.due-tile.tone-neg .due-tile-label i { background: var(--negative); }
+.due-tile.tone-warn { background: color-mix(in srgb, var(--warning) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 28%, transparent); }
+.due-tile.tone-warn .due-tile-label { color: var(--warning); }
+.due-tile.tone-warn .due-tile-label i { background: var(--warning); }
+.due-tile.tone-info .due-tile-label i { background: var(--info); }
+.due-tile.tone-pos .due-tile-label i { background: var(--positive); }
+.due-footnote { margin: 0; font-size: var(--fs-label); line-height: 1.6; color: var(--text-muted); }
+
+/* ---- LISTS: who to chase, unpaid bills, every invoice ---- */
+.list-card { padding: 0; overflow: hidden; }
+.list-card-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px;
+  padding: 20px 22px 14px;
+}
+.list-card-head > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.list-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+.list-search {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px;
+  border-radius: 10px; border: 1px solid var(--border-light); background: #18181A; color: var(--text-muted);
+}
+.list-search:focus-within { border-color: var(--accent-line); }
+.list-search svg { width: 15px; height: 15px; flex: none; }
+.list-search input {
+  width: 200px; min-width: 0; border: 0; outline: none; background: transparent;
+  color: var(--text-primary); font: inherit; font-size: var(--fs-small);
+}
+
+.list-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.list-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--border-light); background: transparent;
+  color: var(--text-secondary); font: inherit; font-size: var(--fs-label); font-weight: 500; cursor: pointer;
+}
+.list-chip span { color: var(--text-muted); }
+.list-chip:hover { border-color: var(--n-neutral-600); color: var(--text-primary); }
+.list-chip.is-active { background: #1F2140; border-color: var(--n-accent-900); color: var(--accent); }
+.list-chip.is-active span { color: var(--accent); }
+
+.list-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: var(--fs-body); }
+.list-table th {
+  text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 500; color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light); white-space: nowrap;
+}
+.list-table td { padding: 13px 12px; border-bottom: 1px solid #232326; color: var(--text-primary); vertical-align: middle; }
+.list-table th:first-child, .list-table td:first-child { padding-left: 22px; }
+.list-table th:last-child, .list-table td:last-child { padding-right: 22px; }
+.list-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.list-table tbody tr:hover td { background: color-mix(in srgb, var(--n-text) 2.5%, transparent); }
+.list-table tbody tr:last-child td { border-bottom: 0; }
+.list-table tfoot td { padding: 14px 12px; font-weight: 600; background: #18181A; border-top: 1px solid var(--border-light); }
+.list-table tfoot td:first-child { padding-left: 22px; }
+.list-table tfoot td:last-child { padding-right: 22px; }
+.list-strong { font-weight: 500; }
+.list-muted { color: var(--text-secondary) !important; }
+.list-action { text-align: right; white-space: nowrap; }
+.list-empty td { color: var(--text-muted); text-align: center; padding: 20px 22px; }
+.list-none { margin: 0; padding: 4px 22px 22px; font-size: var(--fs-small); color: var(--text-secondary); }
+
+.list-btn {
+  min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--n-accent-900);
+  background: #1F2140; color: var(--accent); font: inherit; font-size: var(--fs-small); font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+}
+.list-btn:hover { border-color: var(--accent-line); }
+.cell-label { display: none; }
+
+.list-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 22px; background: #18181A; border-top: 1px solid #232326;
+  font-size: var(--fs-small); color: var(--text-secondary);
+}
+.list-foot .btn { margin-left: auto; }
+
+.late-pill {
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  color: var(--text-secondary); background: #232326;
+}
+.late-pill.tone-neg { color: var(--negative); background: var(--negative-bg); }
+.late-pill.tone-warn { color: var(--warning); background: var(--warning-bg); }
+.late-pill.tone-info { color: var(--info); background: color-mix(in srgb, var(--info) 12%, transparent); }
+.late-pill.tone-pos { color: var(--positive); background: var(--positive-bg); }
+
+/* ---- MONEY OWED TO YOU: the reminder draft ---- */
+.owed-draft { display: flex; flex-direction: column; gap: 14px; border-color: var(--n-accent-900); }
+.owed-draft[hidden] { display: none; }
+.owed-draft-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.owed-draft-head > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.owed-draft-actions { display: flex; gap: 8px; }
+.owed-draft-text {
+  box-sizing: border-box; width: 100%; padding: 14px 16px; border-radius: 12px;
+  border: 1px solid var(--border); background: #18181A; color: var(--text-primary);
+  font: inherit; font-size: var(--fs-body); line-height: 22px; resize: vertical;
+}
+.owed-draft-text:focus { outline: none; border-color: var(--accent-line); }
+
+/* A short "worth knowing" line under a page. */
+.page-note {
+  display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; border-radius: 14px;
+  border: 1px solid var(--border-light); background: var(--bg-card);
+}
+.page-note-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; }
+.page-note-icon svg { width: 18px; height: 18px; }
+.page-note-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.page-note-text strong { font-size: var(--fs-body); font-weight: 600; color: var(--text-primary); }
+.page-note-text > span { font-size: var(--fs-small); line-height: 20px; color: var(--text-secondary); text-wrap: pretty; }
+.page-note.tone-pos { background: color-mix(in srgb, var(--positive) 7%, var(--bg-card)); border-color: color-mix(in srgb, var(--positive) 24%, transparent); }
+.page-note.tone-pos .page-note-icon { color: var(--positive); background: color-mix(in srgb, var(--positive) 16%, transparent); }
+
+/* ---- BILLS TO PAY ---- */
+.bills-layout { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--gap-cards); }
+.bills-list { flex: 3 1 560px; min-width: 0; margin: 0; }
+.bills-today { flex: 2 1 300px; min-width: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+.bills-today[hidden] { display: none; }
+.bills-today-sum { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.bills-today-sum div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-body); }
+.bills-today-sum dt { color: var(--text-secondary); }
+.bills-today-sum dd { margin: 0; color: var(--text-primary); }
+.bills-today-sum dd.neg-val { color: var(--negative); }
+.bills-today-sum .is-total { padding-top: 10px; border-top: 1px solid var(--border-light); font-weight: 600; }
+.bills-today-sum .is-total dt { color: var(--text-primary); }
+.bills-today-note {
+  display: flex; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  font-size: var(--fs-small); line-height: 19px; color: var(--text-primary);
+  border: 1px solid var(--border-light); background: #18181A;
+}
+.bills-today-note svg { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+.bills-today-note.tone-pos { background: color-mix(in srgb, var(--positive) 7%, var(--bg-card)); border-color: color-mix(in srgb, var(--positive) 24%, transparent); }
+.bills-today-note.tone-pos svg { color: var(--positive); }
+.bills-today-note.tone-warn { background: color-mix(in srgb, var(--warning) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 28%, transparent); }
+.bills-today-note.tone-warn svg { color: var(--warning); }
+.bills-today-note.tone-neg { background: color-mix(in srgb, var(--negative) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--negative) 28%, transparent); }
+.bills-today-note.tone-neg svg { color: var(--negative); }
+
+@media (max-width: 640px) {
+  .list-card-head { padding: 18px 16px 12px; }
+  .list-tools, .list-search { width: 100%; }
+  .list-search input { width: 100%; }
+  .list-table th:first-child, .list-table td:first-child, .list-table tfoot td:first-child { padding-left: 16px; }
+  .list-table th:last-child, .list-table td:last-child, .list-table tfoot td:last-child { padding-right: 16px; }
+  .list-foot { padding: 12px 16px; }
+  .list-none { padding: 4px 16px 18px; }
+  /* Each row becomes a two-line card: who and how much on top, how
+     late and the action (or reference) underneath. */
+  .list-table { min-width: 0; }
+  .list-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .list-table tbody tr:not([hidden]) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px;
+    padding: 14px 16px; border-bottom: 1px solid #232326;
+  }
+  .list-table tbody tr:last-child { border-bottom: 0; }
+  .list-table tbody td, .list-table th:first-child, .list-table td:first-child, .list-table th:last-child, .list-table td:last-child { padding: 0; border: 0; }
+  .list-table tbody tr:hover td { background: none; }
+  .list-table .cell-main { grid-column: 1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list-table .cell-amount { grid-column: 2; grid-row: 1; }
+  .list-table .cell-sub { grid-column: 1; grid-row: 2; }
+  .list-table .cell-side { grid-column: 2; grid-row: 2; text-align: right; font-size: var(--fs-label); }
+  .list-table .cell-hide { display: none; }
+  .list-table .cell-label { display: inline; }
+  .list-table .list-empty:not([hidden]) { display: block; }
+  .list-table .list-empty td { display: block; padding: 18px 16px; }
+  .list-table tfoot tr { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; background: #18181A; border-top: 1px solid var(--border-light); }
+  .list-table tfoot td, .list-table tfoot td:first-child, .list-table tfoot td:last-child { padding: 0; border: 0; background: none; }
+  .list-table .cell-dash { display: none; }
+  .owed-draft-actions { width: 100%; }
+  .owed-draft-actions .btn { flex: 1; justify-content: center; }
+}
