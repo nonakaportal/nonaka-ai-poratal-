@@ -8,7 +8,7 @@
 
  <!-- CSS Imports -->
  <link rel="stylesheet" href="css/tokens.css?v=39">
- <link rel="stylesheet" href="css/style.css?v=88">
+ <link rel="stylesheet" href="css/style.css?v=91">
 
  <!-- Google Fonts -->
  <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -208,11 +208,13 @@
  <div class="sidebar-logo-img">
  <img src="assest/logo-dark-lockup.jpg" alt="Nonaka Financial Partners">
  </div>
- <span class="sidebar-brand-text">NFP Portal</span>
+ <span class="sidebar-brand-text">Nonaka<small>Financial Partners</small></span>
  </div>
  <nav class="sidebar-nav" id="sidebar-nav">
  <!-- Populated by app.js -->
  </nav>
+ <!-- Filled in once the QuickBooks status is known (buildTopBar). -->
+ <div class="sidebar-qb" id="sidebar-qb" hidden></div>
  </aside>
  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="NFK_App.closeSidebar()"></div>
 
@@ -285,7 +287,7 @@
  <script src="js/data.js?v=31"></script>
  <script src="js/charts.js?v=40"></script>
  <script src="js/auth.js?v=39"></script>
- <script src="js/app.js?v=93"></script>
+ <script src="js/app.js?v=96"></script>
 
 </body>
 </html>

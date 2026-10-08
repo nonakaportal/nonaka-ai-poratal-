@@ -4741,36 +4741,44 @@ function renderCashFlow(data) {
         : ["muted", "Fair"];
 
       container.innerHTML = `
-        <div class="card card-pad health-card-overview health-score-card-clickable" onclick="NFK_App.openHealthDetail()" title="Click for full breakdown">
-          <div class="health-card-head">
-            <div class="card-title">Financial health</div>
-            <span class="chip chip-muted">Auto-updated</span>
+        <div class="card card-pad ovw-col health-card-overview health-score-card-clickable" onclick="NFK_App.openHealthDetail()" title="Open the full breakdown">
+          <div class="ovw-col-head">
+            <h2 class="card-title">Financial health</h2>
+            <span class="section-link">Why? →</span>
           </div>
-          <div class="health-card-top">
-            <div class="health-ring" style="background: conic-gradient(${color} ${pct}%, var(--bg-subtle) 0);">
-              <div class="health-ring-hole"></div>
-              <div class="health-ring-inner">
-                <div class="health-ring-score">${pct}</div>
-                <div class="health-ring-rating" style="color:${color};">${escapeHtml(health.rating)}</div>
+          <div class="ovw-health-top">
+            <div class="ovw-ring" role="img" aria-label="Financial health score ${pct} out of 100, ${escapeHtml(health.rating)}"
+                 style="background: conic-gradient(${color} ${pct}%, #2A292D 0);">
+              <div class="ovw-ring-inner">
+                <span class="ovw-ring-score">${pct}</span>
+                <span class="ovw-ring-of">out of 100</span>
               </div>
             </div>
-            <div class="health-score-summary">${escapeHtml(firstSentence)}</div>
+            <div class="ovw-health-text">
+              <span class="ovw-health-rating" style="color:${color};">${escapeHtml(health.rating)}</span>
+              <span class="ovw-health-summary">${escapeHtml(firstSentence)}</span>
+            </div>
           </div>
-          <div class="health-factor-list">
+          <ul class="ovw-factors">
             ${health.factors.map(f => {
               const [tone, word] = factorTone(f);
               return `
-                <div class="health-factor">
-                  <span class="health-factor-label">${escapeHtml(f.label)}</span>
-                  <span class="chip chip-${tone}">${word}</span>
-                </div>`;
+                <li class="ovw-factor">
+                  <span>${escapeHtml(f.label)}</span>
+                  <span class="ovw-factor-word tone-${tone}">${word}</span>
+                </li>`;
             }).join("")}
-          </div>
+          </ul>
         </div>
       `;
     } catch (error) {
       console.error("❌ Failed to load overview health score:", error);
-      container.innerHTML = `<div class="card card-pad">${aiErrorCardHtml(error)}</div>`;
+      container.innerHTML = `
+        <div class="card card-pad ovw-col">
+          <div class="ovw-col-head"><h2 class="card-title">Financial health</h2></div>
+          ${aiErrorCardHtml(error)}
+        </div>
+      `;
     }
   }
 
@@ -4865,6 +4873,24 @@ function renderCashFlow(data) {
         overviewState.chartType
       );
     }
+  }
+
+  // In, out and kept over the twelve months the chart shows, from the same
+  // history. A month that didn't load is left out rather than counted as 0.
+  function renderTrendTotals() {
+    const el = document.getElementById("overview-trend-totals");
+    const history = overviewState.history;
+    if (!el || !history) return;
+
+    const sum = key => history.reduce((t, h) => t + (Number.isFinite(h[key]) ? h[key] : 0), 0);
+    const moneyIn = sum("revenue");
+    const moneyOut = sum("totalExpenses");
+
+    el.innerHTML = `
+      <span><i class="is-in"></i>In <strong>${formatCurrency(moneyIn)}</strong></span>
+      <span><i class="is-out"></i>Out <strong>${formatCurrency(moneyOut)}</strong></span>
+      <span>Kept <strong class="${moneyIn - moneyOut >= 0 ? "pos-val" : "neg-val"}">${formatCurrency(moneyIn - moneyOut)}</strong></span>
+    `;
   }
 
   function setOverviewChartType(type) {
@@ -4968,6 +4994,7 @@ function renderCashFlow(data) {
       overviewState.history = await loadOverviewHistory(12);
       renderCashRunway();
       renderOverviewSparklines();
+      renderTrendTotals();
 
       const usable = overviewState.history.filter(
         h => Number.isFinite(h.revenue) || Number.isFinite(h.totalExpenses)
@@ -5083,36 +5110,27 @@ function renderCashFlow(data) {
     );
 
     if (!visible.length) {
-      body.innerHTML = `
-        <div class="empty-state">
-          Nothing flagged right now.
-        </div>
-      `;
+      body.innerHTML = `<p class="ovw-muted">Nothing flagged right now.</p>`;
       return;
     }
 
     body.innerHTML = visible
       .map(
         alert => `
-        <div class="alert-row" onclick="NFK_App.nav('ai-insights')" style="cursor:pointer;">
-
-          <div class="alert-content">
-            <div class="insight-chips">
-              <span class="chip chip-${alert.tone}">${escapeHtml(alert.status)}</span>
-              <span class="chip chip-muted">${escapeHtml(alert.category)}</span>
-            </div>
-            <div class="alert-title">${escapeHtml(alert.title)}</div>
-            <div class="alert-body ai-msg-markdown">${renderMarkdown(alert.body)}</div>
-            <div class="alert-meta">${escapeHtml(alert.meta || "")}</div>
-          </div>
-
+        <div class="ovw-item tone-${alert.tone === "pos" ? "pos" : alert.tone === "neg" ? "neg" : "warn"} is-linked"
+             onclick="NFK_App.nav('ai-insights')" role="link" tabindex="0"
+             aria-label="${escapeHtml(alert.title)} — open what we noticed">
+          <span class="ovw-item-icon" aria-hidden="true">${alert.kind === "positive" ? icon_bulb() : icon_alert()}</span>
+          <span class="ovw-item-text">
+            <span class="ovw-item-title">${escapeHtml(alert.title)}</span>
+            <span class="ovw-item-detail">${escapeHtml(alert.meta || alert.status || "")}</span>
+          </span>
           <button
             class="alert-dismiss"
             title="Dismiss"
             aria-label="Dismiss"
             onclick="event.stopPropagation(); NFK_App.dismissOverviewAlert('${alert.id}')"
           >&times;</button>
-
         </div>
       `
       )
@@ -5336,14 +5354,12 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      <!-- The hero: cash in the bank, how long it lasts, and where it's
-           heading over the next 30 days — the three answers an owner
-           opens the portal for. -->
-      <section class="card overview-hero section-gap">
-        <div class="overview-hero-cash">
-          ${metricCard("Cash in the bank", cashBalance, priorCash, !!cf?.error, icon_wallet(), null, null, "cash-flow", "is-hero")}
+      <!-- 1. Cash on hand: the figure beside a wide line of the last year. -->
+      <section class="card ovw-cash section-gap" aria-label="Cash on hand">
+        <div class="ovw-cash-main">
+          ${metricCard("Cash on hand", cashBalance, priorCash, !!cf?.error, icon_wallet(), null, null, "cash-flow", "is-hero")}
 
-          <div class="ovh-curve" id="overview-cash-curve"></div>
+          <dl class="ovw-cash-split" id="ovw-cash-split" hidden></dl>
 
           <div class="overview-runway is-linked"
                data-goto="forecast" role="link" tabindex="0"
@@ -5352,19 +5368,16 @@ function renderCashFlow(data) {
             <div class="overview-runway-text" id="overview-cash-runway">
               <div class="stat-label">How long your cash lasts</div>
               <div class="stat-val">
-                <span class="skeleton-line skeleton-shimmer" style="width:70px;height:22px;display:inline-block;margin:0;"></span>
+                <span class="skeleton-line skeleton-shimmer" style="width:70px;height:18px;display:inline-block;margin:0;"></span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="overview-hero-proj is-linked" id="cash-projection-body"
-             data-goto="forecast" role="link" tabindex="0"
-             aria-label="Where your cash is heading — open the forecast">
-          ${renderSkeletonCard(4)}
-        </div>
+        <div class="ovh-curve" id="overview-cash-curve"></div>
       </section>
 
+      <!-- 2. Key figures, five across. -->
       <div class="overview-figures section-gap">
         ${metricCard("Money earned", income, priorIncome, !!pl?.error, icon_pl(), "Revenue", "overview-spark-income", "pl")}
         ${metricCard("What you kept", netIncome, priorNetIncome, !!pl?.error, icon_forecast(), "Net income", "overview-spark-netincome", "pl")}
@@ -5373,14 +5386,51 @@ function renderCashFlow(data) {
         ${totalCard("Bills to pay", apTotal, "Unpaid bills from suppliers", !!ap?.error, "ap-vendors")}
       </div>
 
-      <div class="overview-chart-row section-gap">
+      <!-- 3. Where your cash is heading: one band across the page. -->
+      <section class="card ovw-ahead section-gap" id="cash-projection-body" aria-label="Where your cash is heading">
+        ${renderSkeletonCard(3)}
+      </section>
 
-        <div class="card card-pad">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Money in vs. money out</div>
-              <div class="card-sub">Last 12 months</div>
-            </div>
+      <!-- 4. Health, what we noticed, and what to do this week. -->
+      <div class="ovw-three section-gap">
+        <div id="overview-health-score">
+          <div class="card card-pad ovw-col">
+            <div class="ovw-col-head"><h2 class="card-title">Financial health</h2></div>
+            <p class="ovw-muted">Working out your health score…</p>
+          </div>
+        </div>
+
+        <section class="card card-pad ovw-col" aria-labelledby="ovw-noticed-h">
+          <div class="ovw-col-head">
+            <h2 class="card-title" id="ovw-noticed-h">What we noticed</h2>
+            <a href="#" class="section-link" onclick="event.preventDefault(); NFK_App.nav('ai-insights')">See all →</a>
+          </div>
+          <div id="overview-alerts-body" class="ovw-list">
+            <p class="ovw-muted">Scanning your data…</p>
+          </div>
+        </section>
+
+        <section class="card card-pad ovw-col" aria-labelledby="ovw-week-h">
+          <div class="ovw-col-head">
+            <h2 class="card-title" id="ovw-week-h">This week</h2>
+            <span class="ovw-muted ovw-small">From your books</span>
+          </div>
+          <div id="overview-this-week" class="ovw-list">
+            ${renderSkeletonCard(3)}
+          </div>
+        </section>
+      </div>
+
+      <!-- 5. Money in vs money out, across the page. -->
+      <section class="card card-pad section-gap" aria-labelledby="ovw-trend-h">
+        <div class="card-header ovw-trend-head">
+          <div>
+            <h2 class="card-title" id="ovw-trend-h">Money in vs. money out</h2>
+            <div class="card-sub">Last 12 months</div>
+          </div>
+
+          <div class="ovw-trend-side">
+            <div class="ovw-trend-totals" id="overview-trend-totals"></div>
 
             <div class="period-selector">
               <button
@@ -5396,19 +5446,12 @@ function renderCashFlow(data) {
               >Line</button>
             </div>
           </div>
-
-          <div class="chart-frame" id="overview-trend-body">
-            <div class="skeleton-line skeleton-shimmer" style="height:100%;margin:0;"></div>
-          </div>
         </div>
 
-        <div id="overview-health-score">
-          <div class="card card-pad">
-            <p style="color:var(--text-secondary);">Calculating financial health score...</p>
-          </div>
+        <div class="chart-frame" id="overview-trend-body">
+          <div class="skeleton-line skeleton-shimmer" style="height:100%;margin:0;"></div>
         </div>
-
-      </div>
+      </section>
 
       <div class="grid-2 section-gap">
         <div class="card card-pad is-linked" id="money-in-body"
@@ -5424,41 +5467,42 @@ function renderCashFlow(data) {
         </div>
       </div>
 
-      <div class="section-heading-row">
-        <div class="section-heading">What we noticed</div>
-        <a href="#" class="section-link" onclick="event.preventDefault(); NFK_App.nav('ai-insights')">See all →</a>
-      </div>
-
-      <div id="overview-alerts-body" class="alert-list section-gap">
-        <div class="card card-pad">
-          <p style="color:var(--text-secondary);">Scanning your data...</p>
-        </div>
-      </div>
-
+      <!-- 6. Loans and cards, a strip across the page. -->
       <div class="card card-pad overview-debt is-linked section-gap"
            data-goto="debt-register" role="link" tabindex="0"
            aria-label="Loans and cards — open the full page">
-        <div>
+        <div class="overview-debt-title">
           <div class="card-title">Loans &amp; cards</div>
           <div class="card-sub">What the business still owes</div>
         </div>
         ${
           debt?.error
             ? `<div class="stat-sub neg">Unable to load debt data</div>`
-            : `
-              <div class="overview-debt-fig">
-                <span class="stat-label">Due within a year</span>
-                <strong>${formatCurrency(Number(debt?.currentDebt || 0), currency)}</strong>
-              </div>
-              <div class="overview-debt-fig">
-                <span class="stat-label">Due later</span>
-                <strong>${formatCurrency(Number(debt?.longTermDebt || 0), currency)}</strong>
-              </div>
-              <div class="overview-debt-fig">
-                <span class="stat-label">Total</span>
-                <strong>${formatCurrency(Number(debt?.totalDebt || 0), currency)}</strong>
-              </div>
-            `
+            : (() => {
+                const soon = Number(debt?.currentDebt || 0);
+                const later = Number(debt?.longTermDebt || 0);
+                const total = Number(debt?.totalDebt || 0);
+                const soonPct = total > 0 ? (soon / total) * 100 : 0;
+
+                return `
+                  <div class="overview-debt-mid">
+                    ${total > 0
+                      ? `<div class="overview-debt-bar" aria-hidden="true">
+                           <span class="is-soon" style="width:${soonPct.toFixed(1)}%"></span>
+                           <span class="is-later" style="width:${(100 - soonPct).toFixed(1)}%"></span>
+                         </div>`
+                      : ""}
+                    <div class="overview-debt-legend">
+                      <span><i class="is-soon"></i>Due within a year <strong>${formatCurrency(soon, currency)}</strong></span>
+                      <span><i class="is-later"></i>Due later <strong>${formatCurrency(later, currency)}</strong></span>
+                    </div>
+                  </div>
+                  <div class="overview-debt-total">
+                    <span class="stat-label">Total</span>
+                    <strong>${formatCurrency(total, currency)}</strong>
+                  </div>
+                `;
+              })()
         }
       </div>
     `;
@@ -5515,13 +5559,16 @@ function renderCashFlow(data) {
       return;
     }
 
+    // Drawn in a 1000 x 100 box that stretches to the card, so the line can
+    // run edge to edge at any width. The end marker is an element placed by
+    // percentage rather than an SVG circle, which the stretch would squash.
     const currency = history.currency || "USD";
-    const W = 400, H = 230, PAD = 12;
+    const RIGHT = 940, TOP = 8, BOTTOM = 96;
     const min = Math.min(...values), max = Math.max(...values);
 
     const pts = values.map((v, i) => [
-      (i / (values.length - 1)) * W,
-      PAD + (1 - (v - min) / (max - min)) * (H - PAD * 2)
+      (i / (values.length - 1)) * RIGHT,
+      TOP + (1 - (v - min) / (max - min)) * (BOTTOM - TOP)
     ]);
 
     const line = monotonePath(pts);
@@ -5532,21 +5579,22 @@ function renderCashFlow(data) {
       `(${formatCurrency(values[values.length - 1], currency)})`;
 
     slot.innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(label)}">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(label)}">
         <defs>
           <linearGradient id="ovh-curve-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" style="stop-color:var(--positive);stop-opacity:0.24" />
+            <stop offset="0" style="stop-color:var(--positive);stop-opacity:0.22" />
             <stop offset="1" style="stop-color:var(--positive);stop-opacity:0" />
           </linearGradient>
         </defs>
-        <path d="${line} L${W},${H} L0,${H} Z" fill="url(#ovh-curve-fill)" />
-        <path class="ovh-curve-line" d="${line}" />
-        <circle class="ovh-curve-halo" cx="${endX}" cy="${endY.toFixed(1)}" r="9" />
-        <circle class="ovh-curve-dot" cx="${endX}" cy="${endY.toFixed(1)}" r="5" />
+        <path d="${line} L${endX},100 L0,100 Z" fill="url(#ovh-curve-fill)" />
+        <path class="ovh-curve-line" d="${line}" vector-effect="non-scaling-stroke" />
       </svg>
-      <div class="ovh-curve-caption">Bank balance, last 12 months</div>
+      <span class="ovh-curve-dot" style="left:${endX / 10}%;top:calc(40px + (100% - 74px) * ${(endY / 100).toFixed(3)})"></span>
+      <span class="ovh-curve-caption">Month-end balance · last 12 months</span>
+      <span class="ovh-curve-axis"><span>${escapeHtml(points[0].label)}</span><span>Today</span></span>
     `;
   }
+
 
   // Monotone cubic through the points (Fritsch–Carlson), as an SVG path.
   // Unlike a plain smooth curve it never bulges past a real point, so it
@@ -5784,6 +5832,8 @@ function renderCashFlow(data) {
 
     const tip = projection.timingTip;
     const overdue = projection.overdue || {};
+    const customerCount = Number(overdue.customerCount || 0);
+    const supplierCount = Number(overdue.supplierCount || 0);
 
     // With nothing dated in the window the chart would be a flat line
     // that implies a forecast we don't have, so say what's actually
@@ -5791,73 +5841,153 @@ function renderCashFlow(data) {
     // projection.
     const hasForwardMovement = movementDays > 0;
 
+    const tile = ({ tone, icon, label, value, valueTone = "", goTo, aria }) => `
+      <div class="ovh-row tone-${tone}${goTo ? " is-linked" : ""}"
+           ${goTo ? `data-goto="${goTo}" role="link" tabindex="0" aria-label="${escapeHtml(aria)}"` : ""}>
+        <span class="ovh-icon${goTo ? " is-square" : ""}">${icon}</span>
+        <div class="ovh-row-text">
+          <span class="ovh-label">${escapeHtml(label)}</span>
+          <strong class="ovh-figure${valueTone ? ` ${valueTone}` : ""}">${value}</strong>
+        </div>
+      </div>
+    `;
+
+    const notes = [
+      tip?.suggestion ? escapeHtml(tip.suggestion) : "",
+      !hasForwardMovement
+        ? "Nothing new is dated in the next 30 days — everything unpaid is already past its due date."
+        : ""
+    ].filter(Boolean);
+
     body.innerHTML = `
-      <div class="cashproj-head">
+      <div class="ovh-head">
         <div>
-          <div class="cashproj-eyebrow">Next 30 days</div>
-          <div class="cashproj-title">Where your cash is heading</div>
+          <div class="ovh-eyebrow">Next 30 days</div>
+          <h2 class="ovh-title">Where your cash is heading</h2>
         </div>
-        <div class="cashproj-figures">
-          <div class="cashproj-figure">
-            <span class="cashproj-figure-label">In the bank now</span>
-            <strong>${money(projection.openingCash)}</strong>
-          </div>
-          ${
-            Number.isFinite(projection.safeFloor)
-              ? `<div class="cashproj-figure">
-                   <span class="cashproj-figure-label">Your usual monthly outgoings</span>
-                   <strong class="cashproj-floor">${money(projection.safeFloor)}</strong>
-                 </div>`
-              : ""
-          }
-        </div>
+        <a href="#" class="section-link" onclick="event.preventDefault(); NFK_App.nav('forecast')">Full forecast →</a>
       </div>
 
-      ${
-        hasForwardMovement
-          ? `<div class="chart-frame cashproj-chart"><canvas id="chart-cash-projection"></canvas></div>`
-          : `<div class="cashproj-nodata">
-               Nothing is currently dated in the next 30 days — every unpaid
-               invoice and bill in your books is already past its due date,
-               so there is no future timing to plot yet.
-             </div>`
-      }
-
-      ${
-        tip
-          ? `<div class="cashproj-tip">
-               <div class="cashproj-tip-head">Worth knowing</div>
-               <p class="cashproj-tip-body">${escapeHtml(tip.suggestion)}</p>
-               ${
-                 tip.bill
-                   ? `<div class="cashproj-tip-meta">${escapeHtml(tip.bill.party)} · ${money(tip.bill.amount)} · due ${escapeHtml(tip.bill.dueDate)}</div>`
-                   : ""
-               }
-             </div>`
-          : ""
-      }
-
-      <div class="cashproj-overdue">
-        <div class="cashproj-overdue-item is-linked"
-             data-goto="working-capital" role="link" tabindex="0"
-             aria-label="Already owed to you — open money owed to you">
-          <span>Already owed to you</span>
-          <strong class="pos-val">${money(overdue.customersOweYou)}</strong>
-          <span class="cashproj-overdue-meta">${Number(overdue.customerCount || 0)} overdue invoice${Number(overdue.customerCount) === 1 ? "" : "s"}</span>
-        </div>
-        <div class="cashproj-overdue-item is-linked"
-             data-goto="ap-vendors" role="link" tabindex="0"
-             aria-label="You already owe — open bills to pay">
-          <span>You already owe</span>
-          <strong class="neg-val">${money(overdue.youOweSuppliers)}</strong>
-          <span class="cashproj-overdue-meta">${Number(overdue.supplierCount || 0)} overdue bill${Number(overdue.supplierCount) === 1 ? "" : "s"}</span>
-        </div>
+      <div class="ovh-tiles">
+        ${tile({ tone: "pos", icon: icon_bank(), label: "In the bank now", value: money(projection.openingCash) })}
+        ${Number.isFinite(projection.safeFloor)
+          ? tile({ tone: "neg", icon: icon_arrow_up_right(), label: "Usual monthly outgoings", value: money(projection.safeFloor) })
+          : ""}
+        ${tile({
+          tone: "quiet-pos", icon: icon_doc(), label: `Already owed to you · ${customerCount} overdue`,
+          value: money(overdue.customersOweYou), valueTone: "pos-val",
+          goTo: "working-capital", aria: "Already owed to you — open money owed to you"
+        })}
+        ${tile({
+          tone: "quiet-neg", icon: icon_doc(), label: `You already owe · ${supplierCount} overdue`,
+          value: money(overdue.youOweSuppliers), valueTone: "neg-val",
+          goTo: "ap-vendors", aria: "You already owe — open bills to pay"
+        })}
       </div>
+
+      ${hasForwardMovement
+        ? `<div class="chart-frame cashproj-chart ovh-chart"><canvas id="chart-cash-projection"></canvas></div>`
+        : ""}
+
+      ${notes.length
+        ? `<div class="ovh-row tone-warn ovh-note">
+             <span class="ovh-icon">${icon_bulb()}</span>
+             <div class="ovh-row-text">
+               <span class="ovh-row-head">Worth knowing</span>
+               <p class="ovh-text">${notes.join(" ")}</p>
+               ${tip?.bill
+                 ? `<span class="ovh-meta">${escapeHtml(tip.bill.party)} · ${money(tip.bill.amount)} · due ${escapeHtml(tip.bill.dueDate)}</span>`
+                 : ""}
+             </div>
+           </div>`
+        : ""}
     `;
 
     if (hasForwardMovement && window.NFK_Charts?.renderCashProjection) {
       window.NFK_Charts.renderCashProjection("chart-cash-projection", projection);
     }
+
+    overviewState.projection = projection;
+    renderCashSplit();
+    renderThisWeek();
+  }
+
+  // Under the cash figure: how much of it is actually in bank accounts.
+  // "Cash on hand" comes from the cash flow report, which also counts money
+  // held outside a bank account (in QuickBooks, usually payments received
+  // but not yet deposited); the projection's opening balance is the bank
+  // accounts alone. Shown only when the two genuinely differ.
+  function renderCashSplit() {
+    const el = document.getElementById("ovw-cash-split");
+    const cash = overviewState.cashBalance;
+    const bank = Number(overviewState.projection?.openingCash);
+    if (!el || !Number.isFinite(cash) || !Number.isFinite(bank)) return;
+
+    const elsewhere = cash - bank;
+    if (Math.abs(elsewhere) < 0.5) return;
+
+    const currency = overviewState.projection?.currency || "USD";
+
+    el.innerHTML = `
+      <dt>In bank accounts</dt><dd>${formatCurrency(bank, currency)}</dd>
+      <dt>Not yet in the bank</dt><dd>${formatCurrency(elsewhere, currency)}</dd>
+    `;
+    el.hidden = false;
+  }
+
+  // A short list of things worth doing now, taken straight from the books:
+  // money waiting to be banked, invoices to chase, bills to pay. Each line
+  // appears only when its number is real and above zero.
+  function renderThisWeek() {
+    const el = document.getElementById("overview-this-week");
+    const projection = overviewState.projection;
+    if (!el || !projection) return;
+
+    const currency = projection.currency || "USD";
+    const money = v => formatCurrency(Number(v || 0), currency);
+    const overdue = projection.overdue || {};
+    const items = [];
+
+    const cash = overviewState.cashBalance;
+    const bank = Number(projection.openingCash);
+    if (Number.isFinite(cash) && Number.isFinite(bank) && cash - bank >= 0.5) {
+      items.push({
+        tone: "pos", icon: icon_bank(), goTo: "cash-flow",
+        title: "Bank the money you're holding",
+        detail: `${money(cash - bank)} received but not yet in a bank account`
+      });
+    }
+
+    if (Number(overdue.customersOweYou) > 0) {
+      const n = Number(overdue.customerCount || 0);
+      items.push({
+        tone: "warn", icon: icon_doc(), goTo: "working-capital",
+        title: `Chase ${n} overdue invoice${n === 1 ? "" : "s"}`,
+        detail: `${money(overdue.customersOweYou)} customers should already have paid`
+      });
+    }
+
+    if (Number(overdue.youOweSuppliers) > 0) {
+      const n = Number(overdue.supplierCount || 0);
+      items.push({
+        tone: "neg", icon: icon_doc(), goTo: "ap-vendors",
+        title: `Pay ${n} overdue bill${n === 1 ? "" : "s"}`,
+        detail: `${money(overdue.youOweSuppliers)} already past its due date`
+      });
+    }
+
+    el.innerHTML = items.length
+      ? items.map(item => `
+          <div class="ovw-item tone-${item.tone} is-linked" data-goto="${item.goTo}" role="link" tabindex="0"
+               aria-label="${escapeHtml(item.title)} — open the page">
+            <span class="ovw-item-icon">${item.icon}</span>
+            <span class="ovw-item-text">
+              <span class="ovw-item-title">${escapeHtml(item.title)}</span>
+              <span class="ovw-item-detail">${escapeHtml(item.detail)}</span>
+            </span>
+          </div>
+        `).join("")
+      : `<p class="ovw-muted">Nothing needs your attention this week.</p>`;
   }
 
   // ------------------------------------------------------------
@@ -6793,7 +6923,6 @@ function renderCashFlow(data) {
       label: "Overview",
       icon: icon_home_sm(),
       flat: true,
-      open: true,
 
       items: [
         {
@@ -6809,7 +6938,6 @@ function renderCashFlow(data) {
       label: "Ask NFP AI",
       icon: icon_ai(),
       flat: true,
-      open: true,
 
       items: [
         {
@@ -6824,7 +6952,6 @@ function renderCashFlow(data) {
       id: "g-money",
       label: "Your money",
       icon: icon_flow(),
-      open: false,
 
       items: [
         {
@@ -6854,7 +6981,6 @@ function renderCashFlow(data) {
       id: "g-operations",
       label: "Customers & bills",
       icon: icon_ops_sm(),
-      open: false,
 
       items: [
         {
@@ -6879,7 +7005,6 @@ function renderCashFlow(data) {
       id: "g-insights",
       label: "Looking ahead",
       icon: icon_gauge(),
-      open: false,
 
       items: [
         {
@@ -6910,7 +7035,6 @@ function renderCashFlow(data) {
       label: "Workspace",
       icon: icon_settings_sm(),
       flat: true,
-      open: false,
 
       items: [
         {
@@ -6937,19 +7061,6 @@ function renderCashFlow(data) {
     if (!sidebarNav) {
       return;
     }
-
-    NAV_GROUPS.forEach(group => {
-      if (
-        activePageId &&
-        !group.flat &&
-        group.items.some(
-          item =>
-            item.id === activePageId
-        )
-      ) {
-        group.open = true;
-      }
-    });
 
     function renderItem(
       item,
@@ -7043,56 +7154,12 @@ function renderCashFlow(data) {
 
         html += `</div>`;
       } else {
-        const isOpen =
-          group.open;
-
+        // Every group stays open: the whole map of the portal is in view,
+        // and nothing hides behind a click.
         html += `
-          <div
-            class="nav-group"
-            id="${group.id}"
-          >
-
-            <button
-              class="nav-group-header ${
-                isOpen
-                  ? "open"
-                  : ""
-              }"
-              onclick="NFK_App.toggleNavGroup('${group.id}')"
-              aria-expanded="${isOpen}"
-            >
-
-              <span class="nav-group-icon">
-                ${group.icon}
-              </span>
-
-              <span class="nav-group-label">
-                ${group.label}
-              </span>
-
-              <svg
-                class="nav-chevron"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-                width="14"
-                height="14"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z"
-                />
-              </svg>
-
-            </button>
-
-            <div
-              class="nav-group-items ${
-                isOpen
-                  ? "open"
-                  : ""
-              }"
-              id="${group.id}-items"
-            >
+          <div class="nav-group" id="${group.id}">
+            <div class="nav-group-heading">${group.label}</div>
+            <div class="nav-group-items">
         `;
 
         for (
@@ -7139,6 +7206,26 @@ function renderCashFlow(data) {
     const email = window.NFK_Auth?.getCurrentUser?.()?.email || "";
 
     return email ? email[0].toUpperCase() : "?";
+  }
+
+  // Two letters standing in for a company in the switcher.
+  function companyInitials(name) {
+    const words = String(name || "").trim().split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w));
+    return (words.slice(0, 2).map(w => w[0]).join("") || "?").toUpperCase();
+  }
+
+  // The card at the foot of the sidebar: whether the numbers are live.
+  function renderSidebarQB(connected) {
+    const el = document.getElementById("sidebar-qb");
+    if (!el) return;
+
+    el.hidden = false;
+    el.className = `sidebar-qb ${connected ? "is-connected" : "is-disconnected"}`;
+    el.innerHTML = connected
+      ? `<span class="sidebar-qb-title"><span class="sidebar-qb-dot"></span>QuickBooks connected</span>
+         <span class="sidebar-qb-text">Numbers come straight from your books. Nothing here changes them.</span>`
+      : `<span class="sidebar-qb-title"><span class="sidebar-qb-dot"></span>QuickBooks not connected</span>
+         <button type="button" class="sidebar-qb-action" onclick="NFK_App.connectQuickBooks()">Connect QuickBooks</button>`;
   }
 
   // knownStatus: a /status answer the caller already has, so the badge
@@ -7199,7 +7286,7 @@ function renderCashFlow(data) {
             : ""}
         >
 
-          <span class="client-dot"></span>
+          <span class="client-chip" id="client-chip" aria-hidden="true">${escapeHtml(companyInitials(companyName))}</span>
 
           <span id="client-name">
             ${escapeHtml(companyName)}
@@ -7295,6 +7382,12 @@ function renderCashFlow(data) {
         nameEl.textContent = status.companyName;
       }
 
+      const chipEl = document.getElementById("client-chip");
+
+      if (chipEl) {
+        chipEl.textContent = companyInitials(status.companyName);
+      }
+
       // For anyone with more than one company, the button then reads
       // differently from the list below it — the button names the
       // QuickBooks company, the list names the organizations they
@@ -7312,6 +7405,8 @@ function renderCashFlow(data) {
         "qb-status-badge"
       );
 
+    renderSidebarQB(status?.connected === true);
+
     if (!badge) {
       return;
     }
@@ -7327,7 +7422,7 @@ function renderCashFlow(data) {
 
       badge.innerHTML = `
         <span class="qb-status-dot"></span>
-        <span class="qb-badge-label">Connected to QuickBooks</span>
+        <span class="qb-badge-label">Synced with QuickBooks</span>
       `;
     } else {
       badge.className = "qb-badge disconnected";
@@ -7697,45 +7792,6 @@ function renderCashFlow(data) {
 
 
 
-    toggleNavGroup(groupId) {
-      const group =
-        NAV_GROUPS.find(
-          g =>
-            g.id === groupId
-        );
-
-      if (!group) {
-        return;
-      }
-
-      group.open =
-        !group.open;
-
-      const header =
-        document.querySelector(
-          `#${groupId} .nav-group-header`
-        );
-
-      const items =
-        document.getElementById(
-          `${groupId}-items`
-        );
-
-      if (header) {
-        header.classList.toggle(
-          "open",
-          group.open
-        );
-      }
-
-      if (items) {
-        items.classList.toggle(
-          "open",
-          group.open
-        );
-      }
-    },
-
     logout() {
       window.NFK_Auth.logout();
     }
@@ -7776,6 +7832,31 @@ function renderCashFlow(data) {
   function icon_wallet() {
     return lineIcon('<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>');
   }
+
+  function icon_bank() {
+    return lineIcon('<path d="M3 21h18"/><path d="M6 17v-6"/><path d="M10 17v-6"/><path d="M14 17v-6"/><path d="M18 17v-6"/><path d="M12 3 20 8H4z"/>');
+  }
+
+  function icon_arrow_up_right() {
+    return lineIcon('<path d="M7 17 17 7"/><path d="M8 7h9v9"/>');
+  }
+
+  function icon_info() {
+    return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>');
+  }
+
+  function icon_alert() {
+    return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>');
+  }
+
+  function icon_bulb() {
+    return lineIcon('<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>');
+  }
+
+  function icon_doc() {
+    return lineIcon('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>');
+  }
+
 
   function icon_clock() {
     return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
