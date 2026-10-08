@@ -773,7 +773,37 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .insight-type-badge.anomaly { background: var(--negative-bg); color: var(--negative); border-color: color-mix(in srgb, var(--negative) 25%, transparent); }
 .insight-type-badge.recommendation { background: var(--positive-bg); color: var(--positive); border-color: color-mix(in srgb, var(--positive) 25%, transparent); }
 .insight-type-badge.scenario { background: color-mix(in srgb, var(--info) 13%, transparent); color: var(--info); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
-.insight-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; letter-spacing: -0.01em; }
+/* The headline is the finding itself, so it reads first: larger, bold,
+   with an icon in the severity colour. Things to watch carry that colour
+   in the headline too; things to do stay white with a green mark. */
+.insight-title {
+  display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px;
+  font-size: 19px; line-height: 27px; font-weight: 700; letter-spacing: -0.015em; color: var(--text-primary);
+  text-wrap: pretty;
+}
+.insight-title-icon {
+  flex: none; display: grid; place-items: center; width: 27px; height: 27px; border-radius: 8px;
+  color: var(--text-secondary); background: color-mix(in srgb, var(--n-text) 8%, transparent);
+}
+.insight-title-icon svg { width: 16px; height: 16px; }
+.insight-title.tone-neg .insight-title-icon { color: var(--negative); background: var(--negative-bg); }
+.insight-title.tone-warn .insight-title-icon { color: var(--warning); background: var(--warning-bg); }
+.insight-title.tone-pos .insight-title-icon { color: var(--positive); background: var(--positive-bg); }
+.insight-card.anomaly .insight-title.tone-neg { color: var(--negative); }
+.insight-card.anomaly .insight-title.tone-warn { color: var(--warning); }
+.insight-card.anomaly.tone-neg { box-shadow: inset 3px 0 0 var(--negative); }
+.insight-card.anomaly.tone-warn { box-shadow: inset 3px 0 0 var(--warning); }
+.insight-card.recommendation { box-shadow: inset 3px 0 0 var(--positive); }
+/* The summary lines up under the headline's text, not its icon. */
+.insight-card > summary > .insight-body, .insight-card > summary > .insight-more,
+.insight-card > .insight-body, .insight-card > .insight-basis { margin-left: 39px; }
+.insight-card > summary > .insight-more { display: inline-block; }
+@media (max-width: 640px) {
+  .insight-title { font-size: 17px; line-height: 24px; gap: 10px; }
+  .insight-title-icon { width: 24px; height: 24px; }
+  .insight-card > summary > .insight-body, .insight-card > summary > .insight-more,
+  .insight-card > .insight-body, .insight-card > .insight-basis { margin-left: 0; }
+}
 .insight-body { font-size: 14px; color: var(--text-secondary); line-height: 22px; margin-bottom: 12px; text-wrap: pretty; }
 .insight-basis { font-size: 13px; line-height: 20px; color: var(--text-muted); margin-bottom: 12px; display: flex; gap: 8px; }
 /* Status and category chips: status colour, category neutral. */
@@ -804,7 +834,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .insight-more::after { content: " ▾"; }
 .insight-expandable[open] .insight-more { display: none; }
 .insight-details { margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--border); }
-.insight-detail-heading { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.insight-detail-heading { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
 .insight-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }
 .insight-date { font-size: 12px; color: var(--text-faint); }
 
@@ -859,6 +889,14 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .ai-msg-markdown p { margin: 0 0 12px; line-height: 1.68; }
 .ai-msg-markdown p:last-child { margin-bottom: 0; }
 .ai-msg-markdown ul, .ai-msg-markdown ol { margin: 0 0 12px 16px; padding: 0; line-height: 1.68; }
+/* Numbered steps: the numbers sit in their own right-aligned column, so
+   1. to 10. line up and every step's text starts at the same edge. */
+.ai-msg-markdown ol { margin-left: 0; list-style: none; counter-reset: step; }
+.ai-msg-markdown ol > li { counter-increment: step; position: relative; padding-left: 30px; }
+.ai-msg-markdown ol > li::before {
+  content: counter(step) "."; position: absolute; left: 0; width: 22px; text-align: right;
+  font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent);
+}
 .ai-msg-markdown li { margin-bottom: 4px; }
 .ai-msg-markdown strong { color: var(--text-primary); font-weight: 500; }
 .ai-msg-markdown code { background: color-mix(in srgb, var(--n-text) 8%, transparent); border-radius: var(--radius-sm); padding: 1px 4px; font-size: 0.92em; }
@@ -2528,3 +2566,70 @@ textarea.ai-chat-input { max-height: 140px; }
 .settings-org-name { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-org-now { font-size: 12px; font-weight: 600; color: var(--accent); }
 .settings-org .btn { min-height: 34px; }
+
+/* ---- WHAT YOU KEPT: the two lists open the full breakdown ---- */
+.pl-list-card { cursor: pointer; display: flex; flex-direction: column; transition: border-color var(--transition); }
+.pl-list-card:hover { border-color: var(--accent-line); }
+.pl-list-more {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 18px; padding: 0; min-height: 32px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: var(--fs-small); font-weight: 500; color: var(--accent);
+}
+.pl-list-more:hover { color: var(--accent-hover); }
+.pl-list-more[hidden] { display: none; }
+
+.modal.modal-list {
+  max-width: 640px; max-height: calc(100vh - 48px); padding: 0;
+  display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-light);
+}
+.plb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 24px 18px; border-bottom: 1px solid var(--border-light); }
+.plb-head > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.plb-eyebrow { font-size: 12px; color: var(--text-muted); }
+.plb-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; color: var(--text-primary); }
+.plb-sub { font-size: var(--fs-small); color: var(--text-secondary); }
+.plb-close {
+  flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-light);
+  background: transparent; color: var(--text-secondary); font-size: 14px; cursor: pointer;
+}
+.plb-close:hover { color: var(--text-primary); border-color: var(--n-neutral-600); }
+.plb-body { overflow-y: auto; padding: 4px 24px; overscroll-behavior: contain; }
+.plb-section { padding: 18px 0; border-bottom: 1px solid #232326; }
+.plb-section:last-child { border-bottom: 0; }
+.plb-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--fs-body); font-weight: 600; color: var(--text-primary); }
+.plb-section-head small { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.plb-explain { margin: 4px 0 14px; font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+.plb-warn { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--warning); }
+.plb-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.plb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; column-gap: 14px; row-gap: 6px; font-size: var(--fs-small); }
+.plb-name { color: var(--text-primary); overflow-wrap: anywhere; }
+.plb-share { min-width: 36px; text-align: right; font-size: 12px; color: var(--text-muted); }
+.plb-amount { min-width: 96px; text-align: right; font-weight: 600; color: var(--text-primary); }
+.plb-amount.neg-val { color: var(--negative); }
+.plb-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: #232326; }
+.plb-bar > span { display: block; height: 100%; border-radius: 3px; }
+.plb-bar .tone-accent { background: var(--accent); }
+.plb-bar .tone-neg { background: var(--negative); }
+.plb-row.is-child { margin-top: -4px; padding-left: 16px; font-size: 12px; }
+.plb-row.is-child .plb-name { color: var(--text-secondary); }
+.plb-row.is-child .plb-amount { font-weight: 500; color: var(--text-secondary); }
+.plb-foot { margin: 0; padding: 14px 24px; border-top: 1px solid var(--border-light); font-size: 12px; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .modal.modal-list { max-height: calc(100vh - 24px); }
+  .plb-head, .plb-body, .plb-foot { padding-left: 16px; padding-right: 16px; }
+  .plb-amount { min-width: 80px; }
+}
+
+/* ---- BAR VALUES ---- */
+.bar-tip {
+  position: fixed; z-index: 1300; pointer-events: none; max-width: min(320px, calc(100vw - 16px));
+  padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: #26262B; color: var(--text-primary); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: normal;
+}
+.bar-tip[hidden] { display: none; }
+[data-tip] { cursor: default; }
+.pl-list-card [data-tip] { cursor: pointer; }
+/* Thin bars get a taller invisible target, so they're easy to point at
+   or tap without having to land on a 6px line. */
+.tip-target { position: relative; }
+.tip-target::after { content: ""; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }

@@ -383,8 +383,39 @@
     // escapeHtml() renders literal asterisks and pipe characters with no
     // line breaks. Escapes first, then applies formatting on top, so
     // this stays as safe as escapeHtml while looking readable.
+    // AI text sometimes runs a numbered list into one paragraph —
+    // "1. Do this. 2. Then that." — which renders as a single item with
+    // the other numbers buried in it. Each step goes on its own line, but
+    // only when the numbers run 1, 2, 3 in order, so a stray "2." inside
+    // a sentence is left alone.
+    function splitInlineSteps(text) {
+      const src = String(text);
+      const marker = /(^|[\s:;])(\d{1,2})[.)]\s+/g;
+      const starts = [];
+      let m;
+
+      while ((m = marker.exec(src))) {
+        if (Number(m[2]) === starts.length + 1) starts.push(m.index + m[1].length);
+      }
+
+      if (starts.length < 2) return src;
+
+      let out = "";
+      let last = 0;
+
+      for (const at of starts) {
+        out += src.slice(last, at).replace(/[ \t]+$/, "");
+        if (out && !out.endsWith("\n")) out += "\n";
+        last = at;
+      }
+
+      return out + src.slice(last);
+    }
+
     function renderMarkdown(text) {
       if (!text) return "";
+
+      text = splitInlineSteps(text);
 
       const inline = s => {
         let out = escapeHtml(s);
@@ -689,7 +720,7 @@
             <div class="oo-side">
                 <span class="oo-side-label">${escapeHtml(label)}</span>
                 <span class="oo-side-bar" style="width:${Math.max((Math.abs(total) / biggerSide) * 100, 2).toFixed(1)}%">
-                    ${parts.map(p => `<span class="tone-${p.tone}" style="width:${((p.amount / sum) * 100).toFixed(2)}%" title="${escapeHtml(p.name)}"></span>`).join("")}
+                    ${parts.map(p => `<span class="tone-${p.tone}" style="width:${((p.amount / sum) * 100).toFixed(2)}%" data-tip="${escapeHtml(`${p.name}: ${formatCurrency(p.amount, currency)}`)}"></span>`).join("")}
                 </span>
                 <strong class="num">${formatCurrency(total, currency)}</strong>
             </div>
@@ -1055,20 +1086,22 @@
             </div>
 
             <div class="grid-2 section-gap">
-                <section class="card card-pad pl-list-card" aria-labelledby="pl-in-h">
+                <section class="card card-pad pl-list-card" aria-labelledby="pl-in-h" onclick="NFK_App.openPLBreakdown('in', event)">
                     <div class="card-header pl-list-head">
                         <h2 class="card-title" id="pl-in-h">Where the money came from</h2>
                         <span class="card-sub num" id="pl-in-total"></span>
                     </div>
                     <ul class="pl-list" id="pl-came-from">${renderSkeletonCard(3)}</ul>
+                    <button type="button" class="pl-list-more" id="pl-in-more" hidden></button>
                 </section>
 
-                <section class="card card-pad pl-list-card" aria-labelledby="pl-out-h">
+                <section class="card card-pad pl-list-card" aria-labelledby="pl-out-h" onclick="NFK_App.openPLBreakdown('out', event)">
                     <div class="card-header pl-list-head">
                         <h2 class="card-title" id="pl-out-h">Biggest costs</h2>
                         <span class="card-sub num" id="pl-out-total"></span>
                     </div>
                     <ul class="pl-list" id="pl-went-on">${renderSkeletonCard(3)}</ul>
+                    <button type="button" class="pl-list-more" id="pl-out-more" hidden></button>
                 </section>
             </div>
 
@@ -1125,6 +1158,7 @@
           : "Unable to work out where your profit went right now.";
 
         body.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+        plBreakdown = null;
 
         ["pl-came-from", "pl-went-on"].forEach(id => {
           const el = document.getElementById(id);
@@ -1216,6 +1250,106 @@
       `;
     }
 
+    // The figures behind the two ranked lists, kept so either card can
+    // open the full breakdown without asking QuickBooks again.
+    let plBreakdown = null;
+
+    // Every line behind one of the two lists: grouped the way QuickBooks
+    // groups the accounts, biggest first, each with its share of the
+    // total. "in" is money earned; "out" is every cost step.
+    function openPLBreakdown(kind, event) {
+      const overlay = document.getElementById("modal-overlay");
+      const content = document.getElementById("modal-content");
+      if (!plBreakdown || !overlay || !content) return;
+
+      if (lastPointerType === "touch" && event?.target?.closest?.("[data-tip]")) return;
+
+      const { story, money } = plBreakdown;
+      const steps = story.steps || [];
+      const sections = kind === "in"
+        ? steps.slice(0, 1)
+        : steps.filter(step => step.kind === "out");
+
+      const total = sections.reduce((t, step) => t + Math.abs(Number(step.amount || 0)), 0);
+      const share = v => (total > 0 ? (Math.abs(Number(v || 0)) / total) * 100 : 0);
+      const shareLabel = v => {
+        const pct = share(v);
+        return pct > 0 && pct < 1 ? "<1%" : `${Math.round(pct)}%`;
+      };
+      const byAmount = (a, b) => Math.abs(Number(b.amount || 0)) - Math.abs(Number(a.amount || 0));
+
+      const count = sections
+        .flatMap(step => (step.lines || []).flatMap(line => (line.items?.length ? line.items : [line])))
+        .filter(line => Number(line.amount)).length;
+
+      const day = iso => iso
+        ? new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+        : "";
+      const period = story.period?.startDate
+        ? `${day(story.period.startDate)} – ${day(story.period.endDate)}`
+        : "This period";
+
+      const tone = kind === "in" ? "accent" : "neg";
+
+      const row = (line, child = false) => {
+        const amount = Number(line.amount || 0);
+        return `
+          <li class="plb-row${child ? " is-child" : ""}">
+            <span class="plb-name">${escapeHtml(line.ownPosting ? `${line.name} — posted directly` : line.name)}</span>
+            <span class="plb-share num">${shareLabel(amount)}</span>
+            <strong class="plb-amount num${amount < 0 ? " neg-val" : ""}">${money(amount)}</strong>
+            ${child
+              ? ""
+              : `<span class="plb-bar tip-target" data-tip="${escapeHtml(`${line.name}: ${money(amount)} · ${shareLabel(amount)}`)}"><span class="tone-${tone}" style="width:${Math.min(share(amount), 100).toFixed(1)}%"></span></span>`}
+          </li>
+        `;
+      };
+
+      const lineHtml = line => (line.items?.length
+        ? row(line) + [...line.items].sort(byAmount).map(item => row(item, true)).join("")
+        : row(line));
+
+      content.className = "modal modal-list";
+      content.setAttribute("role", "dialog");
+      content.setAttribute("aria-modal", "true");
+      content.setAttribute("aria-labelledby", "plb-title");
+
+      content.innerHTML = `
+        <div class="plb-head">
+          <div>
+            <span class="plb-eyebrow">What you kept · ${escapeHtml(period)}</span>
+            <h2 class="plb-title" id="plb-title">${kind === "in" ? "Where the money came from" : "Every cost"}</h2>
+            <span class="plb-sub">${plural(count, kind === "in" ? "source" : "cost")} · <span class="num">${money(total)}</span> in all</span>
+          </div>
+          <button type="button" class="plb-close" aria-label="Close" onclick="NFK_App.closeKPIModal()">✕</button>
+        </div>
+
+        <div class="plb-body">
+          ${sections.map(step => `
+            <section class="plb-section">
+              <div class="plb-section-head">
+                <span>${escapeHtml(step.label)}${step.term ? ` <small>${escapeHtml(step.term)}</small>` : ""}</span>
+                <strong class="num">${money(Math.abs(Number(step.amount || 0)))}</strong>
+              </div>
+              ${step.explain ? `<p class="plb-explain">${escapeHtml(step.explain)}</p>` : ""}
+              ${(step.lines || []).length
+                ? `<ul class="plb-rows">${[...step.lines].sort(byAmount).map(lineHtml).join("")}</ul>`
+                : `<p class="plb-explain">QuickBooks has no accounts recorded under this.</p>`}
+              ${step.adds_up === false
+                ? `<p class="plb-warn">These lines come to ${money(step.linesTotal)}, not ${money(step.amount)}. The total is the one QuickBooks reports.</p>`
+                : ""}
+            </section>
+          `).join("")}
+        </div>
+
+        <p class="plb-foot">Percentages are of the <span class="num">${money(total)}</span> total. Read from QuickBooks — nothing here changes your books.</p>
+      `;
+
+      modalReturnFocus = document.activeElement;
+      overlay.classList.add("open");
+      content.querySelector(".plb-close")?.focus();
+    }
+
     // A ranked list with bars, for where money came from and went.
     function plRankedList(lines, money, tone) {
       const rows = lines
@@ -1244,7 +1378,7 @@
             <span class="pl-list-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span>
             <strong class="num">${money(row.amount)}</strong>
           </span>
-          <span class="pl-list-bar"><span class="tone-${tone}" style="width:${((row.amount / total) * 100).toFixed(1)}%"></span></span>
+          <span class="pl-list-bar tip-target" data-tip="${escapeHtml(`${row.name}: ${money(row.amount)} · ${Math.round((row.amount / total) * 100)}% of the total`)}"><span class="tone-${tone}" style="width:${((row.amount / total) * 100).toFixed(1)}%"></span></span>
         </li>
       `).join("");
     }
@@ -1306,7 +1440,7 @@
           ${parts.length
             ? `<div class="pl-dollar">
                  <div class="pl-dollar-bar" role="img" aria-label="${escapeHtml(parts.map(p => `${p.label}: ${Math.round(p.share * 100)} cents`).join(", "))} of every dollar">
-                   ${parts.map(p => `<span class="tone-${p.tone}" style="width:${(p.share * 100).toFixed(2)}%"></span>`).join("")}
+                   ${parts.map(p => `<span class="tone-${p.tone}" style="width:${(p.share * 100).toFixed(2)}%" data-tip="${escapeHtml(`${p.label}: ${Math.round(p.share * 100)}¢ of every dollar`)}"></span>`).join("")}
                  </div>
                  <div class="pl-dollar-legend">
                    ${parts.map(p => `<span><i class="tone-${p.tone}"></i>${escapeHtml(p.label)} <strong class="num">${Math.round(p.share * 100)}¢</strong></span>`).join("")}
@@ -1353,6 +1487,19 @@
 
       if (inList) inList.innerHTML = plRankedList(incomeLines, money, "accent");
       if (outList) outList.innerHTML = plRankedList(costLines, money, "neg");
+
+      plBreakdown = { story, money };
+
+      [
+        ["pl-in-more", incomeLines, "source"],
+        ["pl-out-more", costLines, "cost"]
+      ].forEach(([id, lines, word]) => {
+        const button = document.getElementById(id);
+        if (!button) return;
+        const count = lines.filter(line => Number(line.amount)).length;
+        button.hidden = !count;
+        button.innerHTML = `See all ${plural(count, word)} <span aria-hidden="true">›</span>`;
+      });
       if (inTotal) inTotal.textContent = sales > 0 ? money(sales) : "";
       if (outTotal) {
         const costs = outSteps.reduce((t, step) => t + Math.abs(Number(step.amount || 0)), 0);
@@ -1407,7 +1554,7 @@
           const tone = m.kept === null ? "none" : m.kept < 0 ? "neg" : m.kept > 0 ? "pos" : "zero";
 
           return `
-            <div class="pl-month tone-${tone}" title="${escapeHtml(m.label)}: ${m.kept === null ? "no data" : formatCurrency(m.kept)}">
+            <div class="pl-month tone-${tone}" data-tip="${escapeHtml(`${m.label}: ${m.kept === null ? "no data" : m.kept < 0 ? `lost ${formatCurrency(-m.kept)}` : `kept ${formatCurrency(m.kept)}`}`)}">
               <span class="pl-month-up">${m.kept > 0 ? `<span style="height:${height.toFixed(1)}px"></span>` : ""}</span>
               <span class="pl-month-down">${m.kept < 0 ? `<span style="height:${height.toFixed(1)}px"></span>` : ""}</span>
               <span class="pl-month-label">${escapeHtml(String(m.label).split(" ")[0])}</span>
@@ -1760,7 +1907,7 @@ function renderCashFlow(data) {
                     <span>${escapeHtml(st.label)}</span>
                     ${st.sub ? `<small>${escapeHtml(st.sub)}</small>` : ""}
                 </span>
-                <span class="mio-bridge-track">
+                <span class="mio-bridge-track tip-target" data-tip="${escapeHtml(`${st.label}: ${figure}`)}">
                     ${st.tone === "start"
                         ? `<span class="mio-bridge-mark" style="left:${at(st.to).toFixed(2)}%"></span>`
                         : `<span class="mio-bridge-bar" style="left:${left.toFixed(2)}%;width:${Math.max(width, 0.4).toFixed(2)}%"></span>`}
@@ -1895,7 +2042,7 @@ async function loadCashFlowMonths() {
             return `
                 <li class="mio-month tone-${tone}">
                     <span class="mio-month-label" title="${escapeHtml(p.label)}">${escapeHtml(shortLabel)}</span>
-                    <span class="mio-month-track">
+                    <span class="mio-month-track tip-target" data-tip="${escapeHtml(`${p.label}: ${change > 0 ? "+" : change < 0 ? "−" : ""}${formatCurrency(Math.abs(change), currency)}`)}">
                         ${tone === "zero"
                             ? `<span class="mio-month-zero"></span>`
                             : `<span class="mio-month-bar" style="${change > 0 ? "left:50%" : `left:${(50 - width).toFixed(2)}%`};width:${Math.max(width, 0.6).toFixed(2)}%"></span>`}
@@ -2020,6 +2167,8 @@ async function loadCashFlowMonths() {
     buildAllPages();
 
     bindGlobalEvents();
+
+    bindBarTips();
   }
 
   // ============================================================
@@ -2191,12 +2340,15 @@ async function loadCashFlowMonths() {
           <span class="chip chip-${tone}">${escapeHtml(status)}</span>
           <span class="chip chip-muted">${escapeHtml(cap(category))}</span>
         </div>
-        <div class="insight-title">${escapeHtml(title)}</div>
+        <div class="insight-title tone-${tone}">
+          <span class="insight-title-icon" aria-hidden="true">${kind === "anomaly" ? icon_alert() : icon_bulb()}</span>
+          <span>${escapeHtml(title)}</span>
+        </div>
         <div class="insight-body ai-msg-markdown">${renderMarkdown(description)}</div>
       `;
 
       if (sections.length === 0) {
-        return `<div class="insight-card ${kind}">${summaryHtml}<div class="insight-basis">${escapeHtml(basis)}</div></div>`;
+        return `<div class="insight-card ${kind} tone-${tone}">${summaryHtml}<div class="insight-basis">${escapeHtml(basis)}</div></div>`;
       }
 
       const figuresHtml = Array.isArray(figures) && figures.length
@@ -2208,7 +2360,7 @@ async function loadCashFlowMonths() {
         : "";
 
       return `
-        <details class="insight-card insight-expandable ${kind}">
+        <details class="insight-card insight-expandable ${kind} tone-${tone}">
           <summary>
             ${summaryHtml}
             <span class="insight-more">Show the full explanation</span>
@@ -2897,9 +3049,9 @@ async function loadCashFlowMonths() {
           </div>
           ${total > 0
             ? `<div class="debt-hero-bar" aria-hidden="true">
-                 ${card > 0 ? `<span class="is-card" style="width:${pct(card).toFixed(2)}%"></span>` : ""}
-                 ${current > 0 ? `<span class="is-soon" style="width:${pct(current).toFixed(2)}%"></span>` : ""}
-                 ${longTerm > 0 ? `<span class="is-later" style="width:${pct(longTerm).toFixed(2)}%"></span>` : ""}
+                 ${card > 0 ? `<span class="is-card" style="width:${pct(card).toFixed(2)}%" data-tip="Credit cards: ${money(card)} · ${Math.round(pct(card))}%"></span>` : ""}
+                 ${current > 0 ? `<span class="is-soon" style="width:${pct(current).toFixed(2)}%" data-tip="Short-term loans: ${money(current)} · ${Math.round(pct(current))}%"></span>` : ""}
+                 ${longTerm > 0 ? `<span class="is-later" style="width:${pct(longTerm).toFixed(2)}%" data-tip="Long-term loans: ${money(longTerm)} · ${Math.round(pct(longTerm))}%"></span>` : ""}
                </div>`
             : ""}
           <div class="debt-hero-tiles">
@@ -2966,7 +3118,7 @@ async function loadCashFlowMonths() {
               ${Number(account.clearedShare) > 0
                 ? `<div class="loan-progress">
                      <div class="loan-progress-bar">
-                       <span style="width:${Number(account.clearedShare)}%"></span>
+                       <span style="width:${Number(account.clearedShare)}%" data-tip="${Number(account.clearedShare)}% paid off"></span>
                      </div>
                      <span class="loan-progress-label">
                        ${Number(account.clearedShare)}% of this has been paid off
@@ -4458,12 +4610,103 @@ async function loadCashFlowMonths() {
     }
   }
 
+  // ------------------------------------------------------------
+  // BAR VALUES
+  //
+  // Anything drawn as a bar carries its figure in data-tip. Pointing at it
+  // shows that figure in a small label above it; on a touch screen a tap
+  // shows it for a few seconds. One label serves the whole portal.
+  // ------------------------------------------------------------
+
+  let lastPointerType = "mouse";
+
+  function bindBarTips() {
+    if (document.querySelector(".bar-tip")) return;
+
+    const tip = document.createElement("div");
+    tip.className = "bar-tip";
+    tip.setAttribute("role", "tooltip");
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    let current = null;
+    let touchTimer = null;
+
+    function place(el, x) {
+      const r = el.getBoundingClientRect();
+      const t = tip.getBoundingClientRect();
+      const centre = Number.isFinite(x) ? x : r.left + r.width / 2;
+      const left = Math.max(8, Math.min(centre - t.width / 2, innerWidth - t.width - 8));
+      const top = r.top - t.height - 8 < 8 ? r.bottom + 8 : r.top - t.height - 8;
+
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+    }
+
+    function show(el, x) {
+      current = el;
+      tip.textContent = el.dataset.tip;
+      tip.hidden = false;
+      place(el, x);
+    }
+
+    function hide() {
+      current = null;
+      tip.hidden = true;
+      clearTimeout(touchTimer);
+    }
+
+    document.addEventListener("pointerdown", e => {
+      lastPointerType = e.pointerType;
+      if (e.pointerType !== "touch") return;
+
+      const el = e.target.closest?.("[data-tip]");
+      if (!el) return hide();
+
+      show(el, e.clientX);
+      clearTimeout(touchTimer);
+      touchTimer = setTimeout(hide, 3000);
+    }, true);
+
+    document.addEventListener("pointerover", e => {
+      if (e.pointerType === "touch") return;
+      const el = e.target.closest?.("[data-tip]");
+      if (el) show(el, e.clientX);
+    });
+
+    document.addEventListener("pointermove", e => {
+      if (e.pointerType === "touch" || !current) return;
+      place(current, e.clientX);
+    });
+
+    document.addEventListener("pointerout", e => {
+      if (e.pointerType === "touch" || !current) return;
+      if (!current.contains(e.relatedTarget)) hide();
+    });
+
+    window.addEventListener("scroll", hide, true);
+  }
+
+  // Where focus was before a popup opened, so closing it can go back.
+  let modalReturnFocus = null;
+
   function closeKPIModal() {
     const overlay = document.getElementById("modal-overlay");
+    const content = document.getElementById("modal-content");
 
     if (overlay) {
       overlay.classList.remove("open");
     }
+
+    if (content) {
+      content.className = "modal";
+      content.removeAttribute("role");
+      content.removeAttribute("aria-modal");
+      content.removeAttribute("aria-labelledby");
+    }
+
+    if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+    modalReturnFocus = null;
   }
 
   // Reuses the same AI-computed health score as the AI Insights page
@@ -5240,8 +5483,8 @@ async function loadCashFlowMonths() {
                   <div class="overview-debt-mid">
                     ${total > 0
                       ? `<div class="overview-debt-bar" aria-hidden="true">
-                           <span class="is-soon" style="width:${soonPct.toFixed(1)}%"></span>
-                           <span class="is-later" style="width:${(100 - soonPct).toFixed(1)}%"></span>
+                           <span class="is-soon" style="width:${soonPct.toFixed(1)}%" data-tip="Due within a year: ${formatCurrency(soon)}"></span>
+                           <span class="is-later" style="width:${(100 - soonPct).toFixed(1)}%" data-tip="Due later: ${formatCurrency(later)}"></span>
                          </div>`
                       : ""}
                     <div class="overview-debt-legend">
@@ -5505,7 +5748,7 @@ async function loadCashFlowMonths() {
               <strong class="moneyflow-amount">${money(row.amount)}</strong>
             </div>
 
-            <div class="moneyflow-bar">
+            <div class="moneyflow-bar tip-target" data-tip="${escapeHtml(`${row.name}: ${money(row.amount)} · ${Number(row.share || 0)}%`)}">
               <span
                 class="moneyflow-bar-fill ${tone}"
                 style="width:${Math.max(Number(row.share || 0), 0.6)}%"
@@ -5827,7 +6070,7 @@ async function loadCashFlowMonths() {
       <div class="due-bar" role="img" aria-label="${escapeHtml(
         shown.map(p => `${p.label} ${Math.round(share(p))}%`).join(", ")
       )}">
-        ${shown.map(p => `<span class="tone-${p.tone}" style="width:${share(p).toFixed(2)}%"></span>`).join("")}
+        ${shown.map(p => `<span class="tone-${p.tone}" style="width:${share(p).toFixed(2)}%" data-tip="${escapeHtml(`${p.label}: ${formatCurrency(p.total)} · ${Math.round(share(p))}%`)}"></span>`).join("")}
       </div>
     `;
   }
@@ -7785,6 +8028,11 @@ async function loadCashFlowMonths() {
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape") return;
 
+      if (document.getElementById("modal-overlay")?.classList.contains("open")) {
+        closeKPIModal();
+        return;
+      }
+
       const sidebar = document.getElementById("app-sidebar");
 
       if (sidebar?.classList.contains("open")) closeSidebar();
@@ -7824,6 +8072,9 @@ async function loadCashFlowMonths() {
       if (e.target.closest("a, button, input, select, textarea, summary, details")) {
         return;
       }
+
+      // On a touch screen a tap on a bar is asking for its value.
+      if (lastPointerType === "touch" && e.target.closest("[data-tip]")) return;
 
       navigate(card.dataset.goto);
     });
@@ -7904,6 +8155,8 @@ async function loadCashFlowMonths() {
     openHealthDetail,
 
     closeKPIModal,
+
+    openPLBreakdown,
 
     loadBalanceSheet,
 
