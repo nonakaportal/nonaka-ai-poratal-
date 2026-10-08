@@ -47,6 +47,12 @@ test('each earlier month is today less what changed after it', () => {
     assert.deepEqual(points.map(p => p.balance), [1025, 975, 1000]);
 });
 
+test('each month carries its own net change', () => {
+    const { points } = qb.parseCashHistory(report(['Aug 2026', 'Sep 2026', 'Oct 1-8, 2026'], [100, -50, 25]), 1000);
+
+    assert.deepEqual(points.map(p => p.change), [100, -50, 25]);
+});
+
 test('the Total column is not treated as a month', () => {
     const { points } = qb.parseCashHistory(report(['Sep 2026', 'Oct 2026'], [10, 20]), 500);
 

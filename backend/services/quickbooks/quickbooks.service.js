@@ -1569,7 +1569,8 @@ class QuickBooksService {
             currency: monthlyReport?.Header?.Currency || 'USD',
             points: monthIndexes.map(({ title }, i) => ({
                 label: title,
-                balance: Math.round(balances[i] * 100) / 100
+                balance: Math.round(balances[i] * 100) / 100,
+                change: Math.round(increases[i] * 100) / 100
             }))
         };
     }

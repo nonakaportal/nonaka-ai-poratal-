@@ -1894,14 +1894,28 @@ function cashFlowVerdict({
 
 function cashFlowVerdictHtml(figures) {
     const verdict = cashFlowVerdict(figures);
+    const money = value => formatCurrencyRounded(Number(value || 0), figures.currency);
+
+    const eyebrow = {
+        pos: "Good news",
+        warn: "Worth knowing",
+        neg: "Needs attention",
+        quiet: "This period"
+    }[verdict.tone] || "This period";
 
     return `
-        <section class="card card-pad cf-verdict tone-${escapeHtml(verdict.tone)}">
-            <div class="plstory-head" style="margin-bottom:0;">
-                <span class="cashproj-eyebrow">What this comes to</span>
-                <span class="cashproj-title">${escapeHtml(verdict.headline)}</span>
-                <span class="plstory-sub">${escapeHtml(verdict.detail)}</span>
+        <section class="card verdict-band tone-${escapeHtml(verdict.tone)} section-gap" aria-label="This period in one line">
+            <div class="verdict-band-text">
+                <span class="verdict-band-eyebrow">${escapeHtml(eyebrow)}</span>
+                <p class="verdict-band-headline">${escapeHtml(verdict.headline)}</p>
+                <p class="verdict-band-detail">${escapeHtml(verdict.detail)}</p>
             </div>
+            ${Number.isFinite(figures.closingCash)
+                ? `<dl class="verdict-band-figures">
+                     <div><dt>Started with</dt><dd>${money(figures.openingCash)}</dd></div>
+                     <div><dt>Now</dt><dd>${money(figures.closingCash)}</dd></div>
+                   </dl>`
+                : ""}
         </section>
     `;
 }
@@ -2020,438 +2034,185 @@ function renderCashFlow(data) {
     }
 
 
-    function renderRows(accounts) {
+    // The bridge: each bar starts where the one before it ended, drawn on
+    // one shared scale that always includes zero.
+    const steps = [
+        { label: "Start of the period", sub: "", from: openingCash, to: openingCash, tone: "start" },
+        { label: "Day-to-day trading", sub: "Sales in, costs out", from: openingCash, to: openingCash + operatingTotal, tone: "trading" },
+        { label: "Buying & selling things to keep", sub: "Vehicles, equipment", from: openingCash + operatingTotal, to: openingCash + operatingTotal + investingTotal, tone: "assets" },
+        { label: "Borrowing & owner money", sub: "Loans in, repayments and draws out", from: openingCash + operatingTotal + investingTotal, to: closingCash, tone: "funding" },
+        { label: "Cash at the end", sub: "", from: 0, to: closingCash, tone: "end" }
+    ];
 
-        if (!accounts.length) {
+    const ends = steps.flatMap(st => [st.from, st.to]).concat(0);
+    const lo = Math.min(...ends);
+    const hi = Math.max(...ends);
+    const span = hi - lo || 1;
+    const at = v => ((v - lo) / span) * 100;
 
-            return `
-                <div class="cf-no-data">
-                    No account activity available.
-                </div>
-            `;
-
-        }
-
-
-        return accounts.map(account => {
-
-            const value =
-                Number(
-                    account?.amount || 0
-                );
-
-
-            return `
-                <div class="cf-row">
-
-                    <span class="cf-row-name">
-                        ${escapeHtml(
-                            account?.name ||
-                            "Unnamed Account"
-                        )}
-                    </span>
-
-                    <strong class="
-                        cf-row-value
-                        ${valueClass(value)}
-                    ">
-                        ${signedAmount(value)}
-                    </strong>
-
-                </div>
-            `;
-
-        }).join("");
-
-    }
-
-
-    function activityCard(
-        title,
-        icon,
-        accounts,
-        total,
-        totalLabel,
-        note
-    ) {
+    const bridgeRow = st => {
+        const left = Math.min(at(st.from), at(st.to));
+        const width = Math.abs(at(st.to) - at(st.from));
+        const delta = st.to - st.from;
+        const figure =
+            st.tone === "start" || st.tone === "end"
+                ? amount(st.to)
+                : signedAmount(delta);
 
         return `
-            <section class="cf-activity-card">
-
-                <div class="cf-activity-head">
-
-                    <div class="cf-activity-title">
-
-                        <span class="cf-activity-icon">
-                            ${icon}
-                        </span>
-
-                        <span>
-                            ${title}
-                        </span>
-
-                    </div>
-
-                    <strong class="
-                        cf-activity-total
-                        ${valueClass(total)}
-                    ">
-                        ${signedAmount(total)}
-                    </strong>
-
-                </div>
-
-                ${note
-                    ? `<ul class="cf-activity-note">${note.map(n => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`
-                    : ""}
-
-                <div class="cf-row-list">
-
-                    ${renderRows(accounts)}
-
-                </div>
-
-
-                <div class="cf-activity-footer">
-
-                    <span>
-                        ${totalLabel || `Net ${title}`}
-                    </span>
-
-                    <strong class="
-                        ${valueClass(total)}
-                    ">
-                        ${signedAmount(total)}
-                    </strong>
-
-                </div>
-
-            </section>
+            <div class="mio-bridge-row is-${st.tone}">
+                <span class="mio-bridge-label">
+                    <span>${escapeHtml(st.label)}</span>
+                    ${st.sub ? `<small>${escapeHtml(st.sub)}</small>` : ""}
+                </span>
+                <span class="mio-bridge-track">
+                    ${st.tone === "start"
+                        ? `<span class="mio-bridge-mark" style="left:${at(st.to).toFixed(2)}%"></span>`
+                        : `<span class="mio-bridge-bar" style="left:${left.toFixed(2)}%;width:${Math.max(width, 0.4).toFixed(2)}%"></span>`}
+                </span>
+                <strong class="mio-bridge-value ${st.tone === "start" || st.tone === "end" ? "" : valueClass(delta)}">${figure}</strong>
+            </div>
         `;
-
-    }
-
-
-    page.innerHTML = `
-
-        <div class="cf-dashboard">
-
-
-            <!-- HEADER -->
-
-            <div class="cf-header">
-
-                <div>
-
-                    <h1>
-                        Money in &amp; out
-                        <span class="page-title-term">Cash Flow</span>
-                    </h1>
-
-                    <p>
-                        ${escapeHtml(
-                            period.startDate || "—"
-                        )}
-
-                        →
-
-                        ${escapeHtml(
-                            period.endDate || "—"
-                        )}
-
-                        ·
-
-                        ${escapeHtml(
-                            data?.reportBasis ||
-                            "Accrual"
-                        )}
-                    </p>
-
-                </div>
-
-
-                <div class="cf-header-right">
-
-                    ${renderPeriodSelector(state.cfPeriod, "setCFPeriod")}
-
-                </div>
-
-            </div>
-
-
-            <!-- WHAT IT ALL COMES TO -->
-
-            ${cashFlowVerdictHtml({
-                openingCash,
-                closingCash,
-                netChange,
-                operatingTotal,
-                investingTotal,
-                financingTotal,
-                currency
-            })}
-
-
-            <!-- WATERFALL -->
-
-            <section class="cf-waterfall">
-
-                <div class="cf-waterfall-head">
-
-                    <h2>
-                        How your balance moved
-                    </h2>
-
-                    <span>
-
-                        Opening
-                        <strong>
-                            ${amount(openingCash)}
-                        </strong>
-
-                        →
-
-                        Closing
-                        <strong>
-                            ${amount(closingCash)}
-                        </strong>
-
-                    </span>
-
-                </div>
-
-
-                <div class="cf-chart-wrap">
-
-                    <canvas
-                        id="chart-waterfall"
-                    ></canvas>
-
-                </div>
-
-            </section>
-
-
-            <!-- ACTIVITY CARDS -->
-
-            <div class="cf-activities">
-
-                ${activityCard(
-                    "Day-to-day trading",
-                    icon_flow(),
-                    operating,
-                    operatingTotal,
-                    "Total from trading",
-                    [
-                        "Green = cash in, red = cash out",
-                        "Unpaid sales show red until paid",
-                        "Unpaid bills show green (cash kept longer)"
-                    ]
-                )}
-
-                ${activityCard(
-                    "Buying and selling assets",
-                    icon_scale(),
-                    investing,
-                    investingTotal,
-                    "Total from assets",
-                    [
-                        "Green = cash from selling assets",
-                        "Red = cash spent buying assets"
-                    ]
-                )}
-
-                ${activityCard(
-                    "Loans and owner funding",
-                    icon_ar(),
-                    financing,
-                    financingTotal,
-                    "Total from loans and funding",
-                    [
-                        "Green = new loans or owner money in",
-                        "Red = repayments or money taken out"
-                    ]
-                )}
-
-            </div>
-
-
-            <!-- BOTTOM SUMMARY -->
-
-            <section class="cf-summary">
-
-                <div class="cf-summary-item">
-
-                    <span>
-                        Opening balance
-                    </span>
-
-                    <strong>
-                        ${amount(openingCash)}
-                    </strong>
-
-                </div>
-
-
-                <div class="cf-summary-item">
-
-                    <span>
-                        From trading
-                    </span>
-
-                    <strong class="
-                        ${valueClass(
-                            operatingTotal
-                        )}
-                    ">
-                        ${signedAmount(
-                            operatingTotal
-                        )}
-                    </strong>
-
-                </div>
-
-
-                <div class="cf-summary-item">
-
-                    <span>
-                        Assets
-                    </span>
-
-                    <strong class="
-                        ${valueClass(
-                            investingTotal
-                        )}
-                    ">
-                        ${signedAmount(
-                            investingTotal
-                        )}
-                    </strong>
-
-                </div>
-
-
-                <div class="cf-summary-item">
-
-                    <span>
-                        Funding
-                    </span>
-
-                    <strong class="
-                        ${valueClass(
-                            financingTotal
-                        )}
-                    ">
-                        ${signedAmount(
-                            financingTotal
-                        )}
-                    </strong>
-
-                </div>
-
-
-                <div class="
-                    cf-summary-item
-                    cf-summary-closing
-                ">
-
-                    <span>
-                        Closing balance
-                    </span>
-
-                    <strong>
-                        ${amount(closingCash)}
-                    </strong>
-
-                </div>
-
-            </section>
-
-
-            <!-- NET CHANGE -->
-
-            <div class="cf-net-change">
-
-                <div>
-
-                    <span class="cf-net-icon">
-                        ${icon_forecast()}
-                    </span>
-
-                    <div>
-
-                        <strong>
-                            Change over the period
-                        </strong>
-
-                        <small>
-                            Trading, assets and funding combined
-                        </small>
-
-                    </div>
-
-                </div>
-
-
-                <strong class="
-                    cf-net-value
-                    ${valueClass(netChange)}
-                ">
-                    ${signedAmount(netChange)}
-                </strong>
-
-            </div>
-
-        </div>
-
+    };
+
+    const stmtSection = (title, tone, accounts, total) => `
+        <tr class="mio-stmt-group tone-${tone}"><th scope="rowgroup" colspan="2">${escapeHtml(title)}</th></tr>
+        ${accounts.length
+            ? accounts.map(account => `
+                <tr>
+                    <td>${escapeHtml(account?.name || "Unnamed account")}</td>
+                    <td class="num">${signedAmount(account?.amount)}</td>
+                </tr>
+              `).join("")
+            : `<tr><td class="mio-stmt-empty" colspan="2">Nothing in this period</td></tr>`}
+        <tr class="mio-stmt-total">
+            <td>Total</td>
+            <td class="num ${valueClass(total)}">${signedAmount(total)}</td>
+        </tr>
     `;
 
+    page.innerHTML = `
+        <div class="page-header">
+            <div>
+                <div class="page-eyebrow">Your money · Cash flow statement</div>
+                <h1 class="page-title">Money in &amp; out</h1>
+                <p class="page-subtitle">
+                    Where your cash came from, and where it went ·
+                    ${escapeHtml(period.startDate || "—")} → ${escapeHtml(period.endDate || "—")}
+                </p>
+            </div>
 
-    // ==========================================================
-    // REAL QUICKBOOKS WATERFALL
-    // ==========================================================
+            <div class="page-header-actions">
+                ${renderPeriodSelector(state.cfPeriod, "setCFPeriod")}
+            </div>
+        </div>
 
-    if (
-        window.NFK_Charts &&
-        typeof
-        window.NFK_Charts.renderCashWaterfall ===
-        "function"
-    ) {
+        ${cashFlowVerdictHtml({
+            openingCash,
+            closingCash,
+            netChange,
+            operatingTotal,
+            investingTotal,
+            financingTotal,
+            currency
+        })}
 
-        setTimeout(() => {
+        <section class="card card-pad section-gap mio-bridge" aria-labelledby="mio-bridge-h">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="mio-bridge-h">How you got from ${amount(openingCash)} to ${amount(closingCash)}</h2>
+                    <div class="card-sub">Each bar starts where the last one ended</div>
+                </div>
+            </div>
+            <div class="mio-bridge-rows">
+                ${steps.map(bridgeRow).join("")}
+            </div>
+        </section>
 
-            window.NFK_Charts.renderCashWaterfall({
+        <div class="mio-split section-gap">
+            <section class="card mio-stmt" aria-labelledby="mio-stmt-h">
+                <div class="card-header mio-stmt-head">
+                    <h2 class="card-title" id="mio-stmt-h">Line by line</h2>
+                    <span class="card-sub">From your QuickBooks cash flow report</span>
+                </div>
+                <div class="table-scroll">
+                    <table class="mio-stmt-table">
+                        <tbody>
+                            ${stmtSection("Day-to-day trading", "pos", operating, operatingTotal)}
+                            ${stmtSection("Buying & selling things to keep", "neg", investing, investingTotal)}
+                            ${stmtSection("Borrowing & owner money", "accent", financing, financingTotal)}
+                            <tr class="mio-stmt-grand">
+                                <td>Change in cash</td>
+                                <td class="num">${signedAmount(netChange)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
-                labels: [
-                    "Opening",
-                    "Trading",
-                    "Assets",
-                    "Funding",
-                    "Closing"
-                ],
+            <section class="card card-pad mio-months" aria-labelledby="mio-months-h">
+                <div>
+                    <h2 class="card-title" id="mio-months-h">Month by month</h2>
+                    <div class="card-sub">How much cash went up or down · last 12 months</div>
+                </div>
+                <ul class="mio-month-list" id="mio-month-list">
+                    ${renderSkeletonCard(4)}
+                </ul>
+            </section>
+        </div>
+    `;
 
-                values: [
-                    openingCash,
-                    operatingTotal,
-                    investingTotal,
-                    financingTotal,
-                    closingCash
-                ],
+    loadCashFlowMonths();
+}
 
-                types: [
-                    "neutral",
-                    "positive",
-                    "negative",
-                    "negative",
-                    "neutral"
-                ]
+// The month-by-month column, from the same twelve months of cash history
+// the Overview draws its line with (fetched once per organization).
+async function loadCashFlowMonths() {
+    const list = document.getElementById("mio-month-list");
+    const organizationId = getOrganizationId();
+    if (!list || !organizationId) return;
 
-            });
+    try {
+        if (overviewState.cashHistory?.organizationId !== organizationId) {
+            const history = await apiGet(
+                `/quickbooks/cash-history?organizationId=${encodeURIComponent(organizationId)}`
+            );
 
-        }, 80);
+            overviewState.cashHistory = { organizationId, ...history };
+        }
 
+        const currency = overviewState.cashHistory.currency || "USD";
+        const months = (overviewState.cashHistory.points || []).filter(p => Number.isFinite(Number(p.change)));
+
+        if (!months.length) {
+            list.innerHTML = `<li class="ovw-muted">No monthly history yet.</li>`;
+            return;
+        }
+
+        const biggest = Math.max(...months.map(p => Math.abs(Number(p.change)))) || 1;
+
+        list.innerHTML = months.map(p => {
+            const change = Number(p.change);
+            const width = (Math.abs(change) / biggest) * 50;
+            const tone = change > 0 ? "pos" : change < 0 ? "neg" : "zero";
+            const shortLabel = String(p.label).replace(/\s*\d{1,2}-\d{1,2},/, "").replace(/\s+\d{4}$/, "");
+
+            return `
+                <li class="mio-month tone-${tone}">
+                    <span class="mio-month-label" title="${escapeHtml(p.label)}">${escapeHtml(shortLabel)}</span>
+                    <span class="mio-month-track">
+                        ${tone === "zero"
+                            ? `<span class="mio-month-zero"></span>`
+                            : `<span class="mio-month-bar" style="${change > 0 ? "left:50%" : `left:${(50 - width).toFixed(2)}%`};width:${Math.max(width, 0.6).toFixed(2)}%"></span>`}
+                    </span>
+                    <span class="mio-month-value num">${change > 0 ? "+" : change < 0 ? "−" : ""}${formatCurrency(Math.abs(change), currency)}</span>
+                </li>
+            `;
+        }).join("");
+    } catch (error) {
+        console.error("Cash flow months failed:", error);
+        list.innerHTML = `<li class="ovw-muted">Unable to load the monthly history right now.</li>`;
     }
-
 }
 
     async function setCFPeriod(period) {

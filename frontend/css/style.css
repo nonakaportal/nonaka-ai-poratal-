@@ -663,50 +663,6 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .tooltip-box { display: none; position: absolute; bottom: calc(100% + 6px); left: 0; background: var(--n-neutral-900); color: var(--n-neutral-100); box-shadow: var(--shadow-modal); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 12px; white-space: nowrap; z-index: 50; }
 .tooltip-wrap:hover .tooltip-box { display: block; }
 
-/* ------------------------------------------------------------
-   CASH FLOW
------------------------------------------------------------- */
-.cf-dashboard { width: 100%; max-width: 1240px; }
-.cf-waterfall { padding: 24px 24px; margin-bottom: 16px; }
-.cf-waterfall-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.cf-waterfall-head h2 { margin: 0; font-size: 14px; font-weight: 500; color: var(--text-primary); }
-.cf-waterfall-head span { color: var(--text-muted); font-size: 12px; }
-.cf-waterfall-head strong { color: var(--text-primary); margin: 0 4px; font-weight: 500; }
-.cf-chart-wrap { height: 300px; position: relative; }
-
-.cf-activities { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 16px; }
-.cf-activity-card { padding: 16px 24px; min-height: 320px; display: flex; flex-direction: column; }
-.cf-activity-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.cf-activity-title { display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 14px; font-weight: 500; }
-.cf-activity-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; background: var(--accent-subtle); color: var(--accent); }
-.cf-activity-icon svg { width: 15px; height: 15px; display: block; }
-.cf-activity-total { font-size: 14px; white-space: nowrap; font-weight: 500; }
-.cf-activity-note {
-  font-size: 12px; color: var(--text-faint); line-height: 1.45;
-  margin: 8px 0 0; padding-left: 16px;
-}
-.cf-activity-note li { margin: 0; }
-.cf-row-list { flex: 1; }
-.cf-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.cf-row:last-child { border-bottom: none; }
-.cf-row-name { color: var(--text-secondary); font-size: 13px; line-height: 1.4; }
-.cf-row-value { font-size: 13px; white-space: nowrap; }
-.cf-activity-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--text-primary); border-top: 1px solid var(--border); }
-.cf-no-data { padding: 24px 2px; color: var(--text-faint); font-size: 13px; }
-
-.cf-summary { display: flex; align-items: center; gap: 32px; padding: 16px 24px; margin-bottom: 16px; }
-.cf-summary-item { display: flex; flex-direction: column; gap: 8px; }
-.cf-summary-item span { color: var(--text-faint); font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
-.cf-summary-item strong { color: var(--text-primary); font-size: 15px; font-weight: 500; letter-spacing: -0.02em; }
-.cf-summary-closing { margin-left: auto; text-align: right; }
-.cf-summary-closing strong { color: var(--accent); font-size: 18px; }
-.cf-net-change { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; }
-.cf-net-change > div { display: flex; align-items: center; gap: 12px; }
-.cf-net-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: var(--accent-subtle); color: var(--accent); }
-.cf-net-icon svg { width: 16px; height: 16px; display: block; }
-.cf-net-change strong { color: var(--text-primary); font-size: 14px; font-weight: 500; }
-.cf-net-change small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
-.cf-net-value { font-size: 18px !important; font-weight: 500; }
 
 /* ------------------------------------------------------------
    BALANCE SHEET
@@ -1281,20 +1237,6 @@ textarea.ai-chat-input { max-height: 140px; }
 }
 .cashproj-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
 
-/* The one-line answer at the top of Money in & out. A coloured edge so
-   "your cash rose, but not from trading" reads differently at a glance
-   from "your cash rose because you traded well". */
-.cf-verdict { margin-bottom: 16px; border: 1px solid var(--border); padding: 28px; }
-/* The one-line answer is the statement the page leads with. */
-.cf-verdict .cashproj-title { font-size: 20px; line-height: 30px; font-weight: 500; letter-spacing: -0.01em; margin: 4px 0; }
-.cf-verdict.tone-pos { background: color-mix(in srgb, var(--positive) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--positive) 30%, transparent); }
-.cf-verdict.tone-warn { background: color-mix(in srgb, var(--warning) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
-.cf-verdict.tone-neg { background: color-mix(in srgb, var(--negative) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--negative) 30%, transparent); }
-.cf-verdict.tone-quiet { background: color-mix(in srgb, var(--accent-quiet) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--accent-quiet) 30%, transparent); }
-/* The P&L's 62ch reading measure is right for its paragraphs, but it
-   broke this one sentence across lines mid-phrase. The card is wide;
-   let the sentence use it, and still wrap sensibly on a phone. */
-.cf-verdict .plstory-sub { max-width: none; overflow-wrap: anywhere; }
 
 /* Overview cards that open the page they summarise. Kept quiet — a
    whole card lighting up on hover is noisy when five of them sit in a
@@ -2255,4 +2197,95 @@ textarea.ai-chat-input { max-height: 140px; }
   .summary-cell.is-lead { padding: 0 0 4px; border-top: 0; border-bottom: 0; }
   .summary-cell:nth-child(2) { border-top: 0; }
   .plstory-figure { min-width: 0; flex: 1; padding: 0 16px; }
+}
+
+/* ============================================================
+   REDESIGN — pieces shared by the inner pages
+============================================================ */
+
+/* The small line above a page title: where the page sits, and the
+   accounting name of the report behind it. */
+.page-eyebrow { font-size: var(--fs-label); color: var(--text-muted); margin-bottom: 6px; }
+
+/* A page's one-sentence answer, tinted by what it says. */
+.verdict-band {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 20px 32px;
+  padding: 22px 24px; border-radius: 16px;
+}
+.verdict-band-text { flex: 3 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.verdict-band-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.verdict-band-headline { margin: 0; font-size: 20px; line-height: 28px; font-weight: 500; letter-spacing: -0.01em; color: var(--text-primary); }
+.verdict-band-detail { margin: 0; font-size: var(--fs-small); line-height: 21px; color: var(--text-secondary); max-width: 80ch; text-wrap: pretty; }
+.verdict-band-figures { margin: 0; flex: 1 1 220px; display: flex; justify-content: flex-end; gap: 28px; }
+.verdict-band-figures div { display: flex; flex-direction: column; gap: 2px; }
+.verdict-band-figures dt { font-size: 12px; color: var(--text-secondary); }
+.verdict-band-figures dd { margin: 0; font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.verdict-band.tone-pos { background: color-mix(in srgb, var(--positive) 7%, var(--bg-card)); border-color: color-mix(in srgb, var(--positive) 26%, transparent); }
+.verdict-band.tone-pos .verdict-band-eyebrow { color: var(--positive); }
+.verdict-band.tone-warn { background: color-mix(in srgb, var(--warning) 9%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+.verdict-band.tone-warn .verdict-band-eyebrow { color: var(--warning); }
+.verdict-band.tone-neg { background: color-mix(in srgb, var(--negative) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--negative) 28%, transparent); }
+.verdict-band.tone-neg .verdict-band-eyebrow { color: var(--negative); }
+.verdict-band.tone-quiet { background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); border-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+.verdict-band.tone-quiet .verdict-band-eyebrow { color: var(--accent); }
+
+.table-scroll { overflow-x: auto; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---- MONEY IN & OUT ---------------------------------------- */
+.mio-bridge-rows { display: flex; flex-direction: column; gap: 14px; }
+.mio-bridge-row {
+  display: grid; grid-template-columns: minmax(150px, 240px) minmax(0, 1fr) 120px;
+  align-items: center; gap: 16px;
+}
+.mio-bridge-row.is-end { padding-top: 14px; border-top: 1px solid var(--border); }
+.mio-bridge-label { display: flex; flex-direction: column; font-size: var(--fs-small); color: var(--text-primary); }
+.mio-bridge-label small { font-size: 12px; color: var(--text-muted); }
+.mio-bridge-row.is-start .mio-bridge-label, .mio-bridge-row.is-end .mio-bridge-label { font-weight: 600; }
+.mio-bridge-track { position: relative; height: 26px; border-radius: 6px; background: #18181A; }
+.mio-bridge-bar { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; }
+.mio-bridge-mark { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--text-muted); }
+.is-trading .mio-bridge-bar { background: var(--positive); }
+.is-assets .mio-bridge-bar { background: var(--negative); }
+.is-funding .mio-bridge-bar { background: var(--accent); }
+.is-end .mio-bridge-bar { background: var(--text-primary); }
+.mio-bridge-value { text-align: right; font-size: var(--fs-small); font-weight: 600; font-variant-numeric: tabular-nums; }
+.is-end .mio-bridge-value { font-size: var(--fs-body); }
+
+.mio-split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.mio-stmt { flex: 3 1 520px; min-width: 0; padding: 0; overflow: hidden; }
+.mio-stmt-head { padding: 20px 22px 12px; margin: 0; align-items: flex-end; }
+.mio-stmt-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.mio-stmt-table td { padding: 11px 22px; border-top: 1px solid #232326; color: var(--text-primary); }
+.mio-stmt-table td.num { text-align: right; }
+.mio-stmt-group th {
+  text-align: left; padding: 10px 22px; background: #18181A;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.mio-stmt-group.tone-pos th { color: var(--positive); }
+.mio-stmt-group.tone-neg th { color: var(--negative); }
+.mio-stmt-group.tone-accent th { color: var(--accent); }
+.mio-stmt-empty { color: var(--text-muted) !important; }
+.mio-stmt-total td { font-weight: 600; border-top-color: var(--border); }
+.mio-stmt-grand td { background: #232326; padding: 14px 22px; font-weight: 600; border-top: 0; }
+.mio-stmt-grand td.num { font-size: var(--fs-body); }
+
+.mio-months { flex: 2 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.mio-month-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.mio-month { display: grid; grid-template-columns: 44px minmax(0, 1fr) 96px; align-items: center; gap: 10px; font-size: var(--fs-label); }
+.mio-month-label { color: var(--text-secondary); }
+.mio-month-track { position: relative; height: 10px; }
+.mio-month-bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.mio-month.tone-pos .mio-month-bar { background: var(--positive); }
+.mio-month.tone-neg .mio-month-bar { background: var(--negative); }
+.mio-month-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--border); }
+.mio-month-value { text-align: right; }
+.mio-month.tone-pos .mio-month-value { color: var(--positive); }
+.mio-month.tone-neg .mio-month-value { color: var(--negative); }
+.mio-month.tone-zero .mio-month-value { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .mio-bridge-row { grid-template-columns: minmax(0, 1fr) 96px; }
+  .mio-bridge-track { grid-column: 1 / -1; grid-row: 2; }
+  .verdict-band-figures { justify-content: flex-start; }
 }
