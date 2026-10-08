@@ -1894,6 +1894,10 @@ textarea.ai-chat-input { max-height: 140px; }
   padding-right: 32px; border-right: 1px solid var(--line-2);
 }
 .overview-hero .stat-card { border: 0; padding: 0; background: transparent; }
+/* The column is as tall as the projection beside it. The cash figure takes
+   the space above the runway and sits in its middle, instead of leaving a
+   gap under it. */
+.overview-hero-cash .metric-card.is-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .overview-hero .metric-glyph, .overview-figures .metric-glyph { display: none; }
 .metric-card.is-hero .stat-val { font-size: var(--fs-hero); line-height: 60px; letter-spacing: -0.035em; margin: 8px 0; }
 .overview-runway {
