@@ -99,6 +99,12 @@
   --fs-page-title: 28px;
   --fs-hero: 44px;
 
+  /* Spacing between boxes. Cards need room around them to read as
+     separate things rather than one crowded block. */
+  --space-section: 32px;   /* between sections of a page */
+  --gap-cards: 24px;       /* between cards in a row or grid */
+  --gap-tiles: 16px;       /* between small tiles inside a card */
+
   /* Spacing scale — 4 8 12 16 24 32 48. Cards pad 24, sit 16 apart;
      sections sit 24 apart. */
   --space-1: 4px;

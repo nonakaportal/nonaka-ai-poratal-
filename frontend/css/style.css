@@ -322,7 +322,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* ------------------------------------------------------------
    PAGE FRAME
 ------------------------------------------------------------ */
-.page-content { flex: 1; padding: 28px 40px 56px; overflow-y: auto; max-width: 1560px; }
+.page-content { flex: 1; padding: 32px 48px 64px; overflow-y: auto; max-width: 1560px; }
 .page { display: none; }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -346,7 +346,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   .page.active > *, .overview-figures > * { animation: none; }
 }
 
-.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: var(--space-section); flex-wrap: wrap; gap: 16px; }
 .page-header > div:first-child, .pl-page-header > div:first-child,
 .page-title, .pl-page-title, .bs-title, .cf-header h1 {
   font-size: var(--fs-page-title); font-weight: 600; color: var(--text-primary);
@@ -379,7 +379,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 /* Headline figures: separate cards with the same edge, padding and
    corners as every other card in the portal. */
 .stat-grid, .debt-summary-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--gap-cards);
   margin-bottom: 24px;
 }
 .stat-card, .debt-summary-card {
@@ -496,9 +496,9 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .period-btn:hover { color: var(--text-primary); }
 .period-btn.active { background: #26262C; color: var(--text-primary); }
 
-.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-.section-gap { margin-bottom: 24px; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--gap-cards); }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--gap-cards); }
+.section-gap { margin-bottom: var(--space-section); }
 
 /* ------------------------------------------------------------
    FORMS
@@ -765,7 +765,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 /* ------------------------------------------------------------
    KPIs, HEALTH, INSIGHTS
 ------------------------------------------------------------ */
-.grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--gap-cards); }
 .kpi-card { padding: 16px 24px; cursor: default; }
 .kpi-value { font-size: 24px; font-weight: 600; color: var(--text-primary); margin: 12px 0 8px; letter-spacing: -0.02em; line-height: 1; }
 .kpi-interp { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
@@ -805,7 +805,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 
 .insight-card + .insight-card { margin-top: 16px; }
 .insight-chips { display: flex; gap: 8px; margin-bottom: 12px; }
-.insight-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.insight-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap-tiles); margin-bottom: 24px; }
 .insight-figure { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; background: var(--bg-subtle); border: 1px solid var(--line-2); }
 .insight-figure strong { font-size: var(--fs-section); line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 .insight-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px 32px; }
@@ -855,7 +855,7 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .scenario-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); cursor: pointer; }
 .scenario-range::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); cursor: pointer; }
 .scenario-range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-faint); margin-top: 4px; }
-.scenario-outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 24px; }
+.scenario-outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--gap-tiles); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 24px; }
 .scenario-kpi { display: flex; flex-direction: column; gap: 4px; }
 .scenario-kpi-label { font-size: 12px; font-weight: 600; color: var(--text-faint); letter-spacing: 0.01em; }
 .scenario-kpi-val { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
@@ -1283,7 +1283,7 @@ textarea.ai-chat-input { max-height: 140px; }
 
 /* The balance sheet as three questions */
 .bsq-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap-cards);
 }
 .bsq-card { display: flex; flex-direction: column; gap: 12px; padding: 22px; }
 .bsq-question {
@@ -1447,7 +1447,7 @@ textarea.ai-chat-input { max-height: 140px; }
 }
 
 /* Per-loan detail on the Debt page */
-.debt-accounts { display: flex; flex-direction: column; gap: 12px; }
+.debt-accounts { display: flex; flex-direction: column; gap: var(--gap-tiles); }
 .loan-card + .loan-card, .loan-card + .loan-note { margin-top: 0; }
 .loan-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 16px;
@@ -1469,7 +1469,7 @@ textarea.ai-chat-input { max-height: 140px; }
 .loan-balance { font-size: 18px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 .loan-share { font-size: 12px; color: var(--text-muted); }
 
-.debt-hero { display: flex; flex-direction: column; gap: 18px; }
+.debt-hero { display: flex; flex-direction: column; gap: 22px; }
 .debt-hero-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
 .debt-hero-label { margin: 0; font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); }
 .debt-hero-total { display: block; font-size: 40px; line-height: 46px; font-weight: 600; letter-spacing: -0.035em; color: var(--text-primary); }
@@ -1479,7 +1479,7 @@ textarea.ai-chat-input { max-height: 140px; }
 .debt-hero-bar .is-card { background: var(--negative); min-width: 4px; }
 .debt-hero-bar .is-soon { background: var(--warning); }
 .debt-hero-bar .is-later { background: var(--n-accent-800); }
-.debt-hero-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.debt-hero-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--gap-tiles); }
 .debt-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); }
 .debt-tile strong { font-size: 22px; line-height: 28px; font-weight: 600; color: var(--text-primary); }
 .debt-tile-label { font-size: 12px; font-weight: 600; }
@@ -1872,18 +1872,18 @@ textarea.ai-chat-input { max-height: 140px; }
 }
 
 /* 2. Key figures, five across. */
-.overview-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.overview-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap-tiles); }
 .overview-figures .stat-card { display: flex; flex-direction: column; padding: 18px; border-radius: 14px; }
 .overview-figures .stat-label { min-height: 36px; font-size: var(--fs-small); color: var(--text-secondary); }
 .overview-figures .stat-val { font-size: 22px; line-height: 28px; letter-spacing: -0.02em; }
 .overview-figures .stat-sub { margin-top: auto; }
 
 /* 3. Where your cash is heading: one band, four tiles across. */
-.ovw-ahead { padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+.ovw-ahead { padding: 24px; display: flex; flex-direction: column; gap: var(--gap-tiles); }
 .ovh-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .ovh-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .ovh-title { margin: 2px 0 0; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); }
-.ovh-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.ovh-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap-tiles); }
 .ovh-row {
   display: flex; align-items: center; gap: 14px; min-width: 0;
   padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
@@ -1909,15 +1909,15 @@ textarea.ai-chat-input { max-height: 140px; }
 .ovh-row.is-linked:hover { transform: none; border-color: var(--accent-line); }
 
 /* 4. Three equal columns: health, what we noticed, this week. */
-.ovw-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: stretch; }
+.ovw-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap-cards); align-items: stretch; }
 .ovw-three > #overview-health-score { display: flex; }
 .ovw-three > #overview-health-score > .card { flex: 1; }
-.ovw-col { display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.ovw-col { display: flex; flex-direction: column; gap: 16px; margin: 0; }
 .ovw-col-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .ovw-col-head .card-title { margin: 0; }
 .ovw-muted { margin: 0; font-size: var(--fs-small); color: var(--text-muted); }
 .ovw-small { font-size: var(--fs-label); }
-.ovw-list { display: flex; flex-direction: column; gap: 8px; }
+.ovw-list { display: flex; flex-direction: column; gap: 10px; }
 
 .ovw-item {
   display: flex; gap: 12px; align-items: flex-start; padding: 12px;
@@ -2009,7 +2009,7 @@ textarea.ai-chat-input { max-height: 140px; }
 
 /* Alerts sit side by side as equal cards; the tinted glyph carries the
    status, so every card keeps the same edge. */
-.alert-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.alert-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap-cards); }
 .alert-row {
   display: grid; grid-template-columns: minmax(0,1fr) 28px;
   align-items: start; gap: 12px; padding: 24px;
@@ -2217,7 +2217,7 @@ textarea.ai-chat-input { max-height: 140px; }
 .mio-bridge-value { text-align: right; font-size: var(--fs-small); font-weight: 600; font-variant-numeric: tabular-nums; }
 .is-end .mio-bridge-value { font-size: var(--fs-body); }
 
-.mio-split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.mio-split { display: flex; flex-wrap: wrap; gap: var(--gap-cards); align-items: flex-start; }
 .mio-stmt { flex: 3 1 520px; min-width: 0; padding: 0; overflow: hidden; }
 .mio-stmt-head { padding: 20px 22px 12px; margin: 0; align-items: flex-end; }
 .mio-stmt-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
