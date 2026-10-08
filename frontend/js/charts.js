@@ -616,8 +616,7 @@ function renderCashProjection(canvasId, projection) {
             ticks: {
               color: colors.text,
               font: { size: 12 },
-              callback: v =>
-                Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+              callback: v => fmtShort(v)
             }
           }
         }

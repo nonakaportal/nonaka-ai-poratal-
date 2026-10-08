@@ -2505,11 +2505,13 @@ async function loadCashFlowMonths() {
     // SCENARIOS — what-if modeling with real 12-month history
     // ============================================================
 
+    // Growth figures are a year's change, applied evenly month by month
+    // (cash-cushion.service.js and computeScenarioProjection agree).
     const SCENARIO_SLIDER_DEFS = [
-      { id: "revGrowth", label: "Revenue Growth", min: -30, max: 60, suffix: "%" },
-      { id: "cogsGrowth", label: "COGS Growth", min: -20, max: 40, suffix: "%" },
-      { id: "opexGrowth", label: "Opex Growth", min: -20, max: 40, suffix: "%" },
-      { id: "taxRate", label: "Tax Rate", min: 0, max: 40, suffix: "%" }
+      { id: "revGrowth", label: "Sales grow by", hint: "a year", min: -30, max: 60, suffix: "%", signed: true },
+      { id: "cogsGrowth", label: "Cost of what you sell grows by", hint: "a year", min: -20, max: 40, suffix: "%", signed: true },
+      { id: "opexGrowth", label: "Running costs grow by", hint: "a year", min: -20, max: 40, suffix: "%", signed: true },
+      { id: "taxRate", label: "Tax on profit", hint: "of profit", min: 0, max: 40, suffix: "%", signed: false }
     ];
 
     const SCENARIO_PRESETS = {
@@ -2540,18 +2542,21 @@ async function loadCashFlowMonths() {
       };
     }
 
+    function scenarioValueLabel(def, value) {
+      const n = Number(value);
+      if (!def.signed || n === 0) return `${n}${def.suffix}`;
+      return `${n > 0 ? "+" : "−"}${Math.abs(n)}${def.suffix}`;
+    }
+
     function scenarioSliderHtml(def) {
       const value = scenarioParams[def.id];
 
       return `
-        <div class="scenario-slider-group">
-          <div class="scenario-slider-header">
-            <span class="scenario-slider-label">${escapeHtml(def.label)}</span>
-            <span
-              class="scenario-slider-val ${value >= 0 ? "pos" : "neg"}"
-              id="scenario-${def.id}-val"
-            >${value}${def.suffix}</span>
-          </div>
+        <label class="whatif-slider" for="scenario-${def.id}">
+          <span class="whatif-slider-head">
+            <span>${escapeHtml(def.label)}</span>
+            <strong class="num" id="scenario-${def.id}-val">${scenarioValueLabel(def, value)}</strong>
+          </span>
           <input
             type="range"
             class="scenario-range"
@@ -2562,20 +2567,23 @@ async function loadCashFlowMonths() {
             value="${value}"
             oninput="NFK_App.updateScenarioParam('${def.id}', this.value)"
           />
-          <div class="scenario-range-labels">
-            <span>${def.min}${def.suffix}</span>
-            <span>${def.max}${def.suffix}</span>
-          </div>
-        </div>
+          <span class="whatif-slider-scale">
+            <span>${scenarioValueLabel(def, def.min)}</span>
+            <span>${escapeHtml(def.hint)}</span>
+            <span>${scenarioValueLabel(def, def.max)}</span>
+          </span>
+        </label>
       `;
     }
 
     function scenarioMonthsButtonsHtml() {
       return [3, 6, 9, 12].map(m => `
         <button
-          class="period-btn ${scenarioParams.months === m ? "active" : ""}"
+          type="button"
+          class="seg-btn${scenarioParams.months === m ? " is-active" : ""}"
+          aria-pressed="${scenarioParams.months === m}"
           onclick="NFK_App.setScenarioMonths(${m})"
-        >${m} mo</button>
+        >${m} months</button>
       `).join("");
     }
 
@@ -2588,8 +2596,10 @@ async function loadCashFlowMonths() {
 
       return presets.map(p => `
         <button
-          class="btn ${scenarioActivePreset === p.id ? "btn-primary" : "btn-ghost"}"
+          type="button"
+          class="list-chip${scenarioActivePreset === p.id ? " is-active" : ""}"
           id="scenario-preset-${p.id}"
+          aria-pressed="${scenarioActivePreset === p.id}"
           onclick="NFK_App.applyScenarioPreset('${p.id}')"
         >${p.label}</button>
       `).join("");
@@ -2602,56 +2612,60 @@ async function loadCashFlowMonths() {
       page.innerHTML = `
         <div class="page-header">
           <div>
-            <div class="page-title">What if <span class="page-title-term">Scenarios</span></div>
-            <div class="page-subtitle">
-              What-if modeling from your real 12-month QuickBooks trend — not AI-generated, instant and fully under your control
-            </div>
+            <div class="page-eyebrow">Looking ahead · What if</div>
+            <h1 class="page-title">What if</h1>
+            <p class="page-subtitle">
+              Move your sales and costs and see what happens to your bank balance. Built from your
+              own recent months in QuickBooks — nothing here changes your books.
+            </p>
           </div>
         </div>
 
-        <div class="scenario-panel section-gap">
-          <div class="scenario-header">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span class="scenario-icon">🎛️</span>
-              <div>
-                <div class="scenario-title">Adjust the assumptions</div>
-                <div class="scenario-subtitle">Drag any slider — the chart and outcomes update instantly</div>
+        <section class="section-gap whatif" aria-label="Try a change">
+          <div class="card card-pad whatif-controls">
+            <div class="whatif-controls-head">
+              <h2 class="card-title">What if…</h2>
+              <span class="card-sub" id="scenario-baseline">Starting from a typical recent month</span>
+            </div>
+
+            <div class="whatif-group">
+              <span class="whatif-label">Start from</span>
+              <div class="list-chips" role="group" aria-label="Start from">
+                ${scenarioPresetButtonsHtml()}
               </div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              ${scenarioPresetButtonsHtml()}
+
+            <div class="whatif-sliders">
+              ${SCENARIO_SLIDER_DEFS.map(scenarioSliderHtml).join("")}
             </div>
-          </div>
 
-          <div class="scenario-sliders">
-            ${SCENARIO_SLIDER_DEFS.map(scenarioSliderHtml).join("")}
-          </div>
-
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-            <span class="scenario-slider-label">Forecast Horizon</span>
-            <div class="period-selector" id="scenario-months-group">
-              ${scenarioMonthsButtonsHtml()}
+            <div class="whatif-group">
+              <span class="whatif-label">Look ahead</span>
+              <div class="seg" id="scenario-months-group" role="group" aria-label="How far to look ahead">
+                ${scenarioMonthsButtonsHtml()}
+              </div>
             </div>
+
+            <button type="button" class="btn btn-ghost whatif-reset" onclick="NFK_App.resetScenario()">Reset to today's pace</button>
           </div>
 
-          <div class="scenario-outcomes" id="scenario-outcomes">
-            <div class="scenario-kpi">
-              <span class="scenario-kpi-label">Loading</span>
-              <span class="scenario-kpi-val">—</span>
-            </div>
+          <div class="card card-pad whatif-answer" id="cash-cushion-body" aria-live="polite">
+            ${Array.from({ length: 5 }, (_, i) => skeletonLine(i % 2 ? "85%" : "45%")).join("")}
           </div>
-        </div>
+        </section>
 
-        <div class="card card-pad section-gap" id="cash-cushion-body">
-          ${renderSkeletonCard(4)}
-        </div>
-
-        <div class="card card-pad">
-          <div class="card-title" style="margin-bottom:14px;">Revenue, Gross Profit & Net Income</div>
-          <div id="scenario-chart-wrap" style="height:340px;display:flex;align-items:center;justify-content:center;">
-            <p style="color:var(--text-muted);">Loading your real 12-month history from QuickBooks...</p>
+        <section class="card card-pad section-gap" aria-labelledby="whatif-profit-h">
+          <div class="whatif-profit-head">
+            <h2 class="card-title" id="whatif-profit-h">What it does to profit</h2>
+            <span class="card-sub">Your last 12 months, then the months ahead on these assumptions</span>
           </div>
-        </div>
+
+          <div class="whatif-outcomes" id="scenario-outcomes"></div>
+
+          <div id="scenario-chart-wrap" class="whatif-chart">
+            <p class="ahead-loading">Loading your last 12 months from QuickBooks…</p>
+          </div>
+        </section>
       `;
 
       loadCashCushion();
@@ -2662,7 +2676,6 @@ async function loadCashFlowMonths() {
         const chartWrap = document.getElementById("scenario-chart-wrap");
 
         if (chartWrap) {
-          chartWrap.style.display = "block";
           chartWrap.innerHTML = `<canvas id="chart-pl-trend"></canvas>`;
         }
 
@@ -2674,9 +2687,7 @@ async function loadCashFlowMonths() {
 
         if (chartWrap) {
           chartWrap.innerHTML = `
-            <p style="color:var(--text-secondary);">
-              Unable to load historical data: ${escapeHtml(error.message)}
-            </p>
+            <p class="ahead-loading">Unable to load your history: ${escapeHtml(error.message)}</p>
           `;
         }
       }
@@ -2712,39 +2723,41 @@ async function loadCashFlowMonths() {
       const outcomes = document.getElementById("scenario-outcomes");
       if (!outcomes) return;
 
+      const months = scenarioParams.months;
+
       function outcomeCard(label, value, sub, isNegative) {
         return `
-          <div class="scenario-kpi">
-            <span class="scenario-kpi-label">${escapeHtml(label)}</span>
-            <span class="scenario-kpi-val ${isNegative ? "neg" : "pos"}">${value}</span>
-            <span class="scenario-kpi-sub">${escapeHtml(sub)}</span>
+          <div class="whatif-outcome">
+            <span class="whatif-outcome-label">${escapeHtml(label)}</span>
+            <strong class="num ${isNegative ? "neg-val" : ""}">${value}</strong>
+            <span class="whatif-outcome-sub">${escapeHtml(sub)}</span>
           </div>
         `;
       }
 
       outcomes.innerHTML =
         outcomeCard(
-          `Revenue in ${scenarioParams.months} mo`,
+          `Sales in month ${months}`,
           formatCurrency(projection.endOfHorizon.revenue),
-          `${revenueChangePct >= 0 ? "+" : ""}${revenueChangePct.toFixed(1)}% vs. recent monthly average`,
+          `${revenueChangePct >= 0 ? "+" : "−"}${Math.abs(revenueChangePct).toFixed(1)}% on a recent month`,
           revenueChangePct < 0
         ) +
         outcomeCard(
-          "Projected gross profit",
+          "Left after what you sell",
           formatCurrency(projection.endOfHorizon.grossProfit),
-          "At end of horizon",
+          `Gross profit, month ${months}`,
           projection.endOfHorizon.grossProfit < 0
         ) +
         outcomeCard(
-          "Projected net income",
+          "What you'd keep",
           formatCurrency(projection.endOfHorizon.netIncome),
-          "At end of horizon",
+          `Net income, month ${months}`,
           projection.endOfHorizon.netIncome < 0
         ) +
         outcomeCard(
-          "Net Margin",
+          "Kept from each dollar of sales",
           `${netMargin.toFixed(1)}%`,
-          "Projected, end of horizon",
+          "Net margin",
           netMargin < 0
         );
     }
@@ -3101,14 +3114,13 @@ async function loadCashFlowMonths() {
       if (!body || !cushion) return;
 
       const money = v => formatCurrency(Number(v || 0));
+      const baselineEl = document.getElementById("scenario-baseline");
 
       if (!cushion.available) {
         body.innerHTML = `
-          <div class="cushion-head">
-            <span class="cashproj-eyebrow">What's left in the bank</span>
-            <span class="cashproj-title">Not enough history yet</span>
-          </div>
-          <div class="cashproj-nodata">${escapeHtml(cushion.reason || "")}</div>
+          <span class="whatif-eyebrow">The answer</span>
+          <span class="whatif-headline">Not enough history yet</span>
+          <p class="whatif-detail">${escapeHtml(cushion.reason || "")}</p>
         `;
         return;
       }
@@ -3116,75 +3128,107 @@ async function loadCashFlowMonths() {
       const months = Number(cushion.months || 0);
       const verdict = cushion.verdict || {};
       const change = Number(cushion.change || 0);
-
+      const monthly = Number(cushion.monthlyChange || 0);
+      const end = Number(cushion.endBalance || 0);
+      const opening = Number(cushion.openingCash || 0);
       const monthWord = months === 1 ? "month" : "months";
+      const signed = v => `${v >= 0 ? "+" : "−"}${money(Math.abs(v))}`;
+
+      if (baselineEl && cushion.baseline) {
+        baselineEl.innerHTML = `Starting from a typical recent month: <span class="num">${money(cushion.baseline.revenue)}</span> in,
+          <span class="num">${money(Number(cushion.baseline.cogs || 0) + Number(cushion.baseline.opex || 0))}</span> out`;
+      }
 
       // The lowest point only tells the owner something new when it
       // isn't simply the last month of an always-falling balance.
       const dip =
         cushion.lowestPoint &&
         cushion.lowestPoint.month < months &&
-        cushion.lowestPoint.balance < Number(cushion.openingCash || 0)
+        cushion.lowestPoint.balance < opening
           ? cushion.lowestPoint
           : null;
 
+      // The balance month by month, today first. Drawn in a stretched box
+      // so it fills the card; the end marker is an element, not an SVG
+      // circle, so the stretch can't squash it.
+      const values = [opening, ...(cushion.timeline || []).map(t => Number(t.balance))];
+      const lo = Math.min(0, ...values);
+      const hi = Math.max(...values, opening * 1.2, 1);
+      const TOP = 6, BOTTOM = 94;
+      const y = v => TOP + (1 - (v - lo) / (hi - lo)) * (BOTTOM - TOP);
+      const pts = values.map((v, i) => [(i / Math.max(values.length - 1, 1)) * 1000, y(v)]);
+      const line = pts.length > 1 ? monotonePath(pts) : "";
+      const [endX, endY] = pts[pts.length - 1];
+      const tone = verdict.tone === "bad" ? "neg" : verdict.tone === "warn" ? "warn" : "pos";
+
       body.innerHTML = `
-        <div class="cushion-head">
-          <span class="cashproj-eyebrow">What's left in the bank</span>
-          <span class="cashproj-title">
-            Projected bank balance in ${months} ${monthWord}
-          </span>
-        </div>
-
-        <div class="cushion-main">
-        <div class="cushion-figures">
-          <div class="cushion-figure">
-            <span class="cashproj-figure-label">In the bank today</span>
-            <strong>${money(cushion.openingCash)}</strong>
+        <div class="whatif-answer-head">
+          <div class="whatif-verdict tone-${tone}">
+            <span class="whatif-eyebrow">The answer</span>
+            <span class="whatif-headline">${escapeHtml(verdict.headline || "")}</span>
+            <span class="whatif-detail">${escapeHtml(verdict.detail || "")}</span>
           </div>
-
-          <div class="cushion-arrow" aria-hidden="true">&rarr;</div>
-
-          <div class="cushion-figure">
-            <span class="cashproj-figure-label">
-              After ${months} ${monthWord}
-            </span>
-            <strong class="${Number(cushion.endBalance) < 0 ? "neg-val" : ""}">
-              ${money(cushion.endBalance)}
-            </strong>
-            <span class="cushion-delta ${change >= 0 ? "pos-val" : "neg-val"}">
-              ${change >= 0 ? "+" : "−"}${money(Math.abs(change))}
-            </span>
-          </div>
-
-          <div class="cushion-figure">
-            <span class="cashproj-figure-label">Typical month</span>
-            <strong class="${Number(cushion.monthlyChange) >= 0 ? "pos-val" : "neg-val"}">
-              ${Number(cushion.monthlyChange) >= 0 ? "+" : "−"}${money(Math.abs(cushion.monthlyChange))}
-            </strong>
+          <div class="whatif-end">
+            <span>Bank balance in ${months} ${monthWord}</span>
+            <strong class="num ${end < 0 ? "neg-val" : ""}">${money(end)}</strong>
+            <span class="num ${change >= 0 ? "pos-val" : "neg-val"}">${signed(change)} · ${signed(monthly)} a month</span>
           </div>
         </div>
 
-        <div class="cushion-verdict tone-${escapeHtml(verdict.tone || "good")}">
-          <span class="cushion-verdict-head">${escapeHtml(verdict.headline || "")}</span>
-          <span class="cushion-verdict-body">${escapeHtml(verdict.detail || "")}</span>
-          ${dip
-            ? `<span class="cushion-verdict-meta">
-                 Lowest point is month ${dip.month}, at ${money(dip.balance)}.
-               </span>`
-            : ""}
-        </div>
-        </div>
+        ${line
+          ? `<div class="whatif-curve tone-${tone}">
+               <div class="whatif-plot">
+                 <svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img"
+                      aria-label="${escapeHtml(`Bank balance from ${money(opening)} today to ${money(end)} in ${months} ${monthWord}`)}">
+                   <defs>
+                     <linearGradient id="whatif-fill" x1="0" y1="0" x2="0" y2="1">
+                       <stop offset="0" class="whatif-fill-top" />
+                       <stop offset="1" class="whatif-fill-bottom" />
+                     </linearGradient>
+                   </defs>
+                   ${lo < 0 ? `<line class="whatif-zero" x1="0" x2="1000" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" vector-effect="non-scaling-stroke" />` : ""}
+                   <path d="${line} L1000,100 L0,100 Z" fill="url(#whatif-fill)" />
+                   <path class="whatif-line" d="${line}" vector-effect="non-scaling-stroke" />
+                 </svg>
+                 <span class="whatif-dot" style="left:${endX / 10}%;top:${endY.toFixed(2)}%"></span>
+               </div>
+               <span class="whatif-axis"><span>Today · ${money(opening)}</span><span>In ${months} ${monthWord}</span></span>
+             </div>`
+          : ""}
 
-        <div class="cushion-basis">
-          Based on your last ${Number(cushion.monthsOfHistory || 0)}
-          ${Number(cushion.monthsOfHistory) === 1 ? "month" : "months"} of
-          trading — about ${money(cushion.baseline?.revenue)} a month coming in
-          and ${money(Number(cushion.baseline?.cogs || 0) + Number(cushion.baseline?.opex || 0))}
-          going out — moved by the assumptions you set above.
-          ${escapeHtml(cushion.assumption || "")}
-        </div>
+        ${dip
+          ? `<p class="whatif-dip">Lowest point is month ${Number(dip.month)}, at <span class="num">${money(dip.balance)}</span>.</p>`
+          : ""}
+
+        <p class="whatif-basis">
+          A straight-line estimate from your last ${Number(cushion.monthsOfHistory || 0)}
+          ${Number(cushion.monthsOfHistory) === 1 ? "month" : "months"} of trading, moved by the changes on the left.
+          ${escapeHtml(cushion.assumption || "")} Treat it as a guide, not a promise.
+        </p>
       `;
+    }
+
+    // Keeps every control in step with scenarioParams after a preset or
+    // a reset changes several values at once.
+    function syncScenarioControls() {
+      SCENARIO_SLIDER_DEFS.forEach(def => {
+        const input = document.getElementById(`scenario-${def.id}`);
+        const label = document.getElementById(`scenario-${def.id}-val`);
+        const value = scenarioParams[def.id];
+
+        if (input) input.value = value;
+        if (label) label.textContent = scenarioValueLabel(def, value);
+      });
+
+      ["worst", "base", "best"].forEach(p => {
+        const btn = document.getElementById(`scenario-preset-${p}`);
+        if (!btn) return;
+        btn.classList.toggle("is-active", p === scenarioActivePreset);
+        btn.setAttribute("aria-pressed", String(p === scenarioActivePreset));
+      });
+
+      const monthsGroup = document.getElementById("scenario-months-group");
+      if (monthsGroup) monthsGroup.innerHTML = scenarioMonthsButtonsHtml();
     }
 
     function updateScenarioParam(id, value) {
@@ -3195,13 +3239,14 @@ async function loadCashFlowMonths() {
       const label = document.getElementById(`scenario-${id}-val`);
 
       if (label && def) {
-        label.textContent = `${scenarioParams[id]}${def.suffix}`;
-        label.className = `scenario-slider-val ${scenarioParams[id] >= 0 ? "pos" : "neg"}`;
+        label.textContent = scenarioValueLabel(def, scenarioParams[id]);
       }
 
       ["worst", "base", "best"].forEach(p => {
         const btn = document.getElementById(`scenario-preset-${p}`);
-        if (btn) btn.className = "btn btn-ghost";
+        if (!btn) return;
+        btn.classList.remove("is-active");
+        btn.setAttribute("aria-pressed", "false");
       });
 
       updateScenarioChart();
@@ -3222,28 +3267,22 @@ async function loadCashFlowMonths() {
     function applyScenarioPreset(preset) {
       scenarioParams = { ...SCENARIO_PRESETS[preset] };
       scenarioActivePreset = preset;
+      syncScenarioControls();
+      updateScenarioChart();
+    }
 
-      SCENARIO_SLIDER_DEFS.forEach(def => {
-        const input = document.getElementById(`scenario-${def.id}`);
-        const label = document.getElementById(`scenario-${def.id}-val`);
-        const value = scenarioParams[def.id];
-
-        if (input) input.value = value;
-
-        if (label) {
-          label.textContent = `${value}${def.suffix}`;
-          label.className = `scenario-slider-val ${value >= 0 ? "pos" : "neg"}`;
-        }
-      });
-
-      ["worst", "base", "best"].forEach(p => {
-        const btn = document.getElementById(`scenario-preset-${p}`);
-        if (btn) btn.className = `btn ${p === preset ? "btn-primary" : "btn-ghost"}`;
-      });
-
-      const monthsGroup = document.getElementById("scenario-months-group");
-      if (monthsGroup) monthsGroup.innerHTML = scenarioMonthsButtonsHtml();
-
+    // Back to how the business is trading now: no growth either way,
+    // keeping the tax rate and the time span the owner has chosen.
+    function resetScenario() {
+      scenarioParams = {
+        revGrowth: 0,
+        cogsGrowth: 0,
+        opexGrowth: 0,
+        taxRate: scenarioParams.taxRate,
+        months: scenarioParams.months
+      };
+      scenarioActivePreset = null;
+      syncScenarioControls();
       updateScenarioChart();
     }
 
@@ -3788,9 +3827,6 @@ async function loadCashFlowMonths() {
 
     if (!view || !forecastPageState.history) return;
 
-    const titleEl = document.getElementById("forecast-chart-title");
-    if (titleEl) titleEl.textContent = view.title;
-
     if (window.NFK_Charts?.renderForecastTrend) {
       window.NFK_Charts.renderForecastTrend(
         "chart-forecast-trend",
@@ -3806,7 +3842,9 @@ async function loadCashFlowMonths() {
 
     forecastPageState.availableViews.forEach(v => {
       const btn = document.getElementById(`forecast-viewbtn-${v.id}`);
-      if (btn) btn.classList.toggle("active", v.id === viewId);
+      if (!btn) return;
+      btn.classList.toggle("is-active", v.id === viewId);
+      btn.setAttribute("aria-pressed", String(v.id === viewId));
     });
 
     renderActiveForecastChart();
@@ -3834,95 +3872,305 @@ async function loadCashFlowMonths() {
       chartType: "line"
     };
 
-    page.innerHTML = `
-      <div class="page-header">
-        <div>
-          <div class="page-title">Forecast</div>
-          <div class="page-subtitle">Real financial trends from your QuickBooks history</div>
-        </div>
-      </div>
-
-      <div class="card card-pad" id="forecast-loading">
-        <p style="color:var(--text-secondary);">
-          Loading your financial history from QuickBooks — this can take a little while...
-        </p>
-      </div>
-
-      <div id="forecast-content" style="display:none;">
-        <div class="scenario-slider-label" style="margin-bottom:10px;">Financial view</div>
-        <div class="period-selector" id="forecast-view-tabs" style="width:fit-content;max-width:100%;flex-wrap:wrap;margin-bottom:20px;"></div>
-
-        <div class="card card-pad">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-            <div class="card-title" id="forecast-chart-title">—</div>
-            <div class="period-selector" id="forecast-chart-type-toggle">
-              <button class="period-btn active" id="forecast-type-line" onclick="NFK_App.setForecastChartType('line')">Line</button>
-              <button class="period-btn" id="forecast-type-bar" onclick="NFK_App.setForecastChartType('bar')">Bar</button>
-            </div>
-          </div>
-          <div style="height:340px;">
-            <canvas id="chart-forecast-trend"></canvas>
-          </div>
-        </div>
+    const tileSkeleton = `
+      <div class="card ahead-tile">
+        ${skeletonLine("50%", "12px")}
+        <div style="margin:10px 0 8px;">${skeletonLine("60%", "24px")}</div>
+        ${skeletonLine("70%", "12px")}
       </div>
     `;
 
-    try {
-      const history = await loadForecastHistory(6);
+    page.innerHTML = `
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Looking ahead · Forecast</div>
+          <h1 class="page-title">Forecast</h1>
+          <p class="page-subtitle">Where your cash is heading, worked out from what's already in your books.</p>
+        </div>
+      </div>
 
-      forecastPageState.history = history;
-      forecastPageState.availableViews = FORECAST_VIEWS.filter(v =>
-        forecastViewIsAvailable(v, history)
-      );
+      <div class="ahead-tiles section-gap" id="forecast-tiles" aria-live="polite">
+        ${tileSkeleton.repeat(3)}
+      </div>
 
-      const loading = document.getElementById("forecast-loading");
-      const content = document.getElementById("forecast-content");
+      <section class="card card-pad section-gap ahead-next" id="forecast-next" aria-label="The next 30 days">
+        ${Array.from({ length: 4 }, (_, i) => skeletonLine(i % 2 ? "85%" : "45%")).join("")}
+      </section>
 
-      if (forecastPageState.availableViews.length === 0) {
-        if (loading) {
-          loading.innerHTML = `
-            <p style="color:var(--text-secondary);">
-              Not enough historical QuickBooks data yet to build a trend view.
-              Check back once more months of activity have been recorded.
-            </p>
-          `;
-        }
-        return;
+      <section class="card card-pad section-gap" aria-labelledby="forecast-chart-title">
+        <div class="ahead-trend-head">
+          <div>
+            <h2 class="card-title" id="forecast-chart-title">The last 6 months</h2>
+            <span class="card-sub">Read from your QuickBooks history</span>
+          </div>
+          <div class="period-selector" id="forecast-chart-type-toggle">
+            <button class="period-btn active" id="forecast-type-line" onclick="NFK_App.setForecastChartType('line')">Line</button>
+            <button class="period-btn" id="forecast-type-bar" onclick="NFK_App.setForecastChartType('bar')">Bar</button>
+          </div>
+        </div>
+        <div class="list-chips ahead-views" id="forecast-view-tabs" role="group" aria-label="What to compare"></div>
+        <p class="ahead-loading" id="forecast-loading">Loading your financial history from QuickBooks — this can take a little while…</p>
+        <div class="ahead-chart" id="forecast-content" hidden>
+          <canvas id="chart-forecast-trend"></canvas>
+        </div>
+      </section>
+
+      <section class="page-note tone-accent" aria-label="Try a change">
+        <span class="page-note-icon">${icon_bulb()}</span>
+        <span class="page-note-text">
+          <strong>Want to see what a change would do?</strong>
+          <span>Move your sales and costs up or down on the What if page and watch your bank balance respond.</span>
+        </span>
+        <button type="button" class="list-btn page-note-action" onclick="NFK_App.nav('scenarios')">Open What if</button>
+      </section>
+    `;
+
+    // The tiles and the next-30-days card need the projection; the
+    // runway tile also needs the monthly history. Both start together.
+    const projectionPromise = (async () => {
+      const organizationId = getOrganizationId();
+      if (!organizationId) return null;
+
+      try {
+        return await apiGet(
+          `/quickbooks/cash-projection?organizationId=${encodeURIComponent(organizationId)}&days=30`
+        );
+      } catch (error) {
+        console.error("Forecast projection failed:", error);
+        return { error };
       }
+    })();
 
-      forecastPageState.activeView = forecastPageState.availableViews[0].id;
+    const historyPromise = loadForecastHistory(6).catch(error => ({ error }));
 
-      const tabs = document.getElementById("forecast-view-tabs");
-      if (tabs) {
-        tabs.innerHTML = forecastPageState.availableViews
-          .map(
-            (v, i) => `
-              <button
-                class="period-btn ${i === 0 ? "active" : ""}"
-                id="forecast-viewbtn-${v.id}"
-                onclick="NFK_App.switchForecastView('${v.id}')"
-              >${escapeHtml(v.title)}</button>
-            `
-          )
-          .join("");
-      }
+    projectionPromise.then(projection => {
+      if (state.currentPage !== "forecast") return;
+      renderForecastNext(projection);
+    });
 
-      if (loading) loading.style.display = "none";
-      if (content) content.style.display = "block";
+    Promise.all([projectionPromise, historyPromise]).then(([projection, history]) => {
+      if (state.currentPage !== "forecast") return;
+      renderForecastTiles(projection, Array.isArray(history) ? history : null);
+    });
 
-      renderActiveForecastChart();
-    } catch (error) {
-      console.error("❌ Failed to load Forecast history:", error);
+    const history = await historyPromise;
+    if (state.currentPage !== "forecast") return;
 
-      const loading = document.getElementById("forecast-loading");
-      if (loading) {
-        loading.innerHTML = `
-          <p style="color:var(--text-secondary);">
-            Unable to load financial history: ${escapeHtml(error.message)}
-          </p>
-        `;
-      }
+    const loading = document.getElementById("forecast-loading");
+    const content = document.getElementById("forecast-content");
+
+    if (!Array.isArray(history)) {
+      console.error("❌ Failed to load Forecast history:", history?.error);
+      if (loading) loading.textContent = `Unable to load your financial history: ${history?.error?.message || "please try again"}.`;
+      return;
     }
+
+    forecastPageState.history = history;
+    forecastPageState.availableViews = FORECAST_VIEWS.filter(v =>
+      forecastViewIsAvailable(v, history)
+    );
+
+    if (forecastPageState.availableViews.length === 0) {
+      if (loading) {
+        loading.textContent =
+          "Not enough history in QuickBooks yet to draw a trend. Check back once a few more months have been recorded.";
+      }
+      return;
+    }
+
+    forecastPageState.activeView = forecastPageState.availableViews[0].id;
+
+    const tabs = document.getElementById("forecast-view-tabs");
+    if (tabs) {
+      tabs.innerHTML = forecastPageState.availableViews
+        .map((v, i) => `
+          <button
+            type="button"
+            class="list-chip${i === 0 ? " is-active" : ""}"
+            id="forecast-viewbtn-${v.id}"
+            aria-pressed="${i === 0}"
+            onclick="NFK_App.switchForecastView('${v.id}')"
+          >${escapeHtml(v.title)}</button>
+        `)
+        .join("");
+    }
+
+    if (loading) loading.hidden = true;
+    if (content) content.hidden = false;
+
+    renderActiveForecastChart();
+  }
+
+  // The three figures an owner checks first: what's in the bank, what a
+  // normal month costs, and how long the one lasts against the other.
+  function renderForecastTiles(projection, history) {
+    const el = document.getElementById("forecast-tiles");
+    if (!el) return;
+
+    const ok = projection && !projection.error;
+    const currency = (ok && projection.currency) || "USD";
+    const money = v => formatCurrency(Number(v || 0), currency);
+    const bank = ok ? Number(projection.openingCash) : NaN;
+    const floor = ok ? Number(projection.safeFloor) : NaN;
+
+    // Money received but not yet banked, when the Overview has already
+    // read the cash figure that includes it.
+    const waiting = Number.isFinite(overviewState.cashBalance) && Number.isFinite(bank)
+      ? overviewState.cashBalance - bank
+      : 0;
+
+    // At the recent pace: the last three months that have both sides.
+    const recent = (history || [])
+      .filter(h => Number.isFinite(h.revenue) && Number.isFinite(h.totalExpenses))
+      .slice(-3);
+    const burn = recent.length
+      ? recent.reduce((t, h) => t + (h.totalExpenses - h.revenue), 0) / recent.length
+      : null;
+
+    let runway = { value: "—", sub: "Not enough monthly history yet", tone: "" };
+
+    if (burn !== null && burn <= 0) {
+      runway = { value: "Growing", sub: "You're bringing in more than you spend", tone: "pos" };
+    } else if (burn !== null && Number.isFinite(bank)) {
+      const months = Math.max(bank, 0) / burn;
+      runway = {
+        value: months >= 24 ? "Over 2 years" : `${months.toFixed(1)} months`,
+        sub: `From what's in the bank, at your recent pace of about ${money(burn)} more out than in each month`,
+        tone: months < 2 ? "neg" : months < 6 ? "warn" : "pos"
+      };
+    }
+
+    const tile = ({ label, value, sub, tone = "" }) => `
+      <div class="card ahead-tile${tone ? ` tone-${tone}` : ""}">
+        <span class="ahead-tile-label">${escapeHtml(label)}</span>
+        <strong class="ahead-tile-value num">${escapeHtml(value)}</strong>
+        <span class="ahead-tile-sub">${escapeHtml(sub)}</span>
+      </div>
+    `;
+
+    el.innerHTML = [
+      tile({
+        label: "In the bank today",
+        value: Number.isFinite(bank) ? money(bank) : "—",
+        sub: !Number.isFinite(bank)
+          ? "Couldn't read your bank accounts just now"
+          : waiting >= 0.5
+            ? `Plus ${money(waiting)} received but not yet deposited`
+            : "Across your bank accounts"
+      }),
+      tile({
+        label: "A usual month's outgoings",
+        value: Number.isFinite(floor) && floor > 0 ? money(floor) : "—",
+        sub: Number.isFinite(floor) && floor > 0
+          ? (projection.floorBasis || "About one month of your recent outgoings")
+          : "Not enough spending history yet"
+      }),
+      tile({ label: "How long your cash lasts", ...runway })
+    ].join("");
+  }
+
+  // The next 30 days, from invoices and bills that carry a due date.
+  function renderForecastNext(projection) {
+    const el = document.getElementById("forecast-next");
+    if (!el) return;
+
+    if (!projection || projection.error) {
+      el.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(
+            projection?.error?.code === "QB_REAUTH_REQUIRED"
+              ? "Reconnect QuickBooks to see where your cash is heading."
+              : "Unable to work out the next 30 days right now."
+          )}
+        </div>
+      `;
+      return;
+    }
+
+    const currency = projection.currency || "USD";
+    const money = v => formatCurrency(Number(v || 0), currency);
+    const timeline = projection.timeline || [];
+    const overdue = projection.overdue || {};
+    const owedIn = Number(overdue.customersOweYou || 0);
+    const owedOut = Number(overdue.youOweSuppliers || 0);
+    const comingIn = timeline.reduce((t, d) => t + Number(d.moneyIn || 0), 0);
+    const goingOut = timeline.reduce((t, d) => t + Number(d.moneyOut || 0), 0);
+    const hasMovement = comingIn > 0 || goingOut > 0;
+
+    const dayMonth = iso => iso
+      ? new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "long", timeZone: "UTC" })
+      : "";
+
+    const links = `
+      <span class="ahead-next-links">
+        ${owedIn > 0 ? `<button type="button" class="list-btn" onclick="NFK_App.nav('working-capital')">Money owed to you</button>` : ""}
+        ${owedOut > 0 ? `<button type="button" class="btn btn-ghost" onclick="NFK_App.nav('ap-vendors')">Bills to pay</button>` : ""}
+      </span>
+    `;
+
+    const lateLine = owedIn > 0 || owedOut > 0
+      ? `${[
+          owedIn > 0 ? `the ${money(owedIn)} customers already owe you` : "",
+          owedOut > 0 ? `the ${money(owedOut)} of bills already late` : ""
+        ].filter(Boolean).join(" and ")}`
+      : "";
+
+    // With nothing dated in the window a chart would be a flat line that
+    // implies a forecast there isn't, so the card says what is known.
+    if (!hasMovement) {
+      el.innerHTML = `
+        <div class="ahead-next-row">
+          <span class="ahead-next-icon">${icon_calendar()}</span>
+          <span class="ahead-next-text">
+            <h2 class="card-title">Next 30 days: nothing new is due</h2>
+            <span>${lateLine
+              ? `Everything unpaid is already past its due date, so there's no dated money to plot. ${escapeHtml(lateLine[0].toUpperCase() + lateLine.slice(1))} could land any day.`
+              : "No invoices or bills fall due in the next 30 days."}</span>
+          </span>
+          ${lateLine ? links : ""}
+        </div>
+      `;
+      return;
+    }
+
+    const end = timeline[timeline.length - 1] || {};
+    const lowest = projection.lowestPoint || {};
+    const tip = projection.timingTip;
+    const endBalance = Number(projection.closingBalance ?? end.balance);
+
+    el.innerHTML = `
+      <div class="ahead-next-head">
+        <div>
+          <h2 class="card-title">The next 30 days</h2>
+          <span class="card-sub">From invoices and bills with a due date in the window</span>
+        </div>
+      </div>
+
+      <dl class="ahead-figures">
+        <div><dt>In the bank today</dt><dd class="num">${money(projection.openingCash)}</dd></div>
+        <div><dt>Coming in</dt><dd class="num pos-val">+${money(comingIn)}</dd></div>
+        <div><dt>Going out</dt><dd class="num neg-val">−${money(goingOut)}</dd></div>
+        <div><dt>By ${escapeHtml(dayMonth(end.date))}</dt><dd class="num ${endBalance < 0 ? "neg-val" : ""}">${money(endBalance)}</dd></div>
+        ${Number.isFinite(Number(lowest.balance))
+          ? `<div><dt>Lowest point · ${escapeHtml(dayMonth(lowest.date))}</dt><dd class="num ${lowest.belowFloor ? "warn-val" : ""}">${money(lowest.balance)}</dd></div>`
+          : ""}
+      </dl>
+
+      <div class="chart-frame ahead-chart"><canvas id="chart-forecast-projection"></canvas></div>
+
+      ${tip?.suggestion
+        ? `<p class="ahead-tip">${icon_bulb()}<span>${escapeHtml(tip.suggestion)}</span></p>`
+        : ""}
+
+      ${lateLine
+        ? `<div class="ahead-next-late">
+             <span>Not in the line above: ${escapeHtml(lateLine)}. That money could move any day.</span>
+             ${links}
+           </div>`
+        : ""}
+    `;
+
+    window.NFK_Charts?.renderCashProjection?.("chart-forecast-projection", projection);
   }
 
   // ------------------------------------------------------------
@@ -7628,6 +7876,8 @@ async function loadCashFlowMonths() {
 
     applyScenarioPreset,
 
+    resetScenario,
+
     switchInsightTab,
 
     switchForecastView,
@@ -7691,6 +7941,10 @@ async function loadCashFlowMonths() {
 
   function icon_alert() {
     return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/>');
+  }
+
+  function icon_calendar() {
+    return lineIcon('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>');
   }
 
   function icon_search() {

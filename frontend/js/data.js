@@ -16,6 +16,9 @@ function fmtShort(n) {
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
   if (abs >= 1_000_000) return `${sign}$${(abs/1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}$${(abs/1_000).toFixed(0)}K`;
+  // One decimal below 100K, so neighbouring axis ticks such as 11,500 and
+  // 12,000 don't both read "$12K".
+  if (abs >= 100_000) return `${sign}$${(abs/1_000).toFixed(0)}K`;
+  if (abs >= 1_000) return `${sign}$${(abs/1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return `${sign}$${abs}`;
 }
