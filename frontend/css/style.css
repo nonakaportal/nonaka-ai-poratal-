@@ -409,9 +409,6 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   background: color-mix(in srgb, var(--n-text) 6%, transparent);
 }
 
-.debt-summary-card { display: flex; flex-direction: column; gap: 8px; }
-.debt-summary-card span { font-size: 12px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.01em; }
-.debt-summary-card strong { font-size: 24px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; }
 
 .skeleton-line { height: 13px; background: var(--bg-subtle); border-radius: var(--radius-sm); margin: 8px 0; }
 .skeleton-shimmer { background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--bg-hover) 50%, var(--bg-subtle) 75%); background-size: 200% 100%; animation: skeletonShimmer 1.5s ease-in-out infinite; }
@@ -1450,22 +1447,50 @@ textarea.ai-chat-input { max-height: 140px; }
 }
 
 /* Per-loan detail on the Debt page */
-.loan-card + .loan-card, .loan-card + .loan-note { margin-top: 16px; }
+.debt-accounts { display: flex; flex-direction: column; gap: 12px; }
+.loan-card + .loan-card, .loan-card + .loan-note { margin-top: 0; }
 .loan-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; margin-bottom: 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 16px;
 }
-.loan-head > div { display: flex; flex-direction: column; gap: 4px; }
-.loan-name {
-  font-size: 15px; font-weight: 600; color: var(--text-primary);
-  letter-spacing: -0.01em;
+.loan-icon {
+  flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
 }
-.loan-kind {
-  font-size: 12px; color: var(--text-faint); letter-spacing: 0.01em;
-}
-.loan-balance {
-  font-size: 18px; font-weight: 600; color: var(--text-primary);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
+.loan-icon svg { width: 20px; height: 20px; }
+.loan-icon.is-card { color: var(--negative); background: color-mix(in srgb, var(--negative) 14%, transparent); }
+.loan-icon.is-soon { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.loan-icon.is-later { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.loan-title { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.loan-name { font-size: var(--fs-body); font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
+.loan-kind { font-size: var(--fs-label); color: var(--text-muted); }
+.loan-due { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.loan-due.is-soon { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent); }
+.loan-due.is-later { color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); }
+.loan-amount { display: flex; flex-direction: column; align-items: flex-end; min-width: 120px; }
+.loan-balance { font-size: 18px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.loan-share { font-size: 12px; color: var(--text-muted); }
+
+.debt-hero { display: flex; flex-direction: column; gap: 18px; }
+.debt-hero-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+.debt-hero-label { margin: 0; font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); }
+.debt-hero-total { display: block; font-size: 40px; line-height: 46px; font-weight: 600; letter-spacing: -0.035em; color: var(--text-primary); }
+.debt-hero-note { margin: 0; max-width: 46ch; font-size: var(--fs-label); line-height: 19px; color: var(--text-secondary); text-align: right; }
+.debt-hero-note strong { color: var(--text-primary); font-weight: 600; }
+.debt-hero-bar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: #232326; }
+.debt-hero-bar .is-card { background: var(--negative); min-width: 4px; }
+.debt-hero-bar .is-soon { background: var(--warning); }
+.debt-hero-bar .is-later { background: var(--n-accent-800); }
+.debt-hero-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.debt-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); }
+.debt-tile strong { font-size: 22px; line-height: 28px; font-weight: 600; color: var(--text-primary); }
+.debt-tile-label { font-size: 12px; font-weight: 600; }
+.debt-tile-sub { font-size: 12px; color: var(--text-muted); }
+.debt-tile.is-soon { background: color-mix(in srgb, var(--warning) 8%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 28%, transparent); }
+.debt-tile.is-soon .debt-tile-label { color: var(--warning); }
+.debt-tile.is-later { background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); border-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+.debt-tile.is-later .debt-tile-label { color: var(--accent); }
+@media (max-width: 640px) {
+  .debt-hero-note { text-align: left; }
+  .loan-amount { align-items: flex-start; }
 }
 .loan-progress { margin-bottom: 16px; }
 .loan-progress-bar {

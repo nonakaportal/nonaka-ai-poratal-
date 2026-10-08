@@ -2776,6 +2776,9 @@ async function loadCashFlowMonths() {
       } catch (error) {
         console.error("Debt detail failed:", error);
 
+        const summary = document.getElementById("debt-summary");
+        if (summary) summary.hidden = true;
+
         body.innerHTML = `
           <div class="card card-pad">
             <div class="empty-state">
@@ -2857,15 +2860,46 @@ async function loadCashFlowMonths() {
       const longTerm = byCategory("Long-Term Debt");
       const card = byCategory("Credit Card Debt");
 
-      const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = money(value);
-      };
+      const total = current + longTerm + card;
+      const soon = current + card;
+      const pct = v => (total > 0 ? (v / total) * 100 : 0);
+      const summary = document.getElementById("debt-summary");
 
-      setText("debt-total", current + longTerm + card);
-      setText("debt-current", current);
-      setText("debt-long-term", longTerm);
-      setText("debt-credit-card", card);
+      if (summary) {
+        summary.innerHTML = `
+          <div class="debt-hero-top">
+            <div>
+              <h2 class="debt-hero-label">Total owed</h2>
+              <span class="debt-hero-total num">${money(total)}</span>
+            </div>
+            ${total > 0
+              ? `<p class="debt-hero-note">
+                   ${Math.round(pct(longTerm))}% isn't due for over a year, so what needs paying this year is
+                   <strong class="num">${money(soon)}</strong>.
+                 </p>`
+              : ""}
+          </div>
+          ${total > 0
+            ? `<div class="debt-hero-bar" aria-hidden="true">
+                 ${card > 0 ? `<span class="is-card" style="width:${pct(card).toFixed(2)}%"></span>` : ""}
+                 ${current > 0 ? `<span class="is-soon" style="width:${pct(current).toFixed(2)}%"></span>` : ""}
+                 ${longTerm > 0 ? `<span class="is-later" style="width:${pct(longTerm).toFixed(2)}%"></span>` : ""}
+               </div>`
+            : ""}
+          <div class="debt-hero-tiles">
+            <div class="debt-tile is-soon">
+              <span class="debt-tile-label">Due within a year</span>
+              <strong class="num">${money(soon)}</strong>
+              <span class="debt-tile-sub">Short-term loans ${money(current)} · cards ${money(card)}</span>
+            </div>
+            <div class="debt-tile is-later">
+              <span class="debt-tile-label">Due later</span>
+              <strong class="num">${money(longTerm)}</strong>
+              <span class="debt-tile-sub">Long-term loans</span>
+            </div>
+          </div>
+        `;
+      }
 
       if (!accounts.length) {
         body.innerHTML = `
@@ -2897,11 +2931,20 @@ async function loadCashFlowMonths() {
             <div class="card card-pad loan-card">
 
               <div class="loan-head">
-                <div>
+                <span class="loan-icon is-${account.category === "Credit Card Debt" ? "card" : account.category === "Long-Term Debt" ? "later" : "soon"}" aria-hidden="true">
+                  ${account.category === "Credit Card Debt" ? icon_card() : account.category === "Long-Term Debt" ? icon_bank() : icon_clock()}
+                </span>
+                <div class="loan-title">
                   <span class="loan-name">${escapeHtml(account.name || "Unnamed")}</span>
                   <span class="loan-kind">${escapeHtml(account.category || "")}</span>
                 </div>
-                <strong class="loan-balance">${money(account.balance)}</strong>
+                <span class="loan-due ${account.category === "Long-Term Debt" ? "is-later" : "is-soon"}">
+                  ${account.category === "Long-Term Debt" ? "Due later" : "Due within a year"}
+                </span>
+                <div class="loan-amount">
+                  <strong class="loan-balance num">${money(account.balance)}</strong>
+                  ${total > 0 ? `<span class="loan-share">${pct(Number(account.balance || 0)) < 1 && Number(account.balance) > 0 ? "Under 1%" : `${Math.round(pct(Number(account.balance || 0)))}%`} of all debt</span>` : ""}
+                </div>
               </div>
 
               ${Number(account.clearedShare) > 0
@@ -6290,39 +6333,21 @@ async function loadCashFlowMonths() {
           if (!page) return;
 
           page.innerHTML = `
-
               <div class="page-header">
                   <div>
-                      <h1 class="page-title">Loans &amp; cards <span class="page-title-term">Debt</span></h1>
-                      <p class="page-subtitle">Read live from QuickBooks</p>
+                      <div class="page-eyebrow">Your money · Debt</div>
+                      <h1 class="page-title">Loans &amp; cards</h1>
+                      <p class="page-subtitle">Everything the business has borrowed, and when it falls due.</p>
                   </div>
               </div>
 
-              <div class="debt-summary-grid">
+              <section class="card card-pad section-gap debt-hero" id="debt-summary" aria-label="Total owed">
+                  ${renderSkeletonCard(3)}
+              </section>
 
-                  <div class="card debt-summary-card">
-                      <span>Total owed</span>
-                      <strong id="debt-total">—</strong>
-                  </div>
+              <h2 class="section-heading">Each account</h2>
 
-                  <div class="card debt-summary-card">
-                      <span>Due within a year</span>
-                      <strong id="debt-current">—</strong>
-                  </div>
-
-                  <div class="card debt-summary-card">
-                      <span>Longer-term</span>
-                      <strong id="debt-long-term">—</strong>
-                  </div>
-
-                  <div class="card debt-summary-card">
-                      <span>On cards</span>
-                      <strong id="debt-credit-card">—</strong>
-                  </div>
-
-              </div>
-
-              <div id="debt-detail-body" class="section-gap">
+              <div id="debt-detail-body" class="section-gap debt-accounts">
                   ${renderSkeletonCard(5)}
               </div>
           `;
@@ -7313,6 +7338,10 @@ async function loadCashFlowMonths() {
     return lineIcon('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>');
   }
 
+
+  function icon_card() {
+    return lineIcon('<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/>');
+  }
 
   function icon_clock() {
     return lineIcon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
