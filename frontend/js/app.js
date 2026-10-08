@@ -2328,6 +2328,30 @@ async function loadCashFlowMonths() {
       debt: { id: "debt-register", label: "Loans & cards" }
     };
 
+    // The longer explanations read better as points than as a paragraph.
+    // Text that is already a list is left alone; a paragraph becomes one
+    // point per sentence. A full stop after a common abbreviation, or in
+    // the middle of a figure like $557.42, doesn't end a sentence.
+    const SENTENCE_ABBR = /\b(e\.g|i\.e|etc|vs|approx|incl|inc|ltd|co|corp|mr|mrs|ms|dr|st|no|u\.s)\.$/i;
+
+    function asPoints(text) {
+      const src = splitInlineSteps(String(text || "")).trim();
+
+      if (!src || /^\s*([-*]|\d+[.)])\s+/m.test(src)) return src;
+
+      const sentences = [];
+
+      for (const part of src.split(/(?<=[.!?])\s+(?=[A-Z(“"$])/)) {
+        if (sentences.length && SENTENCE_ABBR.test(sentences[sentences.length - 1])) {
+          sentences[sentences.length - 1] += ` ${part}`;
+        } else {
+          sentences.push(part.trim());
+        }
+      }
+
+      return sentences.length < 2 ? src : sentences.map(s => `- ${s}`).join("\n");
+    }
+
     // status: "High severity" / "High priority"; tone: neg | warn | pos
     // colours that chip. figures: optional [{label, value}] from the AI.
     function insightCardHtml({ kind, status, tone, category, title, description, basis, details, figures = [] }) {
@@ -2371,7 +2395,7 @@ async function loadCashFlowMonths() {
               ${sections.map(sec => `
                 <div class="insight-detail">
                   <div class="insight-detail-heading">${escapeHtml(sec.heading)}</div>
-                  <div class="insight-body ai-msg-markdown">${renderMarkdown(sec.text)}</div>
+                  <div class="insight-body ai-msg-markdown">${renderMarkdown(asPoints(sec.text))}</div>
                 </div>
               `).join("")}
             </div>

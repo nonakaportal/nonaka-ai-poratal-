@@ -889,6 +889,18 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 .ai-msg-markdown p { margin: 0 0 12px; line-height: 1.68; }
 .ai-msg-markdown p:last-child { margin-bottom: 0; }
 .ai-msg-markdown ul, .ai-msg-markdown ol { margin: 0 0 12px 16px; padding: 0; line-height: 1.68; }
+/* Points: a small dot in its own column, so every point's text starts
+   at the same edge and wrapped lines stay under it. */
+.ai-msg-markdown ul { margin-left: 0; list-style: none; }
+.ai-msg-markdown ul > li { position: relative; padding-left: 20px; }
+.ai-msg-markdown ul > li::before {
+  content: ""; position: absolute; left: 4px; top: calc(0.84em - 3px);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+}
+.insight-card.anomaly.tone-neg .ai-msg-markdown ul > li::before { background: var(--negative); }
+.insight-card.anomaly.tone-warn .ai-msg-markdown ul > li::before { background: var(--warning); }
+.insight-card.recommendation .ai-msg-markdown ul > li::before { background: var(--positive); }
+.insight-detail .ai-msg-markdown li { margin-bottom: 8px; }
 /* Numbered steps: the numbers sit in their own right-aligned column, so
    1. to 10. line up and every step's text starts at the same edge. */
 .ai-msg-markdown ol { margin-left: 0; list-style: none; counter-reset: step; }
