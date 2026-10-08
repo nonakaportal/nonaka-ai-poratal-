@@ -550,22 +550,6 @@
         return Number.isFinite(value) ? value : null;
     }
 
-    function deltaHtml(current, priorValue) {
-        if (priorValue === null || priorValue === 0) {
-            return `<div class="bs-delta stat-sub-quiet">No comparable prior period</div>`;
-        }
-
-        const pct = ((current - priorValue) / Math.abs(priorValue)) * 100;
-        const up = pct >= 0;
-
-        return `
-            <div class="bs-delta ${up ? "pos" : "neg"}">
-                ${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%
-                <span class="stat-sub-quiet">vs ${formatCurrency(priorValue, data?.currency || "USD")} prior period</span>
-            </div>
-        `;
-    }
-
     const currency =
         data?.currency || "USD";
 
@@ -637,582 +621,187 @@
     }
 
 
-    function renderAccount(account) {
-
-        const value =
-            accountAmount(account);
-
-        return `
-            <div class="bs-account-row">
-
-                <span>
-                    ${escapeHtml(
-                        accountName(account)
-                    )}
-                </span>
-
-                <strong class="${
-                    value < 0
-                        ? "negative"
-                        : ""
-                }">
-                    ${formatCurrency(
-                        value,
-                        currency
-                    )}
-                </strong>
-
-            </div>
-        `;
-
+    // One balance sheet section as table rows: its accounts, then its total.
+    function sectionTotal(section) {
+        return section?.summary && section.summary.amount !== undefined
+            ? Number(section.summary.amount) || 0
+            : Number(section?.amount) || 0;
     }
 
-
-    function renderSection(section) {
-
-        if (!section) {
-            return "";
+    function tableRows(sections) {
+        if (!Array.isArray(sections) || !sections.length) {
+            return `<tr><td class="mio-stmt-empty" colspan="2">No accounts returned by QuickBooks.</td></tr>`;
         }
 
-
-        const name =
-            section?.name ||
-            "Other";
-
-
-        const children =
-            Array.isArray(section?.children)
-                ? section.children
-                : [];
-
-
-        let sectionTotal;
-
-
-        if (
-            section?.summary &&
-            section.summary.amount !== undefined
-        ) {
-
-            sectionTotal =
-                Number(
-                    section.summary.amount
-                ) || 0;
-
-        } else {
-
-            sectionTotal =
-                Number(
-                    section?.amount
-                ) || 0;
-
-        }
-
-
-        return `
-
-            <div class="bs-section">
-
-                <div class="bs-section-header">
-
-                    <span>
-                        ${escapeHtml(name)}
-                    </span>
-
-                    <strong>
-                        ${formatCurrency(
-                            sectionTotal,
-                            currency
-                        )}
-                    </strong>
-
-                </div>
-
-
-                <div class="bs-section-accounts">
-
-                  ${
-                      children.length
-                          ? children
-                              .map(renderAccount)
-                              .join("")
-                          : `
-                              <div class="bs-account-row">
-              
-                                  <span>
-                                      ${escapeHtml(
-                                          section?.name || "Unnamed"
-                                      )}
-                                  </span>
-              
-                                  <strong class="${
-                                      sectionTotal < 0
-                                          ? "negative"
-                                          : ""
-                                  }">
-                                      ${formatCurrency(
-                                          sectionTotal,
-                                          currency
-                                      )}
-                                  </strong>
-              
-                              </div>
-                          `
-                  }
-              
-              </div>
-              
-            </div>
-
-        `;
-
-    }
-
-
-    function renderSections(sections) {
-
-        if (
-            !Array.isArray(sections) ||
-            !sections.length
-        ) {
+        return sections.map(section => {
+            const children = Array.isArray(section?.children) ? section.children : [];
+            const rows = children.length ? children : [section];
 
             return `
-                <div class="bs-empty">
-                    No accounts returned
-                    by QuickBooks.
-                </div>
+                ${children.length
+                    ? `<tr class="oo-table-section"><td colspan="2">${escapeHtml(section?.name || "Other")}</td></tr>`
+                    : ""}
+                ${rows.map(account => {
+                    const value = accountAmount(account);
+                    return `
+                        <tr class="${children.length ? "is-child" : ""}">
+                            <td>${escapeHtml(accountName(account))}</td>
+                            <td class="num ${value < 0 ? "neg-val" : ""}">${formatCurrency(value, currency)}</td>
+                        </tr>
+                    `;
+                }).join("")}
             `;
+        }).join("");
+    }
 
+    function totalRow(label, value, prior, extra = "") {
+        let change = "";
+
+        if (prior !== null && prior !== 0) {
+            const pct = ((value - prior) / Math.abs(prior)) * 100;
+            change = `<small class="${pct >= 0 ? "pos" : "neg"}">${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}% vs prior period</small>`;
         }
 
-
-        return sections
-            .map(renderSection)
-            .join("");
-
+        return `
+            <tr class="oo-table-total ${extra}">
+                <td>${escapeHtml(label)} ${change}</td>
+                <td class="num ${value < 0 ? "neg-val" : ""}">${formatCurrency(value, currency)}</td>
+            </tr>
+        `;
     }
 
+    // The own-vs-owe picture: each side split by its own sections, both
+    // drawn against the larger of the two so the gap between them shows.
+    const OWN_TONES = ["pos", "info", "accent", "quiet"];
+    const OWE_TONES = ["neg", "warn", "muted", "deep"];
+    const biggerSide = Math.max(Math.abs(totalAssets), Math.abs(totalLiabilities)) || 1;
 
-    function countAccounts(sections) {
-
-        return sections.reduce(
-            (total, section) => {
-
-                const children =
-                    Array.isArray(
-                        section?.children
-                    )
-                        ? section.children
-                        : [];
-
-                return (
-                    total +
-                    children.length
-                );
-
-            },
-            0
-        );
-
+    function sideParts(sections, tones) {
+        return (sections || [])
+            .map((section, i) => ({ name: section?.name || "Other", amount: Math.max(sectionTotal(section), 0), tone: tones[i % tones.length] }))
+            .filter(part => part.amount > 0);
     }
 
+    function sideBar(label, total, parts) {
+        const sum = parts.reduce((t, p) => t + p.amount, 0) || 1;
+
+        return `
+            <div class="oo-side">
+                <span class="oo-side-label">${escapeHtml(label)}</span>
+                <span class="oo-side-bar" style="width:${Math.max((Math.abs(total) / biggerSide) * 100, 2).toFixed(1)}%">
+                    ${parts.map(p => `<span class="tone-${p.tone}" style="width:${((p.amount / sum) * 100).toFixed(2)}%" title="${escapeHtml(p.name)}"></span>`).join("")}
+                </span>
+                <strong class="num">${formatCurrency(total, currency)}</strong>
+            </div>
+            <div class="oo-legend">
+                ${parts.map(p => `<span><i class="tone-${p.tone}"></i>${escapeHtml(p.name)} <strong class="num">${formatCurrency(p.amount, currency)}</strong></span>`).join("")}
+            </div>
+        `;
+    }
+
+    const ownerLine = totalEquity < 0
+        ? "Right now the business owes more than it owns. That's common early on, or after borrowing for something big — it shrinks as loans are paid down and profit builds up."
+        : "This is what the business would be worth to you if everything it owns were turned into cash and everything it owes were paid off.";
 
     // =========================================================
     // PAGE
     // =========================================================
 
     page.innerHTML = `
-
-        <div class="bs-page">
-
-
-            <!-- HEADER -->
-
-            <div class="bs-header">
-
-                <div>
-
-                    <div class="bs-title">
-                        What you own &amp; owe
-                        <span class="page-title-term">Balance Sheet</span>
-                    </div>
-
-                    <div class="bs-subtitle">
-
-                        As of
-                        ${escapeHtml(
-                            data?.period?.endDate ||
-                            "—"
-                        )}
-
-                        ·
-
-                        ${escapeHtml(
-                            data?.reportBasis ||
-                            "Accrual"
-                        )}
-
-                    </div>
-
-                </div>
-
-
-                <div class="bs-header-right">
-
-                    ${renderPeriodSelector(state.bsPeriod, "setBSPeriod")}
-
-                    <div class="
-                        bs-status
-                        ${
-                            isBalanced
-                                ? "balanced"
-                                : "unbalanced"
-                        }
-                    ">
-
-                        ${
-                            isBalanced
-                                ? "✓ Balanced"
-                                : "⚠ Not balanced"
-                        }
-
-                    </div>
-
-                    <div class="statement-badge">
-                        ${escapeHtml(currency)}
-                    </div>
-
-                </div>
-
+        <div class="page-header">
+            <div>
+                <div class="page-eyebrow">Your money · Balance sheet</div>
+                <h1 class="page-title">What you own &amp; owe</h1>
+                <p class="page-subtitle">
+                    A snapshot of the business, answered as three questions · as of
+                    ${escapeHtml(data?.period?.endDate || "—")}
+                </p>
             </div>
 
-            ${
-                data?.hasData === false
-                    ? `
-                        <div class="bs-no-data-banner">
-                            <strong>No QuickBooks data as of ${escapeHtml(data?.period?.endDate || "this date")}.</strong>
-                            <p>This company's books don't go back that far yet — try a more recent period.</p>
-                        </div>
-                    `
-                    : ""
-            }
-
-            <!-- THE THREE QUESTIONS IT ANSWERS -->
-
-            <div id="balance-questions-body" class="section-gap">
-                ${renderSkeletonCard(5)}
+            <div class="page-header-actions">
+                ${renderPeriodSelector(state.bsPeriod, "setBSPeriod")}
+                <span class="oo-check ${isBalanced ? "is-ok" : "is-off"}">${isBalanced ? "✓ Balanced" : "⚠ Doesn't balance"}</span>
+                <div class="statement-badge">${escapeHtml(currency)}</div>
             </div>
-
-
-            <!-- THREE COLUMNS -->
-
-            <div class="bs-columns">
-
-
-                <!-- ASSETS -->
-
-                <section class="bs-card">
-
-                    <div class="
-                        bs-card-top
-                        assets
-                    ">
-
-                        <div>
-
-                            <span class="bs-card-label">
-                                Assets
-                            </span>
-
-                            <h2>
-                                ${formatCurrency(
-                                    totalAssets,
-                                    currency
-                                )}
-                            </h2>
-
-                            ${deltaHtml(totalAssets, priorTotal("totalAssets"))}
-
-                        </div>
-
-                        <span class="bs-count">
-                            ${countAccounts(assets)}
-                            accounts
-                        </span>
-
-                    </div>
-
-
-                    <div class="bs-card-body">
-
-                        ${renderSections(
-                            assets
-                        )}
-
-
-                        <div class="bs-total">
-
-                            <span>
-                                Total assets
-                            </span>
-
-                            <strong>
-                                ${formatCurrency(
-                                    totalAssets,
-                                    currency
-                                )}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-                <!-- LIABILITIES -->
-
-                <section class="bs-card">
-
-                    <div class="
-                        bs-card-top
-                        liabilities
-                    ">
-
-                        <div>
-
-                            <span class="bs-card-label">
-                                Liabilities
-                            </span>
-
-                            <h2>
-                                ${formatCurrency(
-                                    totalLiabilities,
-                                    currency
-                                )}
-                            </h2>
-
-                            ${deltaHtml(totalLiabilities, priorTotal("totalLiabilities"))}
-
-                        </div>
-
-                        <span class="bs-count">
-                            ${countAccounts(
-                                liabilities
-                            )}
-                            accounts
-                        </span>
-
-                    </div>
-
-
-                    <div class="bs-card-body">
-
-                        ${renderSections(
-                            liabilities
-                        )}
-
-
-                        <div class="bs-total">
-
-                            <span>
-                                Total liabilities
-                            </span>
-
-                            <strong>
-                                ${formatCurrency(
-                                    totalLiabilities,
-                                    currency
-                                )}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-                <!-- EQUITY -->
-
-                <section class="bs-card">
-
-                    <div class="
-                        bs-card-top
-                        equity
-                    ">
-
-                        <div>
-
-                            <span class="bs-card-label">
-                                Equity
-                            </span>
-
-                            <h2 class="${
-                                totalEquity < 0
-                                    ? "negative"
-                                    : ""
-                            }">
-                                ${formatCurrency(
-                                    totalEquity,
-                                    currency
-                                )}
-                            </h2>
-
-                            ${deltaHtml(totalEquity, priorTotal("totalEquity"))}
-
-                        </div>
-
-                        <span class="bs-count">
-                            ${countAccounts(equity)}
-                            accounts
-                        </span>
-
-                    </div>
-
-
-                    <div class="bs-card-body">
-
-                        ${renderSections(
-                            equity
-                        )}
-
-
-                        <div class="bs-total">
-
-                            <span>
-                                Total equity
-                            </span>
-
-                            <strong class="${
-                                totalEquity < 0
-                                    ? "negative"
-                                    : ""
-                            }">
-                                ${formatCurrency(
-                                    totalEquity,
-                                    currency
-                                )}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-            </div>
-
-
-            <!-- BALANCE CHECK -->
-
-            <section class="
-                bs-check
-                ${
-                    isBalanced
-                        ? "success"
-                        : "error"
-                }
-            ">
-
-                <div class="bs-check-left">
-
-                    <div class="bs-check-icon">
-                        ${
-                            isBalanced
-                                ? "✓"
-                                : "!"
-                        }
-                    </div>
-
-                    <div>
-
-                        <strong>
-                            Balance check
-                        </strong>
-
-                        <span>
-                            Assets should equal
-                            Liabilities + Equity
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div class="bs-check-values">
-
-                    <div>
-
-                        <span>
-                            Assets
-                        </span>
-
-                        <strong>
-                            ${formatCurrency(
-                                totalAssets,
-                                currency
-                            )}
-                        </strong>
-
-                    </div>
-
-
-                    <div class="bs-check-equals">
-                        =
-                    </div>
-
-
-                    <div>
-
-                        <span>
-                            Liabilities + Equity
-                        </span>
-
-                        <strong>
-                            ${formatCurrency(
-                                totalLiabilitiesAndEquity,
-                                currency
-                            )}
-                        </strong>
-
-                    </div>
-
-
-                    <div class="bs-check-result">
-
-                        ${
-                            isBalanced
-                                ? "✓ Balanced"
-                                : `Difference: ${
-                                    formatCurrency(
-                                        difference,
-                                        currency
-                                    )
-                                }`
-                        }
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- TREND -->
-
-            <div class="card card-pad section-gap" style="margin-top:16px;">
-                <div class="card-title" style="margin-bottom:14px;">Assets, liabilities &amp; equity · last 6 months</div>
-                <div style="height:300px;">
-                    <canvas id="chart-bs-trend"></canvas>
-                </div>
-            </div>
-
-
         </div>
 
+        ${data?.hasData === false
+            ? `<div class="bs-no-data-banner section-gap">
+                 <strong>No QuickBooks data as of ${escapeHtml(data?.period?.endDate || "this date")}.</strong>
+                 <p>This company's books don't go back that far yet — try a more recent period.</p>
+               </div>`
+            : ""}
+
+        <!-- THE THREE QUESTIONS IT ANSWERS -->
+        <div id="balance-questions-body" class="section-gap">
+            ${renderSkeletonCard(5)}
+        </div>
+
+        <!-- WHAT'S LEFT FOR THE OWNER -->
+        <section class="card card-pad section-gap oo-net" aria-labelledby="oo-net-h">
+            <div class="oo-net-head">
+                <div class="oo-net-text">
+                    <h2 class="card-title" id="oo-net-h">What's left for you, the owner</h2>
+                    <p class="oo-net-sub">${escapeHtml(ownerLine)}</p>
+                </div>
+                <div class="oo-net-figure">
+                    <span>Owner's equity</span>
+                    <strong class="num ${totalEquity < 0 ? "neg-val" : "pos-val"}">${formatCurrency(totalEquity, currency)}</strong>
+                </div>
+            </div>
+            <div class="oo-sides">
+                ${sideBar("Own", totalAssets, sideParts(assets, OWN_TONES))}
+                ${sideBar("Owe", totalLiabilities, sideParts(liabilities, OWE_TONES))}
+            </div>
+        </section>
+
+        <!-- THE FULL STATEMENT -->
+        <section class="card section-gap oo-table-card" aria-labelledby="oo-table-h">
+            <div class="card-header mio-stmt-head">
+                <h2 class="card-title" id="oo-table-h">The full balance sheet</h2>
+                <span class="card-sub">The accountant's view of the same numbers</span>
+            </div>
+            <div class="table-scroll">
+                <table class="oo-table">
+                    <thead>
+                        <tr><th scope="col">Account</th><th scope="col" class="num">Balance</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr class="oo-table-group"><th scope="rowgroup" colspan="2">What it owns · assets</th></tr>
+                        ${tableRows(assets)}
+                        ${totalRow("Total assets", totalAssets, priorTotal("totalAssets"))}
+
+                        <tr class="oo-table-group"><th scope="rowgroup" colspan="2">What it owes · liabilities</th></tr>
+                        ${tableRows(liabilities)}
+                        ${totalRow("Total liabilities", totalLiabilities, priorTotal("totalLiabilities"))}
+
+                        <tr class="oo-table-group"><th scope="rowgroup" colspan="2">What's yours · equity</th></tr>
+                        ${tableRows(equity)}
+                        ${totalRow("Total equity", totalEquity, priorTotal("totalEquity"), "is-grand")}
+                    </tbody>
+                </table>
+            </div>
+            ${!isBalanced
+                ? `<p class="oo-table-warn">
+                     What it owns (${formatCurrency(totalAssets, currency)}) should equal what it owes plus
+                     what's yours (${formatCurrency(totalLiabilitiesAndEquity, currency)}). They're
+                     ${formatCurrency(Math.abs(difference), currency)} apart — worth raising with whoever keeps your books.
+                   </p>`
+                : ""}
+        </section>
+
+        <!-- TREND -->
+        <section class="card card-pad section-gap" aria-labelledby="oo-trend-h">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title" id="oo-trend-h">Own, owe and yours over time</h2>
+                    <div class="card-sub">Last 6 months</div>
+                </div>
+            </div>
+            <div class="chart-frame">
+                <canvas id="chart-bs-trend"></canvas>
+            </div>
+        </section>
     `;
 
     loadBalanceSheetHistory(6)
@@ -4518,7 +4107,7 @@ async function loadCashFlowMonths() {
 
     const inputsHtml = (entry.inputs || [])
       .map(input => `
-        <div class="bs-account-row">
+        <div class="kv-row">
           <span>${escapeHtml(input.label)}</span>
           <strong>${escapeHtml(input.value)}</strong>
         </div>
