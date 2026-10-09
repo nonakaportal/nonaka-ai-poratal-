@@ -112,7 +112,7 @@ function requireDates(...names) {
 function qbRoute(failMessage, load) {
     return async (req, res) => {
         try {
-            const connection = await getConnection(req.query.organizationId);
+            const connection = await getConnection(req.organizationId);
 
             if (!connection) {
                 return res.status(400).json({
@@ -148,7 +148,7 @@ function qbRoute(failMessage, load) {
 
 router.get('/connect-url', requireOrgAccess, (req, res) => {
     try {
-        const authUrl = quickbooksService.getAuthorizationUrl(req.query.organizationId);
+        const authUrl = quickbooksService.getAuthorizationUrl(req.organizationId);
 
         res.json({ authUrl });
     } catch (error) {
@@ -207,9 +207,9 @@ router.get('/callback', async (req, res) => {
 // the browser, so the owner needs a way to undo a wrong connection.
 router.delete('/disconnect', requireOrgAccess, async (req, res) => {
     try {
-        await supabaseService.deleteQuickBooksTokens(req.query.organizationId);
+        await supabaseService.deleteQuickBooksTokens(req.organizationId);
 
-        forgetOrganizationCaches(req.query.organizationId);
+        forgetOrganizationCaches(req.organizationId);
 
         res.json({ success: true });
     } catch (error) {
@@ -231,7 +231,7 @@ router.delete('/disconnect', requireOrgAccess, async (req, res) => {
 
 router.get('/status', requireOrgAccess, async (req, res) => {
     try {
-        const connection = await getConnection(req.query.organizationId);
+        const connection = await getConnection(req.organizationId);
 
         if (!connection) {
             return res.json({

@@ -109,7 +109,7 @@ function loadContext(organizationId) {
 // ============================================================
 
 router.get("/anomalies", async (req, res) => {
-    const { organizationId } = req.query;
+    const organizationId = req.organizationId;
 
     try {
         const result = await withResultCache(`anomalies:${organizationId}`, async () => {
@@ -129,7 +129,7 @@ router.get("/anomalies", async (req, res) => {
 // ============================================================
 
 router.get("/recommendations", async (req, res) => {
-    const { organizationId } = req.query;
+    const organizationId = req.organizationId;
 
     try {
         const result = await withResultCache(`recommendations:${organizationId}`, async () => {
@@ -149,7 +149,7 @@ router.get("/recommendations", async (req, res) => {
 // ============================================================
 
 router.get("/health-score", async (req, res) => {
-    const { organizationId } = req.query;
+    const organizationId = req.organizationId;
 
     try {
         const result = await withResultCache(`health-score:${organizationId}`, async () => {
@@ -204,7 +204,10 @@ function cleanHistory(history) {
 }
 
 router.post("/ask", async (req, res) => {
-    const { organizationId, question, history } = req.body;
+    // The organization comes from the access check, never from the body:
+    // the body is where a caller would put someone else's.
+    const organizationId = req.organizationId;
+    const { question, history } = req.body;
 
     if (typeof question !== "string" || !question.trim()) {
         return res.status(400).json({ error: "question is required" });

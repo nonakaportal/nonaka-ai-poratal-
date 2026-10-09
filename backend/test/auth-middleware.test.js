@@ -110,3 +110,34 @@ test('a failure inside the check answers 500 rather than letting the request thr
     assert.equal(out.status, 500);
     assert.equal(out.passed, false);
 });
+
+// A request once named its own organization in the query, which passed the
+// check, and another company's in the body, which the route then read.
+test('refuses a request naming one organization in the query and another in the body', async () => {
+    const out = await call({
+        headers: { authorization: 'Bearer good-h' },
+        query: { organizationId: 'org-1' },
+        body: { organizationId: 'org-2' }
+    });
+
+    assert.equal(out.status, 400);
+    assert.equal(out.passed, false);
+});
+
+test('allows the same organization named in both places', async () => {
+    const out = await call({
+        headers: { authorization: 'Bearer good-i' },
+        query: { organizationId: 'org-1' },
+        body: { organizationId: 'org-1' }
+    });
+
+    assert.equal(out.passed, true);
+});
+
+test('hands the route the organization it checked, on a fresh and a remembered check', async () => {
+    const first = await call(asMember('good-j'));
+    const second = await call(asMember('good-j'));
+
+    assert.equal(first.req.organizationId, 'org-1');
+    assert.equal(second.req.organizationId, 'org-1');
+});

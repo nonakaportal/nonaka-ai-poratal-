@@ -90,11 +90,31 @@ async function requireOrgAccess(req, res, next) {
             });
         }
 
-        const organizationId = req.query.organizationId || req.body?.organizationId;
+        // The organization checked here and the one the route then reads
+        // must be the same. A request may name it in the query or the body,
+        // but naming two different ones (or one twice, which arrives as an
+        // array) is refused outright: letting one of them win quietly is how
+        // a check on your own company once let a route read another's.
+        const fromQuery = req.query?.organizationId;
+        const fromBody = req.body?.organizationId;
+
+        if (fromQuery !== undefined && fromBody !== undefined && fromQuery !== fromBody) {
+            return res.status(400).json({
+                error: 'Name the organization once per request'
+            });
+        }
+
+        const organizationId = fromQuery ?? fromBody;
 
         if (!organizationId) {
             return res.status(400).json({
                 error: 'organizationId is required'
+            });
+        }
+
+        if (typeof organizationId !== 'string') {
+            return res.status(400).json({
+                error: 'organizationId must be a single value'
             });
         }
 
@@ -103,6 +123,7 @@ async function requireOrgAccess(req, res, next) {
 
         if (known) {
             req.user = known;
+            req.organizationId = organizationId;
             return next();
         }
 
@@ -126,7 +147,10 @@ async function requireOrgAccess(req, res, next) {
 
         rememberVerified(key, token, user);
 
+        // Routes read the organization from here, never from the request
+        // again, so they can only ever act on the one checked above.
         req.user = user;
+        req.organizationId = organizationId;
         next();
     } catch (error) {
         console.error('Auth middleware failed:', error.message);
