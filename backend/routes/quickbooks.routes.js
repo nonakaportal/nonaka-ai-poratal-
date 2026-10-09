@@ -25,6 +25,7 @@
 //   GET    /reports/accounts-receivable   Parsed AR aging
 //   GET    /reports/accounts-payable      Parsed AP aging
 
+const crypto = require('crypto');
 const express = require('express');
 
 const router = express.Router();
@@ -144,12 +145,81 @@ function qbRoute(failMessage, load) {
 // redirecting, because a top-level navigation can't carry the
 // Authorization header needed to verify who is connecting. The frontend
 // fetches this with its session, then navigates to the returned URL.
+//
+// The signed state says which organization the connection is for, but
+// on its own it proves only that this server made the link — not that
+// the browser finishing it is the one that asked. Anyone could make a
+// link for their own organization and get someone else to approve it,
+// attaching that person's QuickBooks company to the wrong portal. So
+// /connect-url also sets a one-time value in a cookie only the callback
+// receives, the state carries the same value, and the callback accepts
+// it once, from that browser, for a user still in the organization.
 // ============================================================
+
+const OAUTH_COOKIE = 'nfp_qb_oauth';
+const OAUTH_COOKIE_PATH = '/api/quickbooks/callback';
+const OAUTH_TTL_MS = 10 * 60 * 1000;
+
+// Values already used at the callback, kept until their state would have
+// expired anyway, so a finished link can't be replayed.
+const usedNonces = new Map();
+
+function claimNonce(nonce, issuedAt) {
+    const now = Date.now();
+
+    for (const [used, expires] of usedNonces) {
+        if (expires <= now) usedNonces.delete(used);
+    }
+
+    if (usedNonces.has(nonce)) return false;
+
+    usedNonces.set(nonce, Number(issuedAt) + OAUTH_TTL_MS);
+    return true;
+}
+
+function readCookie(req, name) {
+    for (const part of String(req.headers.cookie || '').split(';')) {
+        const at = part.indexOf('=');
+
+        if (at > -1 && part.slice(0, at).trim() === name) {
+            return part.slice(at + 1).trim();
+        }
+    }
+
+    return null;
+}
+
+function sameValue(a, b) {
+    const x = Buffer.from(String(a));
+    const y = Buffer.from(String(b));
+
+    return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+// HttpOnly so page scripts can't read it; SameSite=Lax so it still
+// arrives on the top-level redirect back from Intuit; scoped to the
+// callback path so nothing else ever receives it.
+function oauthCookie(req, value, maxAgeSeconds) {
+    return [
+        `${OAUTH_COOKIE}=${value}`,
+        `Path=${OAUTH_COOKIE_PATH}`,
+        `Max-Age=${maxAgeSeconds}`,
+        'HttpOnly',
+        'SameSite=Lax',
+        req.secure ? 'Secure' : null
+    ].filter(Boolean).join('; ');
+}
 
 router.get('/connect-url', requireOrgAccess, (req, res) => {
     try {
-        const authUrl = quickbooksService.getAuthorizationUrl(req.organizationId);
+        const nonce = crypto.randomBytes(32).toString('base64url');
 
+        const authUrl = quickbooksService.getAuthorizationUrl(req.organizationId, {
+            userId: req.user.id,
+            nonce
+        });
+
+        res.setHeader('Set-Cookie', oauthCookie(req, nonce, OAUTH_TTL_MS / 1000));
         res.json({ authUrl });
     } catch (error) {
         console.error('Error generating QB auth URL:', error.message);
@@ -175,8 +245,26 @@ router.get('/callback', async (req, res) => {
         return res.status(400).json({ error: 'OAuth state missing' });
     }
 
+    // Whatever happens next, the one-time value has done its job.
+    res.setHeader('Set-Cookie', oauthCookie(req, '', 0));
+
     try {
-        const { organizationId } = quickbooksService.verifyOAuthState(state);
+        const { organizationId, userId, nonce, timestamp } =
+            quickbooksService.verifyOAuthState(state);
+
+        const cookieNonce = readCookie(req, OAUTH_COOKIE);
+
+        if (!userId || !nonce || !cookieNonce || !sameValue(nonce, cookieNonce)) {
+            throw new Error('OAuth state was not started in this browser');
+        }
+
+        if (!claimNonce(nonce, timestamp)) {
+            throw new Error('OAuth state has already been used');
+        }
+
+        if (!(await supabaseService.isUserInOrganization(userId, organizationId))) {
+            throw new Error('User who started the connection is no longer in the organization');
+        }
 
         const tokens = await quickbooksService.exchangeCodeForTokens(code);
 

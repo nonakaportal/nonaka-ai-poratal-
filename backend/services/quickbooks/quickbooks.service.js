@@ -43,13 +43,18 @@ class QuickBooksService {
     // OAUTH STATE
     // ==========================================================
 
-    createOAuthState(organizationId) {
+    // `userId` and `nonce` tie the state to the person and the browser that
+    // started the connection; the callback checks both (see
+    // quickbooks.routes.js). The signature stops them being edited.
+    createOAuthState(organizationId, { userId = null, nonce = null } = {}) {
         if (!organizationId) {
             throw new Error('Organization ID is required');
         }
 
         const payload = JSON.stringify({
             organizationId,
+            userId,
+            nonce,
             timestamp: Date.now()
         });
 
@@ -117,9 +122,10 @@ class QuickBooksService {
         return payload;
     }
 
-    getAuthorizationUrl(organizationId) {
+    getAuthorizationUrl(organizationId, binding = {}) {
         const state = this.createOAuthState(
-            organizationId
+            organizationId,
+            binding
         );
 
         const params = new URLSearchParams({
