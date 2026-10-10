@@ -1940,6 +1940,15 @@ textarea.ai-chat-input { max-height: 140px; }
 .verdict-band-figures div { display: flex; flex-direction: column; gap: 2px; }
 .verdict-band-figures dt { font-size: 12px; color: var(--text-secondary); }
 .verdict-band-figures dd { margin: 0; font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+/* Start-to-now figures: larger, with the movement between them. */
+.verdict-band-figures.is-change { gap: 36px; }
+.verdict-band-figures.is-change dt { font-size: 13px; }
+.verdict-band-figures.is-change dd { font-size: 26px; line-height: 32px; letter-spacing: -0.01em; }
+.verdict-band-figures.is-change dd.pos-val { color: var(--positive); }
+.verdict-band-figures.is-change dd.neg-val { color: var(--negative); }
+.verdict-band-change { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.verdict-band-change.pos-val { color: var(--positive); }
+.verdict-band-change.neg-val { color: var(--negative); }
 .verdict-band.tone-pos { background: color-mix(in srgb, var(--positive) 7%, var(--bg-card)); border-color: color-mix(in srgb, var(--positive) 26%, transparent); }
 .verdict-band.tone-pos .verdict-band-eyebrow { color: var(--positive); }
 .verdict-band.tone-warn { background: color-mix(in srgb, var(--warning) 9%, var(--bg-card)); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }

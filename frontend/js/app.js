@@ -1753,10 +1753,20 @@ function cashFlowVerdictHtml(figures) {
                 <p class="verdict-band-detail">${escapeHtml(verdict.detail)}</p>
             </div>
             ${Number.isFinite(figures.closingCash)
-                ? `<dl class="verdict-band-figures">
+                ? (() => {
+                    // "Now" is coloured by which way the cash moved, and the
+                    // gap between the two figures is spelled out under it.
+                    const change = Number(figures.closingCash || 0) - Number(figures.openingCash || 0);
+                    const tone = change > 0 ? "pos-val" : change < 0 ? "neg-val" : "";
+                    const sign = change > 0 ? "+" : change < 0 ? "−" : "";
+                    const arrow = change > 0 ? "▲" : change < 0 ? "▼" : "";
+
+                    return `<dl class="verdict-band-figures is-change">
                      <div><dt>Started with</dt><dd>${money(figures.openingCash)}</dd></div>
-                     <div><dt>Now</dt><dd>${money(figures.closingCash)}</dd></div>
-                   </dl>`
+                     <div><dt>Now</dt><dd class="${tone}">${money(figures.closingCash)}</dd>
+                       <span class="verdict-band-change ${tone}">${arrow} ${sign}${money(Math.abs(change))}</span></div>
+                   </dl>`;
+                  })()
                 : ""}
         </section>
     `;
