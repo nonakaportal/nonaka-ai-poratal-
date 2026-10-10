@@ -259,6 +259,51 @@ body:has(.intro-hero) {
 .intro-footer { border-top-color: rgba(255, 255, 255, 0.07); }
 
 /* ------------------------------------------------------------
+   LEGAL PAGES — the same floating nav, and the document on one sheet
+   of glass so long text still sits on a calm, dark surface
+------------------------------------------------------------ */
+body:has(.legal-wrap) {
+  background-color: var(--bg-page);
+  background-image: var(--glass-field);
+  background-attachment: fixed;
+}
+.legal-nav {
+  position: sticky; top: 12px; z-index: 10;
+  max-width: 1200px; width: calc(100% - 32px); box-sizing: border-box;
+  margin: 12px auto 0; padding: 10px 20px;
+  border: 1px solid var(--glass-edge); border-radius: 999px;
+  background-image: var(--glass-sheen);
+  background-color: rgba(19, 19, 20, 0.58);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.legal-wrap {
+  position: relative;
+  margin: 32px auto 0;
+  width: calc(100% - 32px); box-sizing: border-box;
+  border: 1px solid var(--glass-edge); border-radius: 24px;
+  background-image: var(--glass-sheen);
+  background-color: rgba(19, 19, 20, 0.7);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.legal-wrap::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
+  pointer-events: none;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  mix-blend-mode: overlay;
+}
+.legal-footer { border-top-color: rgba(255, 255, 255, 0.07); }
+@media (max-width: 640px) {
+  .legal-wrap { padding: 40px 20px 56px; }
+}
+
+/* ------------------------------------------------------------
    BROWSERS WITHOUT BACKDROP BLUR
    Without the blur the translucent fill would let busy content show
    through sharply, so those browsers get the solid surfaces back.
