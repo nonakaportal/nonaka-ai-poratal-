@@ -1,0 +1,268 @@
+/* ============================================================
+   NONAKA FINANCIAL PARTNERS — GLASS LAYER
+   Loaded after tokens.css and the page's own stylesheet. Turns the
+   portal's surfaces into dark frosted glass over a soft colour field.
+   Visual only: no class is renamed, nothing is hidden or moved, and
+   no layout a script depends on changes. Removing this one file puts
+   the previous look back.
+
+   Glass needs something behind it, so every view gets a field of soft
+   periwinkle, cyan and peach light; on flat near-black the blur would
+   have nothing to show. Surfaces are tinted dark enough that text keeps
+   AA contrast at the brightest point of that field. Only top-level
+   surfaces blur — a tile inside a card is a darker translucent fill,
+   never a second layer of glass.
+============================================================ */
+
+:root {
+  --glass-fill: rgba(19, 19, 20, 0.62);
+  --glass-fill-strong: rgba(19, 19, 20, 0.8);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.015) 60%);
+  --glass-blur: blur(14px) saturate(150%);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.42);
+  --glass-tile: rgba(15, 15, 16, 0.45);
+  --glass-rim: linear-gradient(135deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.14) 33%, rgba(255, 255, 255, 0.42) 66%, rgba(255, 255, 255, 0) 100%);
+
+  --glass-field:
+    radial-gradient(640px 520px at 92% -4%, rgba(190, 194, 255, 0.2), transparent 70%),
+    radial-gradient(560px 480px at 8% 34%, rgba(80, 216, 233, 0.12), transparent 70%),
+    radial-gradient(560px 480px at 96% 62%, rgba(255, 182, 137, 0.09), transparent 70%),
+    radial-gradient(620px 520px at 30% 104%, rgba(190, 194, 255, 0.13), transparent 70%);
+
+  --glass-field-centre:
+    radial-gradient(520px 520px at 38% 30%, rgba(190, 194, 255, 0.4), transparent 70%),
+    radial-gradient(460px 460px at 66% 56%, rgba(80, 216, 233, 0.28), transparent 70%),
+    radial-gradient(420px 420px at 50% 96%, rgba(255, 182, 137, 0.2), transparent 70%);
+
+  /* Inner fills and tinted mixes built on --bg-card go translucent, so
+     tiles and status tints sit in the glass rather than on top of it. */
+  --bg-card: rgba(22, 22, 25, 0.58);
+
+  /* Small grey text is measured against the brightest point of the
+     field behind the glass, not against flat near-black. */
+  --text-muted: #A3A2B0;
+  --text-faint: #9A99A8;
+}
+
+/* ------------------------------------------------------------
+   THE FIELD BEHIND THE GLASS
+------------------------------------------------------------ */
+.main-wrap {
+  background-color: var(--bg-page);
+  background-image: var(--glass-field);
+  background-attachment: fixed;
+}
+.auth-page,
+.reset-wrap,
+#view-connect-qb {
+  background-color: var(--bg-page);
+  background-image: var(--glass-field-centre);
+  background-attachment: fixed;
+}
+
+/* ------------------------------------------------------------
+   TOP-LEVEL SURFACES — one layer of glass each
+------------------------------------------------------------ */
+.card, .table-wrap, .kpi-card, .stat-card, .insight-card, .bs-col,
+.cf-waterfall, .cf-activity-card, .cf-summary, .cf-net-change, .bs-card, .bs-check,
+.ai-chat-panel, .debt-summary-card, .alert-row, .page-note,
+.auth-card, .onboard-card, #qb-state-connecting {
+  position: relative;
+  background-image: var(--glass-sheen);
+  background-color: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-edge);
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
+}
+.card:hover, .kpi-card:hover { border-color: rgba(255, 255, 255, 0.14); }
+
+/* The rim: a thin diagonal highlight around the edge, the part that
+   makes it read as glass rather than a dark panel. */
+.card::before, .table-wrap::before, .kpi-card::before, .stat-card::before, .insight-card::before,
+.bs-col::before, .cf-waterfall::before, .cf-activity-card::before, .cf-summary::before,
+.cf-net-change::before, .bs-card::before, .bs-check::before, .ai-chat-panel::before,
+.debt-summary-card::before, .alert-row::before, .page-note::before,
+.auth-card::before, .onboard-card::before, #qb-state-connecting::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
+  pointer-events: none;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  mix-blend-mode: overlay;
+}
+
+/* A card shown inside a modal or another card is a tile, not glass. */
+.modal .card, .card .card {
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
+.modal .card::before, .card .card::before { content: none; }
+
+/* Status-tinted surfaces keep their tint and border colour; the tint
+   now sits in the glass instead of on an opaque panel. */
+.verdict-band.tone-pos { background-image: linear-gradient(135deg, color-mix(in srgb, var(--positive) 12%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.verdict-band.tone-warn { background-image: linear-gradient(135deg, color-mix(in srgb, var(--warning) 13%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.verdict-band.tone-neg { background-image: linear-gradient(135deg, color-mix(in srgb, var(--negative) 13%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.verdict-band.tone-quiet { background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.page-note.tone-pos, .ahead-tile.tone-pos { background-image: linear-gradient(135deg, color-mix(in srgb, var(--positive) 11%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.page-note.tone-accent, .ahead-next:has(.ahead-next-row) { background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.ahead-tile.tone-warn { background-image: linear-gradient(135deg, color-mix(in srgb, var(--warning) 12%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+.ahead-tile.tone-neg { background-image: linear-gradient(135deg, color-mix(in srgb, var(--negative) 12%, transparent), rgba(255, 255, 255, 0.015) 60%); background-color: var(--glass-fill); }
+
+/* Floating layers sit over busier content, so they're more opaque. */
+.modal {
+  position: relative;
+  background-image: var(--glass-sheen);
+  background-color: var(--glass-fill-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: 24px;
+}
+.dropdown, .client-dropdown {
+  background-image: var(--glass-sheen);
+  background-color: rgba(24, 24, 27, 0.88);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-edge);
+}
+.toast {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* ------------------------------------------------------------
+   TOP BAR — a floating glass pill above the page
+------------------------------------------------------------ */
+.topbar {
+  top: 12px;
+  margin: 12px 24px 0;
+  padding: 0 12px 0 20px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-image: var(--glass-sheen);
+  background-color: rgba(19, 19, 20, 0.58);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.topbar-ask { background: rgba(15, 15, 16, 0.5); border-color: rgba(255, 255, 255, 0.09); border-radius: 999px; }
+.client-switcher { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.09); border-radius: 999px; }
+.client-switcher:not(.can-switch):hover { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.09); }
+@media (max-width: 640px) {
+  .topbar { margin: 8px 12px 0; top: 8px; }
+}
+
+/* ------------------------------------------------------------
+   INNER TILES — darker translucent fills inside the glass
+------------------------------------------------------------ */
+.due-tile, .whatif-outcome, .settings-fields div, .settings-conn, .settings-org,
+.debt-tile, .insight-figure, .feature-visual {
+  background-color: var(--glass-tile);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.settings-org.is-current { background: color-mix(in srgb, var(--accent) 12%, var(--glass-tile)); border-color: var(--n-accent-900); }
+.list-foot, .list-table tfoot td { background: rgba(15, 15, 16, 0.32); border-top-color: rgba(255, 255, 255, 0.07); }
+.list-search, .owed-draft-text, .mio-bridge-track { background: rgba(15, 15, 16, 0.5); }
+.list-table td, .pl-step, .plb-section { border-bottom-color: rgba(255, 255, 255, 0.06); }
+.period-selector { background: rgba(15, 15, 16, 0.5); border-color: rgba(255, 255, 255, 0.08); }
+.period-btn.active { background: rgba(255, 255, 255, 0.1); }
+
+/* Grids drawn with 1px gaps over a border-coloured parent. */
+.onboard-feature-grid, .cashproj-overdue { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.07); }
+.onboard-feature, .cashproj-overdue-item { background: rgba(17, 17, 19, 0.82); }
+
+/* The chat panel is the glass; its parts are see-through within it. */
+.ai-chat-header, .ai-chat-messages, .ai-chat-suggestions, .ai-chat-input-row { background: transparent; }
+.ai-chat-header, .ai-chat-suggestions, .ai-chat-input-row { border-color: rgba(255, 255, 255, 0.07); }
+.ai-suggestion-pill { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
+
+/* Forms: inputs read as recessed wells in the glass. */
+.form-control, .ai-chat-input {
+  background: rgba(15, 15, 16, 0.66);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.btn-ghost, .btn-secondary { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); }
+
+/* Shapes that must stay solid: the hole in a score ring and the dots
+   marking a point on a line would let the ring or line show through. */
+.health-ring-hole, .ovw-ring-inner { background: #18181A; }
+.ovh-curve-dot, .whatif-dot { background: #18181A; }
+
+/* ------------------------------------------------------------
+   WELCOME PAGE
+------------------------------------------------------------ */
+body:has(.intro-hero) {
+  background-color: var(--bg-page);
+  background-image:
+    radial-gradient(760px 640px at 86% 4%, rgba(190, 194, 255, 0.24), transparent 70%),
+    radial-gradient(640px 600px at 0% 46%, rgba(80, 216, 233, 0.16), transparent 70%),
+    radial-gradient(520px 480px at 44% 22%, rgba(255, 182, 137, 0.1), transparent 70%),
+    radial-gradient(700px 600px at 70% 88%, rgba(190, 194, 255, 0.14), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* The nav floats as a glass pill, before and after scrolling. */
+.intro-nav, .intro-nav.scrolled {
+  top: 12px;
+  max-width: 1200px;
+  margin: 12px auto 0;
+  width: calc(100% - 32px);
+  padding: 0 12px 0 22px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-image: var(--glass-sheen);
+  background-color: rgba(19, 19, 20, 0.5);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.intro-nav.scrolled { background-color: rgba(19, 19, 20, 0.72); }
+.intro-nav .btn, .intro-hero-actions .btn, .intro-final-cta .btn { border-radius: 999px; }
+
+.intro-chip {
+  background-image: var(--glass-sheen);
+  background-color: rgba(19, 19, 20, 0.5);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+
+.intro-feature-card, .intro-step, .intro-final-cta, .hero-illustration-wrap {
+  position: relative;
+  background-image: var(--glass-sheen);
+  background-color: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-edge);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+}
+.intro-final-cta {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(255, 255, 255, 0.015) 60%);
+  border-color: var(--accent-line);
+}
+.intro-feature-card::before, .intro-step::before, .intro-final-cta::before, .hero-illustration-wrap::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px;
+  pointer-events: none;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  mix-blend-mode: overlay;
+}
+.intro-feature-card:hover { border-color: rgba(255, 255, 255, 0.16); }
+.intro-trust { border-color: rgba(255, 255, 255, 0.07); }
+.intro-footer { border-top-color: rgba(255, 255, 255, 0.07); }
+
+/* ------------------------------------------------------------
+   BROWSERS WITHOUT BACKDROP BLUR
+   Without the blur the translucent fill would let busy content show
+   through sharply, so those browsers get the solid surfaces back.
+------------------------------------------------------------ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass-fill: rgba(28, 28, 30, 0.96); --glass-fill-strong: #1C1C1E; --bg-card: #1C1C1E; }
+}
