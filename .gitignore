@@ -31,3 +31,6 @@ CLAUDE.md
 .claude/
 graphify-out/
 .gitattributes
+
+# VS Code Code Runner scratch file
+tempCodeRunnerFile.*
