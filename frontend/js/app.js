@@ -46,20 +46,11 @@
   // API
   // ============================================================
 
-  const API_BASE =
-    window.NFK_CONFIG?.API_BASE ||
-    "/api";
-
   function getOrganizationId() {
     return (
       window.NFK_Auth?.getOrganizationId?.() ||
       localStorage.getItem("nfk-organization-id")
     );
-  }
-
-  function authHeaders() {
-    const token = window.NFK_Auth?.getAccessToken?.();
-    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   // A single expired/invalid session shows up as every in-flight API call
@@ -78,35 +69,13 @@
     window.NFK_Auth?.logout?.();
   }
 
-  const SESSION_ERROR_CODES = new Set(["AUTH_INVALID", "AUTH_REQUIRED"]);
+  // api.js has already refreshed and retried once if the session had
+  // expired; what reaches here is the final answer.
+  function unwrap({ ok, data, sessionLost }) {
+    if (sessionLost) handleSessionExpired();
 
-  // On an expired/invalid token, silently refresh and retry once before
-  // giving up — the user should never see a session error while the
-  // portal can still recover on its own. _isRetry guards against looping
-  // if the retried request somehow fails the same way again.
-  async function apiGet(endpoint, _isRetry = false) {
-    const response = await fetch(
-      `${API_BASE}${endpoint}`,
-      { headers: authHeaders() }
-    );
-
-    const data = await response
-      .json()
-      .catch(() => ({}));
-
-    if (!response.ok) {
-      if (!_isRetry && SESSION_ERROR_CODES.has(data.code)) {
-        try {
-          await window.NFK_Auth.refreshSession();
-          return apiGet(endpoint, true);
-        } catch {
-          handleSessionExpired();
-        }
-      }
-
-      const error = new Error(
-        data.error || "API request failed"
-      );
+    if (!ok) {
+      const error = new Error(data.error || "API request failed");
 
       if (data.code) {
         error.code = data.code;
@@ -117,48 +86,13 @@
 
     return data;
   }
-  async function apiPost(endpoint, body, _isRetry = false) {
 
-      const response = await fetch(
-          `${API_BASE}${endpoint}`,
-          {
-              method: "POST",
+  async function apiGet(endpoint) {
+    return unwrap(await window.NFK_Api.request(endpoint));
+  }
 
-              headers: {
-                  "Content-Type": "application/json",
-                  ...authHeaders()
-              },
-
-              body: JSON.stringify(body)
-          }
-      );
-
-      const data = await response
-          .json()
-          .catch(() => ({}));
-
-      if (!response.ok) {
-          if (!_isRetry && SESSION_ERROR_CODES.has(data.code)) {
-              try {
-                  await window.NFK_Auth.refreshSession();
-                  return apiPost(endpoint, body, true);
-              } catch {
-                  handleSessionExpired();
-              }
-          }
-
-          const error = new Error(
-              data.error || "API request failed"
-          );
-
-          if (data.code) {
-              error.code = data.code;
-          }
-
-          throw error;
-      }
-
-      return data;
+  async function apiPost(endpoint, body) {
+    return unwrap(await window.NFK_Api.request(endpoint, { method: "POST", body }));
   }
 // ============================================================
 // BALANCE SHEET UI

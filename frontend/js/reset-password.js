@@ -50,15 +50,13 @@ async function submitReset() {
   btnSpin.style.display = "inline-block";
 
   try {
-    const response = await fetch("/api/auth/reset-password", {
+    const { ok, data } = await NFK_Api.request("/auth/reset-password", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: accessToken, password })
+      auth: false,
+      body: { access_token: accessToken, password }
     });
 
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
+    if (!ok) {
       throw new Error(data.error || "Failed to reset password");
     }
 

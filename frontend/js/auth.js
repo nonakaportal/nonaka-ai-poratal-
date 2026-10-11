@@ -3,9 +3,7 @@
 // Supabase Auth + Backend Session
 // ============================================================
 
-const API_BASE = window.NFK_CONFIG?.API_BASE || "/api";
-const AUTH_API = `${API_BASE}/auth`;
-const QB_API = API_BASE;
+// Network calls go through NFK_Api.request (api.js).
 
 // ------------------------------------------------------------
 // SIGN UP
@@ -13,22 +11,18 @@ const QB_API = API_BASE;
 
 async function signup(email, password, fullName, organizationName) {
     try {
-        const response = await fetch(`${AUTH_API}/signup`, {
+        const { ok, data } = await NFK_Api.request("/auth/signup", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
+            auth: false,
+            body: {
                 email,
                 password,
                 fullName,
                 organizationName
-            })
+            }
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
+        if (!ok) {
             throw new Error(
                 data.error || "Signup failed"
             );
@@ -197,20 +191,16 @@ async function login(email, password) {
     }
 
     try {
-        const response = await fetch(`${AUTH_API}/login`, {
+        const { ok, data } = await NFK_Api.request("/auth/login", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
+            auth: false,
+            body: {
                 email,
                 password
-            })
+            }
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
+        if (!ok) {
             throw new Error(data.error || "Login failed");
         }
 
@@ -477,15 +467,13 @@ async function refreshSession() {
             throw new Error("No refresh token available");
         }
 
-        const response = await fetch(`${QB_API}/auth/refresh`, {
+        const { ok, data } = await NFK_Api.request("/auth/refresh", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: refreshToken })
+            auth: false,
+            body: { refresh_token: refreshToken }
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok || !data.session?.access_token) {
+        if (!ok || !data.session?.access_token) {
             throw new Error(data.error || "Failed to refresh session");
         }
 
@@ -626,10 +614,10 @@ async function sendReset() {
     }
 
     try {
-        await fetch(`${AUTH_API}/forgot-password`, {
+        await NFK_Api.request("/auth/forgot-password", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email })
+            auth: false,
+            body: { email }
         });
     } catch (error) {
         console.error("Forgot password request failed:", error);
@@ -647,7 +635,7 @@ async function sendReset() {
 // CHECK QUICKBOOKS CONNECTION STATUS
 // ------------------------------------------------------------
 
-async function checkQBStatus(_isRetry = false) {
+async function checkQBStatus() {
     const organizationId = getOrganizationId();
 
     if (!organizationId) {
@@ -656,36 +644,14 @@ async function checkQBStatus(_isRetry = false) {
 
     try {
         // /status is behind requireOrgAccess like every other data route,
-        // so it needs the session token. Without it the endpoint answers
-        // 401, which this function used to report as "not connected" —
-        // which meant anyone with a perfectly good QuickBooks connection
-        // was sent to the Connect screen on every single login.
-        const token = getAccessToken();
-
-        const response = await fetch(
-            `${QB_API}/quickbooks/status?organizationId=${encodeURIComponent(organizationId)}`,
-            { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        // so it needs the session token, and an expired session is
+        // refreshed and asked again (both in api.js) rather than being
+        // misreported as a missing QuickBooks connection.
+        const { ok, data } = await NFK_Api.request(
+            `/quickbooks/status?organizationId=${encodeURIComponent(organizationId)}`
         );
 
-        const data = await response.json().catch(() => ({}));
-
-        // An expired session is recoverable — refresh once and ask again,
-        // the same way the rest of the app handles it — rather than
-        // misreporting it as a missing QuickBooks connection.
-        if (
-            !response.ok &&
-            !_isRetry &&
-            (data.code === "AUTH_INVALID" || data.code === "AUTH_REQUIRED")
-        ) {
-            try {
-                await refreshSession();
-                return await checkQBStatus(true);
-            } catch {
-                return { connected: false };
-            }
-        }
-
-        if (!response.ok) {
+        if (!ok) {
             return { connected: false };
         }
 
@@ -747,7 +713,7 @@ function showReconnectNotice(message) {
 // CONNECT TO QUICKBOOKS (real OAuth redirect)
 // ------------------------------------------------------------
 
-async function connectQB(_isRetry = false) {
+async function connectQB() {
     const organizationId = getOrganizationId();
     const token = getAccessToken();
 
@@ -757,28 +723,17 @@ async function connectQB(_isRetry = false) {
     }
 
     try {
-        const response = await fetch(
-            `${QB_API}/quickbooks/connect-url?organizationId=${encodeURIComponent(organizationId)}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+        const { ok, data, sessionLost } = await NFK_Api.request(
+            `/quickbooks/connect-url?organizationId=${encodeURIComponent(organizationId)}`
         );
 
-        const data = await response.json().catch(() => ({}));
+        if (sessionLost) {
+            alert("Your session has expired. Please log in again.");
+            logout();
+            return;
+        }
 
-        if (!response.ok || !data.authUrl) {
-            if (
-                !_isRetry &&
-                (data.code === "AUTH_INVALID" || data.code === "AUTH_REQUIRED")
-            ) {
-                try {
-                    await refreshSession();
-                    return connectQB(true);
-                } catch {
-                    alert("Your session has expired. Please log in again.");
-                    logout();
-                    return;
-                }
-            }
-
+        if (!ok || !data.authUrl) {
             throw new Error(data.error || "Failed to start QuickBooks connection");
         }
 
@@ -807,15 +762,12 @@ async function disconnectQB() {
     }
 
     try {
-        const response = await fetch(
-            `${QB_API}/quickbooks/disconnect?organizationId=${encodeURIComponent(organizationId)}`,
-            {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` }
-            }
+        const { ok } = await NFK_Api.request(
+            `/quickbooks/disconnect?organizationId=${encodeURIComponent(organizationId)}`,
+            { method: "DELETE" }
         );
 
-        if (!response.ok) {
+        if (!ok) {
             throw new Error("Failed to disconnect");
         }
 
@@ -943,24 +895,21 @@ function renderQBSteps(steps, activeIndex, statuses = []) {
 const QB_STEP_MIN_MS = 280;
 
 async function runOneWarmupStep(step) {
-    const token = getAccessToken();
     const startedAt = Date.now();
 
     let outcome = "warn";
 
     try {
-        const response = await fetch(`${QB_API}${step.path}`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
+        const { ok, status } = await NFK_Api.request(step.path);
 
         // The answer itself is thrown away on purpose. It is already
         // held on the server for the next minute, which is what the
         // Overview will read. This is only about having asked.
-        if (response.ok) {
+        if (ok) {
             outcome = "done";
         } else {
             console.warn(
-                `Warm-up step failed (${response.status}): ${step.label}`
+                `Warm-up step failed (${status}): ${step.label}`
             );
         }
     } catch (error) {
