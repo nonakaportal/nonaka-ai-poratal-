@@ -25,3 +25,9 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Local AI tooling (Claude Code settings, graphify knowledge graph) — not part of the app
+CLAUDE.md
+.claude/
+graphify-out/
+.gitattributes
