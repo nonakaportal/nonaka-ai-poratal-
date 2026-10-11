@@ -10,25 +10,13 @@
 // being lumped in with something a week overdue.
 
 const quickbooksService = require('./quickbooks.service');
+const { round2, toISODate, startOfToday } = require('./format');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Past this, an unpaid invoice stops being a timing problem and starts
 // being a collection problem.
 const AT_RISK_DAYS = 30;
-
-function toISODate(d) {
-    return new Date(d).toISOString().slice(0, 10);
-}
-
-function startOfToday() {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
 
 // Only the unpaid part of an invoice matters here. A partly-paid
 // invoice carries the remainder in Balance, which is what the customer

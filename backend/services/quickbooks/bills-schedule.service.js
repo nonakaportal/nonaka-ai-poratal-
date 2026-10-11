@@ -9,17 +9,9 @@
 // Bill records themselves. Nothing is estimated.
 
 const quickbooksService = require('./quickbooks.service');
+const { toISODate, startOfToday } = require('./format');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function toISODate(d) {
-    return new Date(d).toISOString().slice(0, 10);
-}
-
-function startOfToday() {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
 
 // Last calendar day of the month `today` falls in. Day 0 of the next
 // month is the last day of this one, which also handles December.

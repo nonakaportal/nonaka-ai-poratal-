@@ -12,13 +12,10 @@
 // disagree.
 
 const quickbooksService = require('./quickbooks.service');
+const { round2 } = require('./format');
 
 function round1(n) {
     return Math.round(Number(n || 0) * 10) / 10;
-}
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
 }
 
 function formatter(currency = 'USD') {

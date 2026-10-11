@@ -11,6 +11,7 @@
 // month, which real businesses only approximately do.
 
 const quickbooksService = require('./quickbooks.service');
+const { round2, toISODate } = require('./format');
 
 // The baseline costs two QuickBooks calls, and slider drags ask for the
 // same baseline over and over with different assumptions. Holding it
@@ -18,14 +19,6 @@ const quickbooksService = require('./quickbooks.service');
 // for long.
 const BASELINE_TTL_MS = 5 * 60 * 1000;
 const baselineCache = new Map();
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
-
-function toISODate(d) {
-    return new Date(d).toISOString().slice(0, 10);
-}
 
 // The three complete months before this one. The current month is
 // excluded because it is partial, and a half-finished month would drag

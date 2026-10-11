@@ -12,10 +12,7 @@
 // Every figure comes from the report. Nothing is modelled.
 
 const quickbooksService = require('./quickbooks.service');
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
+const { round2 } = require('./format');
 
 // The sentences below name real amounts, so they have to read like
 // money rather than like a raw number. Keeping the wording and its

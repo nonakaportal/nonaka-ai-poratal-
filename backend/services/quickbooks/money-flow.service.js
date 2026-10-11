@@ -10,15 +10,12 @@
 // instead of computing one.
 
 const quickbooksService = require('./quickbooks.service');
+const { round2 } = require('./format');
 
 // How many lines are worth reading before the tail stops being
 // informative. Everything past this is summed into one "everything
 // else" row so the total still adds up.
 const TOP_N = 6;
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
 
 // Sub-accounts are rolled into their parent because the parent is what
 // the owner recognises: "Utilities" means something, "Gas & Electric"

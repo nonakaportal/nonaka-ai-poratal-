@@ -11,11 +11,7 @@
 // statement printed underneath it.
 
 const quickbooksService = require('./quickbooks.service');
-const { money } = require('./format');
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
+const { money, round2 } = require('./format');
 
 function shareOf(value, base) {
     if (!base) return null;

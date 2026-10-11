@@ -46,4 +46,19 @@ function longDate(iso) {
     });
 }
 
-module.exports = { money, longDate };
+// Shared by the services: amounts to the cent, and calendar days in UTC
+// (QuickBooks dates are days, not instants).
+function round2(n) {
+    return Math.round(Number(n || 0) * 100) / 100;
+}
+
+function toISODate(d) {
+    return new Date(d).toISOString().slice(0, 10);
+}
+
+function startOfToday() {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+module.exports = { money, longDate, round2, toISODate, startOfToday };

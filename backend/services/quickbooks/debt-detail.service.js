@@ -13,19 +13,12 @@
 // guessed at.
 
 const quickbooksService = require('./quickbooks.service');
+const { round2, toISODate } = require('./format');
 
 // Two years is enough to see a repayment rhythm and usually reaches
 // back past the opening balance, without pulling a report so large it
 // slows the page down.
 const HISTORY_MONTHS = 24;
-
-function round2(n) {
-    return Math.round(Number(n || 0) * 100) / 100;
-}
-
-function toISODate(d) {
-    return new Date(d).toISOString().slice(0, 10);
-}
 
 function parseAmount(value) {
     if (value === null || value === undefined || value === '') {
