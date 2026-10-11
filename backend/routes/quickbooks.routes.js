@@ -44,7 +44,7 @@ const plStoryService = require('../services/quickbooks/pl-story.service');
 const balanceQuestionsService = require('../services/quickbooks/balance-questions.service');
 const ratioQuestionsService = require('../services/quickbooks/ratio-questions.service');
 const financialContext = require('../services/ai/financial-context.service');
-const aiRoutes = require('./ai');
+const aiRoutes = require('./ai.routes');
 
 const REAUTH_MESSAGE =
     'Your QuickBooks connection has expired. Reconnect to keep seeing your numbers.';

@@ -20,7 +20,7 @@ const compression = require('compression');
 
 const quickbooksRoutes = require('./routes/quickbooks.routes');
 const authRoutes = require("./routes/auth.routes");
-const aiRoutes = require("./routes/ai");
+const aiRoutes = require("./routes/ai.routes");
 const { authLimiter, ipCeiling, apiLimiter, aiLimiter } = require('./middleware/rate-limit');
 
 

@@ -16,7 +16,7 @@ supabase.getUserFromToken = async token => (token === 'member-token' ? { id: 'us
 supabase.isUserInOrganization = async (userId, orgId) => userId === 'user-1' && orgId === 'org-own';
 supabase.getQuickBooksTokens = async orgId => { lookedUp.push(orgId); return null; };
 
-const aiRoutes = require('../routes/ai');
+const aiRoutes = require('../routes/ai.routes');
 
 function ask(query, body) {
     const app = express();

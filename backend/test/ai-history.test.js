@@ -4,7 +4,7 @@ require('./_env');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cleanHistory } = require('../routes/ai')._internals;
+const { cleanHistory } = require('../routes/ai.routes')._internals;
 
 test('anything that is not an array becomes an empty history', () => {
     for (const bad of [undefined, null, 'hi', 5, {}]) {
