@@ -583,6 +583,19 @@ th.sort-desc::after { content: " ↓"; color: var(--accent); }
 }
 .auth-pane-sent .auth-card-sub { margin-bottom: 24px; }
 
+
+/* Signup pane: fit on one screen without scrolling. Login pane keeps the
+   roomier spacing — only the longer signup form needs tightening. */
+.auth-card.mode-signup { padding: 28px 32px; }
+.auth-card.mode-signup .auth-card-logo { margin-bottom: 18px; }
+.auth-card.mode-signup .auth-card-title { font-size: 22px; margin-bottom: 4px; }
+.auth-card.mode-signup .auth-card-sub { margin-bottom: 18px; }
+.auth-card.mode-signup .form-group { margin-bottom: 10px; }
+.auth-card.mode-signup .form-label { margin-bottom: 4px; }
+.auth-card.mode-signup .form-control { padding: 10px 12px; }
+.auth-card.mode-signup .form-error { min-height: 0; }
+.auth-card.mode-signup .auth-submit { padding: 10px; margin-bottom: 10px; margin-top: 6px; }
+
 /* ------------------------------------------------------------
    ONBOARDING
 ------------------------------------------------------------ */
