@@ -166,6 +166,15 @@ router.post("/signup", async (req, res) => {
             });
         }
 
+        // Supabase caps how many sign-up emails it sends per hour. That is
+        // a "wait", not a server fault.
+        if (error.code === "over_email_send_rate_limit" || error.status === 429) {
+            return res.status(429).json({
+                success: false,
+                error: "Too many sign-up emails were sent just now. Please wait a few minutes and try again."
+            });
+        }
+
         if (error.status === 400) {
             return res.status(400).json({
                 success: false,
