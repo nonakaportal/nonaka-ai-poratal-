@@ -1,8 +1,8 @@
 // backend/services/ai/ai.service.js
 //
 // Nonaka AI's features: anomaly detection, recommendations, the health
-// score, and chat, answered by NVIDIA or Anthropic depending on
-// AI_PROVIDER. Every call is grounded
+// score, and chat, answered by NVIDIA, or by Anthropic if
+// AI_PROVIDER says so. Every call is grounded
 // in the real QuickBooks data assembled by financial-context.service.js
 // — the system prompt explicitly forbids inventing figures.
 
@@ -24,16 +24,15 @@ const { zodOutputFormat } = require('@anthropic-ai/sdk/helpers/zod');
 const MODEL = 'claude-opus-5';
 const FAST_MODEL = 'claude-sonnet-5';
 
-// Which backend answers the AI features. Claude ("anthropic") is the real
-// provider and the default; "nvidia" calls NVIDIA's OpenAI-compatible API
-// and is only a stand-in for testing while the Anthropic account is out
-// of credits.
-const PROVIDER = (process.env.AI_PROVIDER || 'anthropic').toLowerCase();
+// Which backend answers the AI features. "nvidia" (NVIDIA's
+// OpenAI-compatible API) is the default; set AI_PROVIDER=anthropic to use
+// Claude instead.
+const PROVIDER = (process.env.AI_PROVIDER || 'nvidia').toLowerCase();
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
-// deepseek-v4.1-flash took minutes per reply on the free tier; Nemotron
-// answers in seconds and follows the JSON schemas reliably.
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+// NVIDIA retires hosted models (calls then fail with 410). When that
+// happens, set NVIDIA_MODEL or change this default.
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b';
 
 let client = null;
 

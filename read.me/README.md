@@ -7,7 +7,7 @@ QuickBooks Online company and explains the numbers in plain language.
   intro page, `index.html` is the login + portal, `js/app.js` renders the
   portal pages, `js/auth.js` handles sign-in and the QuickBooks connection.
 - `backend/` — Express API: Supabase for accounts, QuickBooks for the data,
-  Claude for the AI features.
+  NVIDIA's API for the AI features (Claude optional).
 
 ## How it fits together
 

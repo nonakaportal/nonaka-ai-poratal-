@@ -66,7 +66,7 @@ responds the same way:
 
 ## `/api/ai`
 
-Claude-backed features, grounded in the organization's QuickBooks data
+AI features (NVIDIA by default), grounded in the organization's QuickBooks data
 (`services/ai/financial-context.service.js`). Results are cached per
 organization for 5 minutes; the cache is cleared when the organization's
 QuickBooks company is connected or disconnected.
